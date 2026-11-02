@@ -3,6 +3,18 @@ extends Node2D
 ## 从上往下滚动的方块流。方块用 id 标识，方便在滚动/移除时安全引用。
 
 const Palette = preload("res://scripts/palette.gd")
+const MONSTER_TEXTURES := {
+	"normal": preload("res://assets/ui/monster_normal.png"),
+	"swift": preload("res://assets/ui/monster_swift.png"),
+	"armored": preload("res://assets/ui/monster_armored.png"),
+	"elite": preload("res://assets/ui/monster_elite.png"),
+}
+const MONSTER_ANIMATIONS := {
+	"normal": preload("res://assets/ui/monster_normal_anim.png"),
+	"swift": preload("res://assets/ui/monster_swift_anim.png"),
+	"armored": preload("res://assets/ui/monster_armored_anim.png"),
+	"elite": preload("res://assets/ui/monster_elite_anim.png"),
+}
 
 const PLAY_TOP := 112.0
 const PLAY_BOTTOM := 800.0
@@ -19,6 +31,7 @@ const KIND_SWIFT := "swift"
 const KIND_ARMORED := "armored"
 const KIND_ELITE := "elite"
 const HEALTH_BAR_HEIGHT := 6.0
+const ANIMATION_FRAME_SIZE := 256.0
 
 var blocks: Array[Dictionary] = []
 var by_id := {}
@@ -31,6 +44,7 @@ var _next_id := 1
 var _spawn_timer := 0.0
 var _rng := RandomNumberGenerator.new()
 var _flashing := false
+var _animation_time := 0.0
 
 
 func _ready() -> void:
@@ -47,6 +61,7 @@ func reset_stream() -> void:
 	# 开局只给两行，留出发育时间；之后按固定节奏往下补
 	_spawn_timer = 3.5
 	_flashing = false
+	_animation_time = 0.0
 
 	# 只在顶部视野外预置一行，倒计时结束后从边缘逐渐滚入
 	_spawn_row(SPAWN_Y)
@@ -81,6 +96,10 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	if active:
+		if GameSettings.animate_monsters:
+			_animation_time += delta
+		queue_redraw()
 	if not _flashing:
 		return
 	var any := false
@@ -295,7 +314,7 @@ func _draw_health_bar(inner: Rect2, hp: int, max_hp: int) -> void:
 	draw_rect(back, Color(0.01, 0.02, 0.04, 0.9))
 	if ratio > 0.0:
 		var fill := Rect2(back.position, Vector2(back.size.x * ratio, back.size.y))
-		var fill_color := Color("7bf1a8") if ratio > 0.30 else Palette.DANGER
+		var fill_color := Palette.ACCENT if ratio > 0.30 else Palette.DANGER
 		draw_rect(fill, fill_color)
 	draw_rect(back, Color(1.0, 1.0, 1.0, 0.25), false, 1.0)
 
@@ -310,23 +329,54 @@ func _draw() -> void:
 		var col: Color = b.color
 		var kind := String(b.get("kind", KIND_NORMAL))
 
-		draw_rect(rect.grow(4.0), Color(col.r, col.g, col.b, 0.07))
-		draw_rect(rect, col.darkened(0.72))
 		var inner := rect.grow(-2.0)
-		draw_rect(inner, col.darkened(0.30))
-		draw_line(inner.position + Vector2(1.0, 1.0), Vector2(inner.end.x - 1.0, inner.position.y + 1.0), col.lightened(0.45), 2.0)
-		draw_line(Vector2(inner.position.x + 1.0, inner.end.y - 1.0), Vector2(inner.end.x - 1.0, inner.end.y - 1.0), col.darkened(0.62), 2.0)
-		_draw_kind(inner, kind, col)
+		var texture: Texture2D = MONSTER_TEXTURES.get(kind, MONSTER_TEXTURES[KIND_NORMAL])
+		var animation: Texture2D = MONSTER_ANIMATIONS.get(kind, MONSTER_ANIMATIONS[KIND_NORMAL])
+		var fps := 8.0
+		if kind == KIND_SWIFT:
+			fps = 12.0
+		elif kind == KIND_ARMORED:
+			fps = 6.0
+		elif kind == KIND_ELITE:
+			fps = 7.0
+		var phase := float(int(b.id) % 8) * 0.09
+		var frame := int((_animation_time + phase) * fps) % 4 if GameSettings.animate_monsters else 0
+		var frame_rect := Rect2(frame * ANIMATION_FRAME_SIZE, 0.0, ANIMATION_FRAME_SIZE, ANIMATION_FRAME_SIZE)
+		var art_size := Vector2(52, 48)
+		if kind == KIND_ARMORED:
+			art_size = Vector2(56, 50)
+		elif kind == KIND_ELITE:
+			art_size = Vector2(58, 54)
+		elif kind == KIND_SWIFT:
+			art_size = Vector2(50, 46)
+		var art_rect := Rect2(rect.get_center() - art_size * 0.5 + Vector2(0, -3), art_size)
+
+		if animation != null or texture != null:
+			draw_circle(rect.get_center() + Vector2(0, 5), 19.0, Color(0.0, 0.0, 0.0, 0.12))
+			draw_circle(rect.get_center(), 25.0, Color(col.r, col.g, col.b, 0.05))
+			if animation != null:
+				draw_texture_rect_region(animation, art_rect, frame_rect, Color.WHITE)
+			else:
+				draw_texture_rect(texture, art_rect, false, Color.WHITE)
+		else:
+			# 素材缺失时仍能显示可辨识的敌人，不影响战斗逻辑。
+			draw_rect(rect, col.darkened(0.72))
+			draw_rect(inner, col.darkened(0.30))
+			_draw_kind(inner, kind, col)
 
 		if hp < max_hp:
-			draw_rect(inner, Color(0.02, 0.03, 0.08, 0.38))
-			var c := rect.get_center()
-			draw_line(c + Vector2(-7, -6), c + Vector2(5, 5), Color(0.0, 0.0, 0.0, 0.45), 1.5)
-			draw_line(c + Vector2(-4, 6), c + Vector2(6, -4), Color(0.0, 0.0, 0.0, 0.35), 1.5)
+			var c := rect.get_center() + Vector2(0, -3)
+			draw_line(c + Vector2(-7, -6), c + Vector2(5, 5), Color(0.0, 0.0, 0.0, 0.55), 1.5)
+			draw_line(c + Vector2(-4, 6), c + Vector2(6, -4), Color(0.0, 0.0, 0.0, 0.45), 1.5)
 
 		var flash := float(b.get("flash", 0.0))
 		if flash > 0.0:
-			draw_rect(inner, Color(1.0, 1.0, 1.0, 0.45 * flash))
+			if animation != null:
+				draw_texture_rect_region(animation, art_rect, frame_rect, Color(2.0, 2.0, 2.0, 0.65 * flash))
+			elif texture != null:
+				draw_texture_rect(texture, art_rect, false, Color(2.0, 2.0, 2.0, 0.65 * flash))
+			else:
+				draw_rect(inner, Color(1.0, 1.0, 1.0, 0.45 * flash))
 
 		# 用连续粗血条替代血点，高血量怪物也能准确显示剩余比例
 		_draw_health_bar(inner, hp, max_hp)

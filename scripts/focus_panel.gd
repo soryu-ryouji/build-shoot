@@ -20,63 +20,66 @@ var _panel_style: StyleBoxFlat
 
 
 func _ready() -> void:
-	position = Vector2(452, 208)
-	size = Vector2(228, 390)
+	position = Vector2(426, 208)
+	size = Vector2(264, 408)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
 
 	_panel_style = StyleBoxFlat.new()
-	_panel_style.bg_color = Color(0.035, 0.065, 0.12, 0.97)
+	_panel_style.bg_color = Color(Palette.PAPER, 0.98)
 	_panel_style.border_color = _accent
 	_panel_style.set_border_width_all(1)
-	_panel_style.set_corner_radius_all(12)
+	_panel_style.set_corner_radius_all(2)
+	_panel_style.shadow_color = Color(0.0, 0.0, 0.0, 0.50)
+	_panel_style.shadow_size = 8
+	_panel_style.shadow_offset = Vector2(0, 4)
 
-	title_label = _make_label(Vector2(16, 12), Vector2(168, 26), 18, Palette.TEXT)
-	desc_label = _make_label(Vector2(16, 42), Vector2(196, 44), 10, Palette.MUTED)
+	title_label = _make_label(Vector2(18, 14), Vector2(202, 28), 21, Palette.INK)
+	desc_label = _make_label(Vector2(18, 48), Vector2(228, 40), 11, Palette.INK_MUTED)
 	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	close_button = Button.new()
 	close_button.text = "×"
-	close_button.position = Vector2(194, 8)
+	close_button.position = Vector2(226, 12)
 	close_button.size = Vector2(26, 26)
 	close_button.flat = true
 	close_button.focus_mode = Control.FOCUS_NONE
 	close_button.add_theme_font_size_override("font_size", 16)
-	close_button.add_theme_color_override("font_color", Palette.MUTED)
-	close_button.add_theme_color_override("font_hover_color", Palette.TEXT)
+	close_button.add_theme_color_override("font_color", Palette.INK_MUTED)
+	close_button.add_theme_color_override("font_hover_color", Palette.INK)
 	close_button.pressed.connect(_on_close)
 	add_child(close_button)
 
 	var keys := ["focus.damage", "focus.interval", "focus.range", "focus.pierce", "focus.bounce", "focus.shots"]
 	for i in keys.size():
-		var y := 102.0 + i * 25.0
-		stat_names.append(_make_label(Vector2(16, y), Vector2(96, 22), 11, Palette.MUTED))
-		stat_values.append(_make_label(Vector2(100, y), Vector2(112, 22), 13, Palette.TEXT, HORIZONTAL_ALIGNMENT_RIGHT))
+		var y := 112.0 + i * 28.0
+		stat_names.append(_make_label(Vector2(18, y), Vector2(108, 24), 12, Palette.INK_MUTED))
+		stat_values.append(_make_label(Vector2(126, y), Vector2(120, 24), 14, Palette.INK, HORIZONTAL_ALIGNMENT_RIGHT))
 
 	upgrade_button = Button.new()
-	upgrade_button.position = Vector2(16, 262)
-	upgrade_button.size = Vector2(196, 42)
+	upgrade_button.position = Vector2(18, 292)
+	upgrade_button.size = Vector2(228, 44)
 	upgrade_button.focus_mode = Control.FOCUS_NONE
 	upgrade_button.add_theme_font_size_override("font_size", 12)
-	upgrade_button.add_theme_color_override("font_color", Color(0.75, 1.0, 0.9))
-	upgrade_button.add_theme_color_override("font_hover_color", Color.WHITE)
-	upgrade_button.add_theme_stylebox_override("normal", _button_style(Color(0.06, 0.22, 0.20, 0.95), Color(0.30, 0.90, 0.65)))
-	upgrade_button.add_theme_stylebox_override("hover", _button_style(Color(0.09, 0.32, 0.28, 0.98), Color(0.45, 1.0, 0.75)))
-	upgrade_button.add_theme_stylebox_override("pressed", _button_style(Color(0.04, 0.16, 0.14, 1.0), Color(0.30, 0.90, 0.65)))
-	upgrade_button.add_theme_stylebox_override("disabled", _button_style(Color(0.06, 0.10, 0.14, 0.8), Color(0.25, 0.32, 0.36, 0.5)))
-	upgrade_button.add_theme_color_override("font_disabled_color", Palette.MUTED)
+	upgrade_button.add_theme_color_override("font_color", Palette.INK)
+	upgrade_button.add_theme_color_override("font_hover_color", Palette.INK)
+	upgrade_button.add_theme_stylebox_override("normal", _button_style(Palette.ACCENT, Palette.ACCENT))
+	upgrade_button.add_theme_stylebox_override("hover", _button_style(Palette.ACCENT.lightened(0.18), Palette.ACCENT))
+	upgrade_button.add_theme_stylebox_override("pressed", _button_style(Palette.ACCENT.darkened(0.15), Palette.ACCENT))
+	upgrade_button.add_theme_stylebox_override("disabled", _button_style(Color(0.72, 0.74, 0.72, 0.65), Color(0.30, 0.33, 0.34, 0.25)))
+	upgrade_button.add_theme_color_override("font_disabled_color", Palette.INK_MUTED)
 	upgrade_button.pressed.connect(_on_upgrade)
 	add_child(upgrade_button)
 
 	dismantle_button = Button.new()
-	dismantle_button.position = Vector2(16, 312)
-	dismantle_button.size = Vector2(196, 44)
+	dismantle_button.position = Vector2(18, 346)
+	dismantle_button.size = Vector2(228, 44)
 	dismantle_button.focus_mode = Control.FOCUS_NONE
 	dismantle_button.add_theme_font_size_override("font_size", 12)
 	dismantle_button.add_theme_color_override("font_color", Palette.DANGER)
 	dismantle_button.add_theme_color_override("font_hover_color", Color.WHITE)
-	dismantle_button.add_theme_stylebox_override("normal", _button_style(Color(0.24, 0.07, 0.09, 0.95), Palette.DANGER.darkened(0.2)))
-	dismantle_button.add_theme_stylebox_override("hover", _button_style(Color(0.38, 0.10, 0.13, 0.98), Palette.DANGER))
+	dismantle_button.add_theme_stylebox_override("normal", _button_style(Color(Palette.PAPER, 0.98), Palette.DANGER.darkened(0.1)))
+	dismantle_button.add_theme_stylebox_override("hover", _button_style(Palette.DANGER.lightened(0.65), Palette.DANGER))
 	dismantle_button.add_theme_stylebox_override("pressed", _button_style(Color(0.18, 0.05, 0.07, 1.0), Palette.DANGER))
 	dismantle_button.pressed.connect(_on_dismantle)
 	add_child(dismantle_button)
@@ -102,14 +105,14 @@ func _button_style(fill: Color, border: Color) -> StyleBoxFlat:
 	style.bg_color = fill
 	style.border_color = border
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(7)
+	style.set_corner_radius_all(1)
 	return style
 
 
 func show_turret(t: Node) -> void:
 	turret = t
-	_accent = t.color
-	position.x = 30.0 if t.global_position.x > 360.0 else 452.0
+	_accent = Palette.ACCENT
+	position.x = 30.0 if t.global_position.x > 360.0 else 426.0
 	visible = true
 	_refresh_texts()
 	queue_redraw()
@@ -133,7 +136,7 @@ func _refresh_texts() -> void:
 	if turret == null or not is_instance_valid(turret):
 		return
 	title_label.text = turret.get_display_name()
-	title_label.add_theme_color_override("font_color", _accent)
+	title_label.add_theme_color_override("font_color", Palette.INK)
 	desc_label.text = turret.get_display_desc()
 	stat_names[0].text = I18n.t("focus.damage")
 	stat_names[1].text = I18n.t("focus.interval")
@@ -179,8 +182,11 @@ func _on_dismantle() -> void:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(3, 5, size.x, size.y), Color(0.0, 0.0, 0.0, 0.35))
-	_panel_style.border_color = _accent
+	_panel_style.border_color = Color(_accent.r, _accent.g, _accent.b, 0.62)
 	draw_style_box(_panel_style, Rect2(Vector2.ZERO, size))
-	draw_rect(Rect2(0, 0, size.x, 4), _accent)
-	draw_line(Vector2(16, 92), Vector2(size.x - 16, 92), Color(1.0, 1.0, 1.0, 0.08), 1.0)
+	draw_rect(Rect2(12, 0, 104, 4), _accent)
+	draw_rect(Rect2(0, 14, 4, 58), _accent)
+	draw_line(Vector2(18, 100), Vector2(size.x - 18, 100), Color(0.10, 0.12, 0.13, 0.16), 1.0)
+	for i in 5:
+		var y := 140.0 + i * 28.0
+		draw_line(Vector2(18, y), Vector2(size.x - 18, y), Color(0.10, 0.12, 0.13, 0.07), 1.0)

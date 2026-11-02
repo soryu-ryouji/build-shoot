@@ -134,7 +134,7 @@ func _fire() -> void:
 
 func _draw() -> void:
 	# 没有可锁定目标时不显示导引虚线和锁定环
-	if _has_target:
+	if _has_target and GameSettings.show_aim:
 		var aim_dir := Vector2.from_angle(aim_angle)
 		var local_origin := aim_dir * barrel_length
 		var global_origin := global_position + local_origin
@@ -144,8 +144,8 @@ func _draw() -> void:
 		TurretVisuals.draw_lock(self, _target_pos - global_position, _time)
 
 	if selected:
-		draw_arc(Vector2.ZERO, attack_range, 0.0, TAU, 64, Color(color.r, color.g, color.b, 0.10), 1.5)
-		draw_arc(Vector2.ZERO, base_radius + 3.0, 0.0, TAU, 32, Color(1.0, 1.0, 1.0, 0.65), 1.5)
+		draw_arc(Vector2.ZERO, attack_range, 0.0, TAU, 64, Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.22), 1.5)
+		draw_arc(Vector2.ZERO, base_radius + 3.0, 0.0, TAU, 32, Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.60), 1.5)
 
 	if item_id == "turret":
 		TurretVisuals.draw_basic_body(self, aim_angle, base_radius, barrel_length, _recoil)

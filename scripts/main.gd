@@ -13,6 +13,7 @@ const ShopBar = preload("res://scripts/shop_bar.gd")
 const FocusPanel = preload("res://scripts/focus_panel.gd")
 const PlacedTurret = preload("res://scripts/placed_turret.gd")
 const PlacementGhost = preload("res://scripts/placement_ghost.gd")
+const SettingsPanel = preload("res://scripts/settings_panel.gd")
 
 const PREP_TIME := 5.0
 const PLACE_GRID := 64.0
@@ -27,6 +28,8 @@ var placement_ghost: Node2D
 var hud: Control
 var shop_bar: Control
 var focus_panel: Control
+var settings_button: Button
+var settings_panel: Control
 
 var placed_turrets: Array = []
 var selected_turret: Node = null
@@ -44,7 +47,6 @@ var shots_fired := 0
 func _ready() -> void:
 	randomize()
 	_setup_nodes()
-	hud.toast(I18n.t("toast.place_turret"), Palette.CYAN)
 
 
 func _process(delta: float) -> void:
@@ -59,7 +61,6 @@ func _end_prep() -> void:
 	preparing = false
 	prep_timer = 0.0
 	blocks.reset_stream()
-	hud.toast(I18n.t("toast.start"), Palette.CYAN)
 
 
 func _setup_nodes() -> void:
@@ -127,19 +128,69 @@ func _setup_nodes() -> void:
 	focus_panel.game = self
 	ui_layer.add_child(focus_panel)
 
+	settings_button = Button.new()
+	settings_button.name = "SettingsButton"
+	settings_button.text = "≡"
+	settings_button.tooltip_text = I18n.t("settings.open")
+	settings_button.position = Vector2(650, 27)
+	settings_button.size = Vector2(32, 36)
+	settings_button.flat = true
+	settings_button.focus_mode = Control.FOCUS_NONE
+	settings_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	settings_button.add_theme_font_size_override("font_size", 20)
+	settings_button.add_theme_color_override("font_color", Palette.INK)
+	settings_button.add_theme_color_override("font_hover_color", Palette.ACCENT)
+	settings_button.pressed.connect(open_settings)
+	ui_layer.add_child(settings_button)
+
+	settings_panel = SettingsPanel.new()
+	settings_panel.name = "SettingsPanel"
+	ui_layer.add_child(settings_panel)
+	settings_panel.closed.connect(_on_settings_closed)
+	settings_panel.restart_requested.connect(_on_settings_restart)
+	settings_panel.menu_requested.connect(_on_settings_menu)
+
 
 func _draw() -> void:
-	draw_rect(Rect2(-40.0, -40.0, 800.0, 1040.0), Palette.BG)
+	draw_rect(Rect2(-40.0, -40.0, 800.0, 1040.0), Palette.ARENA_BG)
+
+
+func open_settings() -> void:
+	cancel_placement()
+	clear_selection()
+	settings_panel.open_panel(true)
+	get_tree().paused = true
+
+
+func close_settings() -> void:
+	settings_panel.close_panel()
+
+
+func _on_settings_closed() -> void:
+	get_tree().paused = false
+
+
+func _on_settings_restart() -> void:
+	get_tree().paused = false
+	get_tree().reload_current_scene()
+
+
+func _on_settings_menu() -> void:
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
+			KEY_ESCAPE:
+				open_settings()
 			KEY_R:
 				get_tree().paused = false
 				get_tree().reload_current_scene()
 			KEY_L:
 				I18n.toggle_locale()
+				GameSettings.save_settings()
 		return
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:

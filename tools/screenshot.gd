@@ -14,6 +14,7 @@ var main: Node
 
 
 func _ready() -> void:
+	get_window().content_scale_size = Vector2i(720, 960)
 	get_window().size = Vector2i(720, 960)
 
 	var packed: PackedScene = load("res://scenes/main.tscn")
@@ -42,11 +43,15 @@ func _ready() -> void:
 	main.coins = 118
 
 	await get_tree().create_timer(5.0).timeout
+	var show_settings := "--settings" in OS.get_cmdline_user_args()
+	if show_settings:
+		main.open_settings()
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
 	if img.get_size() != Vector2i(720, 960):
 		img.resize(720, 960, Image.INTERPOLATE_LANCZOS)
-	img.save_png(ProjectSettings.globalize_path(SHOT_PATH))
+	var path := "res://game_settings_preview.png" if show_settings else SHOT_PATH
+	img.save_png(ProjectSettings.globalize_path(path))
 	get_tree().quit()
 
 

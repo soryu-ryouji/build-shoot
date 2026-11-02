@@ -50,6 +50,9 @@ func _process(_delta: float) -> void:
 	if frame == 6:
 		_check(not main.preparing, "preparation ends")
 		_check(main.blocks.blocks.size() > 0, "block stream starts after preparation")
+		for kind in ["normal", "swift", "armored", "elite"]:
+			var atlas: Texture2D = main.blocks.MONSTER_ANIMATIONS[kind]
+			_check(atlas.get_width() == 1024 and atlas.get_height() == 256, "%s animation atlas has four frames" % kind)
 		var first: Dictionary = main.blocks.blocks[0]
 		var first_rect: Rect2 = first.rect
 		_check(first_rect.position.y < 112.0, "first blocks start above the visible area")
@@ -74,6 +77,7 @@ func _process(_delta: float) -> void:
 		tracked_y = tracked_rect.position.y
 
 	if frame == 30:
+		_check(float(main.blocks._animation_time) > 0.0, "monster animation clock advances")
 		var tracked = main.blocks.by_id.get(tracked_id)
 		_check(tracked != null, "tracked block still on screen")
 		if tracked != null:
@@ -222,6 +226,30 @@ func _process(_delta: float) -> void:
 		_check(heavy != null and is_instance_valid(heavy), "heavy turret alive at no-target test")
 		if heavy != null:
 			_check(not heavy.has_target(), "turret clears target when no enemy is lockable")
+
+	if frame == 230:
+		main.open_settings()
+		_check(main.settings_panel.visible, "in-game settings panel opens")
+		_check(get_tree().paused, "in-game settings pause gameplay")
+		GameSettings.set_option("show_grid", false)
+		_check(not GameSettings.show_grid, "settings option updates immediately")
+		GameSettings.set_option("show_grid", true)
+
+	if frame == 232:
+		main.close_settings()
+		_check(not main.settings_panel.visible, "in-game settings panel closes")
+		_check(not get_tree().paused, "closing settings resumes gameplay")
+		var menu_scene: PackedScene = load("res://scenes/main_menu.tscn")
+		var menu := menu_scene.instantiate()
+		add_child(menu)
+		_check(menu.start_button != null and menu.settings_button != null, "main menu builds actions")
+		menu.open_settings()
+		_check(menu.settings_panel.visible, "main menu settings open")
+		_check(not menu.settings_panel.in_game, "main menu hides in-game actions")
+		_check(not get_tree().paused, "main menu settings do not pause tree")
+		menu.settings_panel.close_panel()
+		_check(not menu.settings_panel.visible, "main menu settings close")
+		menu.queue_free()
 
 	if frame >= 260:
 		if failures.is_empty():

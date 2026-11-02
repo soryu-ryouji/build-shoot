@@ -2,8 +2,8 @@ extends RefCounted
 
 ## 可通过金币购买、拖拽布置到场上的道具定义。
 
-const COLOR_STANDARD := Color(0.22, 0.88, 1.0)
-const COLOR_HEAVY := Color(1.0, 0.68, 0.26)
+const COLOR_STANDARD := Color(0.88, 0.86, 0.78)
+const COLOR_HEAVY := Color(1.0, 0.55, 0.18)
 
 const ITEMS := [
 	{

@@ -40,8 +40,9 @@
 | 升级炮塔 | 点击炮塔 → 升级攻击力 | 点击炮塔 → 升级攻击力 |
 | 布置道具 | 从底部卡片拖到网格上 | 从底部卡片拖到网格上 |
 | 查看/拆除炮塔 | 点击已放置的炮塔 | 点击已放置的炮塔 |
-| 切换语言 | L | — |
-| 重开 | R | — |
+| 系统设置 / 暂停 | Esc 或右上角 ≡ | 右上角 ≡ |
+| 切换语言 | L 或设置面板 | 设置面板 |
+| 重开 | R 或设置面板 | 设置面板 |
 
 战斗自动进行：布置的炮塔自动锁定目标、转向、开火；玩家负责用金币布置炮塔和升级炮塔。
 
@@ -61,6 +62,16 @@
 - 点击已放置的炮塔打开聚焦面板，显示属性与已发射数量；点击空白处或右上角 `×` 关闭
 - 聚焦面板底部有「升级攻击力」和「拆除」两个按钮；升级按钮会显示当前金币花费
 - 面板底部的「拆除」会移除炮塔并返还（造价 + 已投入强化）的 50%（向下取整）
+
+## 主界面与设置
+
+- F5 先进入主界面，可开始行动、打开设置或退出。
+- 游戏内按 Esc 或点击右上角 `≡` 打开系统面板，战斗暂停；可继续、重开或返回主界面。
+- 设置包含中英文、全屏、怪物动画、场地网格和索敌提示，更改即时生效。
+- 设置保存到 `user://settings.cfg`；无头测试不会读取或改写用户配置。
+- 主界面使用原创成年女性战术角色；战斗场景不加入人形单位，整体采用明亮工业背景、白色面板与信号橙强调色。
+
+![主界面：无人炮塔阵地与战术终端菜单](menu_preview.png)
 
 ## 多语言（i18n）
 
@@ -88,7 +99,7 @@ Godot_v4.7.2-stable_win64.exe --path .
 Godot_v4.7.2-stable_win64.exe --headless --fixed-fps 60 --path . res://tools/smoke_test.tscn
 ```
 
-覆盖：默认中文语言包、英文 key 完整性、无默认炮塔、开局 5 秒准备/准备期无方块、方块从顶部视野外进入、开局 30 金币、方块流滚动、波次出怪密度/血量成长、四类怪物的血量/速度差异与粗血条、网格吸附布置/四边边缘格子/扣费/非法位置、自动索敌开火、点击炮塔金币升级攻击力、无目标隐藏锁定线、弹跳耗尽消失、方块击碎、金币奖励、命中粒子、聚焦面板与拆除退款。
+覆盖：默认中文语言包、英文 key 完整性、无默认炮塔、开局 5 秒准备/准备期无方块、方块从顶部视野外进入、开局 30 金币、方块流滚动、波次出怪密度/血量成长、四类怪物的血量/速度差异/四帧图集/动画时钟与粗血条、网格吸附布置/四边边缘格子/扣费/非法位置、自动索敌开火、点击炮塔金币升级攻击力、无目标隐藏锁定线、弹跳耗尽消失、方块击碎、金币奖励、命中粒子、聚焦面板与拆除退款、主界面与设置面板、暂停恢复与设置开关。
 
 ## 更新截图
 
@@ -98,22 +109,47 @@ Godot_v4.7.2-stable_win64.exe --path . res://tools/screenshot.tscn
 
 脚本会先快进让方块流铺满场地，再布置示例炮塔并开火，最后把当前画面保存为 `image.png`。
 
+## 美术素材
+
+主界面背景、战场底板、四类怪物以及商店与场上炮塔由本地 ComfyUI 的 `qwen_workflow` 生成，成品位于 `assets/ui/`。每种怪物有一张四帧横向动画图集，按类型以 6～12 FPS 播放并使用不同相位；保留原碰撞矩形、血条和受击闪光。炮塔 sprite 随瞄准方向旋转，放置预览使用同一套素材。需要重新生成时，先启动 `http://127.0.0.1:8188/`，再运行：
+
+```bash
+python tools/generate_ui_assets.py all
+python tools/process_ui_assets.py
+```
+
+后处理脚本需要 Pillow，负责尺寸调整、压暗战场、裁切单位、设置炮塔旋转轴心和透明底处理。原始生成图写入 `assets/ui/source/`，可在成品确认后删除。只需重新制作战斗单位或怪物动画时，分别运行 `generate_ui_assets.py units`／`animations`，再运行 `process_ui_assets.py units`／`animations`。
+
+主界面截图工具：
+
+```bash
+Godot_v4.7.2-stable_win64.exe --path . res://tools/menu_screenshot.tscn
+Godot_v4.7.2-stable_win64.exe --path . res://tools/menu_screenshot.tscn -- --settings
+```
+
+分别保存 `menu_preview.png` 和 `menu_settings_preview.png`。游戏截图工具附加 `-- --settings` 可保存 `game_settings_preview.png`。
+
 ## 文件结构
 
 ```
-scenes/main.tscn            主场景（节点由脚本创建）
-scripts/main.gd             游戏状态：滚动流、金币道具、布置、炮塔强化
+scenes/main_menu.tscn       主界面：开始、设置、退出
+scenes/main.tscn            游戏场景（节点由脚本创建）
+assets/ui/                  AI 生成的主界面、战场、怪物动画与炮塔 sprite
+scripts/main_menu.gd        主界面布局与场景入口
+scripts/settings_panel.gd   主界面／游戏内共用设置面板
+scripts/game_settings.gd    设置存储、全屏与显示选项
+scripts/main.gd             游戏状态、暂停菜单、金币道具与炮塔强化
 scripts/i18n.gd             i18n 单例：读取 JSON、切换语言、t(key)
 scripts/ball.gd             弹球：分步移动、圆-矩形碰撞、弹跳次数
-scripts/turret_visuals.gd   场上炮塔共用：导引线、锁定环、基础与重型外观
-scripts/blocks.gd           滚动方块流：生成、移动、伤害、绘制
+scripts/turret_visuals.gd   场上炮塔共用：导引线、锁定环、sprite 转向与后坐力
+scripts/blocks.gd           滚动怪物流：生成、移动、伤害、sprite 与血条
 scripts/hit_effects.gd      命中粒子：火花、闪光、金币碎屑
 scripts/item_defs.gd        可购买道具的数值定义
 scripts/shop_bar.gd         底部道具栏与拖拽手势
 scripts/item_card.gd        道具卡片：价格、图标、可购买状态
 scripts/placed_turret.gd    场上炮塔：自动索敌、射程、开火、网格落点
 scripts/focus_panel.gd      炮塔聚焦面板：属性与拆除
-scripts/placement_ghost.gd  拖拽放置预览
+scripts/placement_ghost.gd  拖拽放置预览：射程、合法性与炮塔 sprite
 scripts/arena.gd            封闭场地与网格
 scripts/hud.gd              HUD 与飘字
 scripts/palette.gd          配色
@@ -121,5 +157,8 @@ i18n/zh_CN.json             中文翻译表（默认）
 i18n/en.json                英文翻译表
 theme/game_theme.tres       全局 UI 字体（含 CJK 回退）
 tools/smoke_test.tscn/gd    无头冒烟测试
-tools/screenshot.tscn/gd    截图工具：生成 README 用的 image.png
+tools/screenshot.tscn/gd    游戏与游戏内设置截图工具
+tools/menu_screenshot.tscn/gd 主界面与主界面设置截图工具
+tools/generate_ui_assets.py 调用 ComfyUI qwen_workflow 生成 UI 素材
+tools/process_ui_assets.py  裁切、压暗和透明底后处理
 ```
