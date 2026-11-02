@@ -1,6 +1,6 @@
 extends Node
 
-## 无头冒烟测试：无默认炮塔、网格布置、自动索敌开火、升级生效、无目标隐藏锁定线、i18n。
+## 无头冒烟测试：准备阶段、网格布置、聚焦面板、金币升级攻击力、自动索敌、无目标隐藏锁定线、i18n。
 ## 用法：
 ##   Godot_v4.7.2-stable_win64.exe --headless --fixed-fps 60 --path . res://tools/smoke_test.tscn
 
@@ -74,6 +74,21 @@ func _process(_delta: float) -> void:
 		var basic: Node = main.placed_turrets[0]
 		_check(basic.global_position == main.snap_to_grid(Vector2(400, 400)), "placement snaps to grid")
 		_check(int(basic.damage) == 1, "basic turret base damage")
+		_check(int(basic.attack_range) == 300, "basic turret short range")
+		var left: Vector2 = main.snap_to_grid(Vector2(65, 400))
+		var right: Vector2 = main.snap_to_grid(Vector2(655, 400))
+		var top: Vector2 = main.snap_to_grid(Vector2(416, 113))
+		var bottom: Vector2 = main.snap_to_grid(Vector2(416, 790))
+		var corner: Vector2 = main.snap_to_grid(Vector2(660, 805))
+		_check(is_equal_approx(left.x, 96.0), "left edge snaps")
+		_check(is_equal_approx(right.x, 624.0), "right edge snaps")
+		_check(is_equal_approx(top.y, 144.0), "top edge snaps")
+		_check(is_equal_approx(bottom.y, 768.0), "bottom edge snaps")
+		_check(is_equal_approx(corner.x, 624.0) and is_equal_approx(corner.y, 768.0), "frame edge clamps")
+		_check(main.is_valid_placement(left), "left edge cell is placeable")
+		_check(main.is_valid_placement(right), "right edge cell is placeable")
+		_check(main.is_valid_placement(top), "top edge cell is placeable")
+		_check(main.is_valid_placement(bottom), "bottom edge cell is placeable")
 		_check(absf(float(basic.interval) - 0.3) < 0.001, "basic turret interval")
 
 		main.select_turret(basic)
@@ -102,7 +117,13 @@ func _process(_delta: float) -> void:
 		_check(int(heavy.damage) == 3, "heavy turret base damage")
 		_check(int(heavy.pierce) == 3, "heavy turret pierces blocks")
 		_check(absf(float(heavy.interval) - 2.0) < 0.001, "heavy turret fires slowly")
-		_check(int(heavy.attack_range) == 300, "heavy turret range")
+		_check(int(heavy.attack_range) == 500, "heavy turret long range")
+
+	if frame == 100:
+		if heavy != null:
+			main.select_turret(heavy)
+			_check(main.focus_panel.visible, "heavy focus panel opens")
+			main.clear_selection()
 
 	if frame == 120:
 		_check(heavy != null and is_instance_valid(heavy), "heavy turret alive")
@@ -112,13 +133,21 @@ func _process(_delta: float) -> void:
 		_check(int(main.blocks.destroyed) > 0, "placed turret destroys blocks")
 		_check(int(main.coins) > 300, "placed turret earns coins")
 
-	if frame == 100:
+	if frame == 140:
+		# 点击特定炮塔后用金币升级攻击力
 		if heavy != null:
 			main.select_turret(heavy)
-			_check(main.focus_panel.visible, "heavy focus panel opens")
+			var before_coins := int(main.coins)
+			var cost := int(heavy.get_upgrade_cost())
+			var before_damage := int(heavy.get_effective_damage())
+			main.upgrade_selected_damage()
+			_check(int(main.coins) == before_coins - cost, "upgrade costs coins")
+			_check(int(heavy.get_effective_damage()) == before_damage + 1, "upgrade adds damage")
+			_check(int(heavy.upgrade_level) == 1, "upgrade level recorded")
+			_check(main.focus_panel.visible, "focus panel stays open after upgrade")
 			main.clear_selection()
 
-	if frame == 140:
+	if frame == 160:
 		var target := _lowest_block()
 		var before_destroyed := int(main.blocks.destroyed)
 		var before_coins := int(main.coins)
@@ -128,32 +157,6 @@ func _process(_delta: float) -> void:
 		_check(int(main.blocks.destroyed) == before_destroyed + 1, "direct hit destroys a block")
 		_check(int(main.coins) >= before_coins + reward, "block destruction awards coins")
 		_check(int(main.effects.count()) > before_particles, "hit spawns particles")
-
-		_resolve_all_upgrades()
-		var choices: Array = main._pick_upgrades(3)
-		_check(not choices.is_empty(), "upgrade choices available")
-		var picked := String(choices[0].id)
-		var before_upgrade := int(main.upgrades.get(picked, 0))
-		main._open_upgrade()
-		_check(main.state == 1, "upgrade state entered")
-		_check(get_tree().paused, "scene tree paused during upgrade")
-		main._on_upgrade_chosen(picked)
-		_check(not get_tree().paused, "unpaused after choosing upgrade")
-		_check(int(main.upgrades.get(picked, 0)) == before_upgrade + 1, "upgrade applied: %s" % picked)
-
-	if frame == 180:
-		for def in main.UPGRADE_DEFS:
-			while int(main.upgrades.get(String(def.id), 0)) < int(def.max):
-				main._apply_upgrade(String(def.id))
-		_check(int(main.stats.bounces) == 8, "bounce upgrades stack")
-		_check(float(main.stats.crit) > 0.0, "crit upgrade applied")
-		_check(heavy != null and is_instance_valid(heavy), "heavy turret still alive")
-		if heavy != null:
-			_check(int(heavy.get_effective_damage()) == 3 + 5, "upgrades add turret damage")
-			_check(int(heavy.get_effective_pierce()) == 3 + 3, "upgrades add turret pierce")
-			_check(int(heavy.get_effective_bounces()) == 0 + 8, "upgrades add turret bounces")
-			_check(float(heavy.get_effective_speed()) > 560.0, "upgrades add turret speed")
-			_check(float(heavy.get_effective_radius()) > 8.0, "upgrades add turret radius")
 
 	if frame == 200:
 		var before_count: int = int(main.active_balls.size())
@@ -176,15 +179,10 @@ func _process(_delta: float) -> void:
 		if heavy != null:
 			_check(not heavy.has_target(), "turret clears target when no enemy is lockable")
 
-	if frame == 240:
-		main.add_xp(300)
-		_resolve_all_upgrades()
-		_check(int(main.level) > 1, "level increased from xp")
-
-	if frame >= 280:
+	if frame >= 260:
 		if failures.is_empty():
-			print("SMOKE TEST PASS  level=%d destroyed=%d coins=%d" % [
-				int(main.level), int(main.blocks.destroyed), int(main.coins)
+			print("SMOKE TEST PASS  destroyed=%d coins=%d" % [
+				int(main.blocks.destroyed), int(main.coins)
 			])
 			get_tree().quit(0)
 		else:
@@ -204,20 +202,6 @@ func _lowest_block() -> Dictionary:
 			best = rect.position.y
 			lowest = b
 	return lowest
-
-
-func _resolve_all_upgrades() -> void:
-	var guard := 0
-	while get_tree().paused and guard < 20:
-		guard += 1
-		var choices: Array = main._pick_upgrades(3)
-		if choices.is_empty():
-			main.pending_levels = 0
-			main.upgrade_screen.hide_screen()
-			main.state = 0
-			get_tree().paused = false
-			break
-		main._on_upgrade_chosen(String(choices[0].id))
 
 
 func _check(condition: bool, message: String) -> void:
