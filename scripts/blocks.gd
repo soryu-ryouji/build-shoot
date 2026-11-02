@@ -126,10 +126,17 @@ func damage(id: int, amount: int) -> Dictionary:
 			"destroyed": true,
 			"rect": block.rect,
 			"max_hp": int(block.max_hp),
+			"color": block.color,
 		}
 
 	queue_redraw()
-	return {"hit": true, "destroyed": false}
+	return {
+		"hit": true,
+		"destroyed": false,
+		"rect": block.rect,
+		"max_hp": int(block.max_hp),
+		"color": block.color,
+	}
 
 
 func _spawn_row(y: float) -> void:

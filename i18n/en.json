@@ -1,8 +1,6 @@
 {
   "hud.mode": "ENDLESS",
   "hud.tag": "BLOCK STREAM / RICOCHET",
-  "hud.combo": "COMBO",
-  "hud.combo_value": "x%d",
   "hud.destroyed": "DESTROYED %d",
   "hud.ball_one": "%02d BALL",
   "hud.ball_many": "%02d BALLS",
@@ -31,5 +29,8 @@
   "upgrade.salvage.name": "SALVAGE",
   "upgrade.salvage.desc": "+25% XP from blocks",
   "upgrade.big.name": "BIG GUNS",
-  "upgrade.big.desc": "+2 ball radius"
+  "upgrade.big.desc": "+2 ball radius",
+  "hud.coins": "COINS %d",
+  "hud.combo": "COMBO",
+  "hud.combo_value": "x%d"
 }

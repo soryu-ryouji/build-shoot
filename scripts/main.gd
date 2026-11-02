@@ -9,6 +9,7 @@ const Ball = preload("res://scripts/ball.gd")
 const Turret = preload("res://scripts/turret.gd")
 const Hud = preload("res://scripts/hud.gd")
 const UpgradeScreen = preload("res://scripts/upgrade_screen.gd")
+const HitEffects = preload("res://scripts/hit_effects.gd")
 
 enum State { PLAYING, UPGRADE }
 
@@ -27,6 +28,7 @@ var arena: Node2D
 var blocks: Node2D
 var blocks_clip: Control
 var balls_layer: Node2D
+var effects: Node2D
 var turret: Node2D
 var hud: Control
 var upgrade_screen: CanvasLayer
@@ -36,6 +38,7 @@ var auto_fire := true
 var level := 1
 var xp := 0
 var xp_needed := 80
+var coins := 0
 var combo := 0
 var combo_timer := 0.0
 var active_balls: Array = []
@@ -88,6 +91,10 @@ func _setup_nodes() -> void:
 	balls_layer.name = "Balls"
 	add_child(balls_layer)
 
+	effects = HitEffects.new()
+	effects.name = "HitEffects"
+	add_child(effects)
+
 	turret = Turret.new()
 	turret.name = "Turret"
 	turret.game = self
@@ -125,7 +132,6 @@ func _process(delta: float) -> void:
 		combo_timer -= delta
 		if combo_timer <= 0.0:
 			combo = 0
-
 
 func _update_auto_target() -> void:
 	if blocks == null or turret == null:
@@ -196,9 +202,16 @@ func get_ball_damage(base: int) -> int:
 
 # ---------------------------------------------------------------- 方块 / 经验
 
-func hit_block(id: int, amount: int, depth: int = 0) -> void:
+func hit_block(id: int, amount: int, depth: int = 0, hit_pos: Vector2 = Vector2.INF) -> void:
 	var res: Dictionary = blocks.damage(id, amount)
-	if not bool(res.get("hit", false)) or not bool(res.get("destroyed", false)):
+	if not bool(res.get("hit", false)):
+		return
+
+	var center: Vector2 = res.rect.get_center()
+	var fx_pos := center if hit_pos == Vector2.INF else hit_pos
+	effects.emit_hit(fx_pos, res.color, bool(res.destroyed))
+
+	if not bool(res.destroyed):
 		return
 
 	_reward_block(int(res.max_hp))
@@ -218,10 +231,12 @@ func hit_block(id: int, amount: int, depth: int = 0) -> void:
 func _reward_block(max_hp: int) -> void:
 	combo += 1
 	combo_timer = 2.4
+	coins += maxi(1, max_hp)
 	var combo_mult := 1.0 + minf((combo - 1) * 0.06, 1.0)
 	var gain := int(round((4.0 + max_hp * 2.0) * combo_mult * float(stats.salvage)))
 	add_xp(gain)
 	hud.pop_combo(combo)
+	hud.pop_coins()
 
 
 func add_xp(amount: int) -> void:

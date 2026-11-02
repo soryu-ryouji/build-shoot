@@ -1,8 +1,6 @@
 {
   "hud.mode": "无尽模式",
   "hud.tag": "方块流 / 弹射",
-  "hud.combo": "连击",
-  "hud.combo_value": "x%d",
   "hud.destroyed": "已击碎 %d",
   "hud.ball_one": "%02d 颗球",
   "hud.ball_many": "%02d 颗球",
@@ -31,5 +29,8 @@
   "upgrade.salvage.name": "回收",
   "upgrade.salvage.desc": "方块经验 +25%",
   "upgrade.big.name": "重炮",
-  "upgrade.big.desc": "弹球半径 +2"
+  "upgrade.big.desc": "弹球半径 +2",
+  "hud.coins": "金币 %d",
+  "hud.combo": "连击",
+  "hud.combo_value": "x%d"
 }

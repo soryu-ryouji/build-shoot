@@ -1,6 +1,6 @@
 extends Control
 
-## 界面：顶部模式/连击/击碎数，底部球状态/等级/经验条，中间飘字。
+## 界面：顶部模式/金币/连击/击碎数，底部球状态/等级/经验条，中间飘字。
 ## 所有文案通过 I18n 的 key 读取，默认中文。
 
 const Palette = preload("res://scripts/palette.gd")
@@ -9,6 +9,7 @@ var game: Node
 
 var mode_label: Label
 var tag_label: Label
+var coins_label: Label
 var combo_caption: Label
 var combo_label: Label
 var destroyed_label: Label
@@ -22,6 +23,7 @@ var toast_label: Label
 var _xp_ratio := 0.0
 var _toast_time := 0.0
 var _combo_pop := 0.0
+var _coin_pop := 0.0
 
 
 func _ready() -> void:
@@ -39,6 +41,9 @@ func _build() -> void:
 	mode_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.6))
 
 	tag_label = _make_label(I18n.t("hud.tag"), Vector2(40, 56), Vector2(420, 26), 16, Palette.MUTED)
+
+	coins_label = _make_label(I18n.t("hud.coins", [0]), Vector2(330, 14), Vector2(190, 32), 22, Palette.ACCENT)
+	coins_label.pivot_offset = Vector2(0, 16)
 
 	combo_caption = _make_label(I18n.t("hud.combo"), Vector2(540, 12), Vector2(140, 20), 14, Palette.MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
 	combo_label = _make_label("x1", Vector2(540, 22), Vector2(140, 44), 34, Palette.ACCENT, HORIZONTAL_ALIGNMENT_RIGHT)
@@ -97,6 +102,26 @@ func _process(delta: float) -> void:
 	if game == null:
 		return
 
+	coins_label.text = I18n.t("hud.coins", [int(game.coins)])
+	if _coin_pop > 0.0:
+		_coin_pop = maxf(0.0, _coin_pop - delta * 4.0)
+		coins_label.scale = Vector2.ONE * (1.0 + 0.15 * _coin_pop)
+	else:
+		coins_label.scale = Vector2.ONE
+
+	if int(game.combo) >= 2:
+		combo_caption.visible = true
+		combo_label.visible = true
+		combo_label.text = I18n.t("hud.combo_value", [int(game.combo)])
+		if _combo_pop > 0.0:
+			_combo_pop = maxf(0.0, _combo_pop - delta * 4.0)
+			combo_label.scale = Vector2.ONE * (1.0 + 0.28 * _combo_pop)
+		else:
+			combo_label.scale = Vector2.ONE
+	else:
+		combo_caption.visible = false
+		combo_label.visible = false
+
 	destroyed_label.text = I18n.t("hud.destroyed", [int(game.blocks.destroyed)])
 
 	var ball_count: int = game.active_balls.size()
@@ -115,30 +140,24 @@ func _process(delta: float) -> void:
 	xp_label.text = I18n.t("hud.xp", [int(game.xp), int(game.xp_needed)])
 	_xp_ratio = clampf(float(game.xp) / float(maxi(int(game.xp_needed), 1)), 0.0, 1.0)
 
-	if int(game.combo) >= 2:
-		combo_caption.visible = true
-		combo_label.visible = true
-		combo_label.text = I18n.t("hud.combo_value", [int(game.combo)])
-		if _combo_pop > 0.0:
-			_combo_pop = maxf(0.0, _combo_pop - delta * 4.0)
-			combo_label.scale = Vector2.ONE * (1.0 + 0.28 * _combo_pop)
-		else:
-			combo_label.scale = Vector2.ONE
-	else:
-		combo_caption.visible = false
-		combo_label.visible = false
-
 	if _toast_time > 0.0:
 		_toast_time -= delta
 		toast_label.modulate.a = clampf(_toast_time / 0.4, 0.0, 1.0)
 	else:
 		toast_label.modulate.a = 0.0
 
+	combo_caption.visible = false
+	combo_label.visible = false
+
 	queue_redraw()
 
 
 func pop_combo(_value: int) -> void:
 	_combo_pop = 1.0
+
+
+func pop_coins() -> void:
+	_coin_pop = 1.0
 
 
 func toast(text: String, color: Color) -> void:
@@ -151,6 +170,13 @@ func toast(text: String, color: Color) -> void:
 func _draw() -> void:
 	# 顶部分隔线
 	draw_line(Vector2(40, 90), Vector2(680, 90), Color(1, 1, 1, 0.06), 1.0)
+
+	# 金币图标
+	var coin_center := Vector2(316, 30)
+	draw_circle(coin_center, 9.5, Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.10))
+	draw_circle(coin_center, 6.5, Palette.ACCENT.darkened(0.12))
+	draw_arc(coin_center, 6.5, 0.0, TAU, 24, Palette.ACCENT.lightened(0.5), 1.2)
+	draw_circle(coin_center, 2.0, Color(1.0, 0.95, 0.7, 0.9))
 
 	# 底部霓虹分隔线
 	var segments := 32

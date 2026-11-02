@@ -27,6 +27,7 @@ func _process(_delta: float) -> void:
 	if frame == 3:
 		_check(I18n.locale == "zh_CN", "default locale is Chinese")
 		_check(I18n.t("hud.ready") == "就绪", "Chinese translation loaded")
+		_check(I18n.t("hud.coins", [3]) == "金币 3", "coin translation loaded")
 		var missing := I18n.missing_keys("en")
 		_check(missing.is_empty(), "en locale has all keys: %s" % str(missing))
 		I18n.set_locale("en")
@@ -128,9 +129,14 @@ func _process(_delta: float) -> void:
 	if frame == 240:
 		var target := _lowest_block()
 		var before_destroyed := int(main.blocks.destroyed)
+		var before_coins := int(main.coins)
+		var reward := int(target.max_hp)
+		var before_particles: int = int(main.effects.count())
 		main.hit_block(int(target.id), 999)
 		_check(int(main.blocks.destroyed) == before_destroyed + 1, "direct hit destroys a block")
 		_check(int(main.combo) > 0, "combo counted")
+		_check(int(main.coins) >= before_coins + reward, "block destruction awards coins")
+		_check(int(main.effects.count()) > before_particles, "hit spawns particles")
 		_resolve_all_upgrades()
 
 	if frame == 260:
