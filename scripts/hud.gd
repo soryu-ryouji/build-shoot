@@ -1,6 +1,6 @@
 extends Control
 
-## 界面：顶部模式/金币/击碎数，底部球状态/等级/经验条，中间飘字。
+## 界面：顶部模式/金币/击碎数，底部球状态与道具栏，中间飘字。
 ## 所有文案通过 I18n 的 key 读取，默认中文。
 
 const Palette = preload("res://scripts/palette.gd")
@@ -13,13 +13,10 @@ var coins_label: Label
 var destroyed_label: Label
 var balls_label: Label
 var bounce_label: Label
-var level_label: Label
-var xp_label: Label
 var hint_label: Label
 var prep_label: Label
 var toast_label: Label
 
-var _xp_ratio := 0.0
 var _toast_time := 0.0
 var _coin_pop := 0.0
 
@@ -47,9 +44,6 @@ func _build() -> void:
 
 	balls_label = _make_label(I18n.t("hud.ball_many", [0]), Vector2(40, 816), Vector2(260, 22), 16, Palette.CYAN)
 	bounce_label = _make_label(I18n.t("hud.ready"), Vector2(280, 818), Vector2(160, 20), 12, Palette.CYAN, HORIZONTAL_ALIGNMENT_CENTER)
-	level_label = _make_label(I18n.t("hud.level", [1]), Vector2(520, 814), Vector2(160, 26), 18, Palette.ACCENT, HORIZONTAL_ALIGNMENT_RIGHT)
-
-	xp_label = _make_label(I18n.t("hud.xp", [0, 80]), Vector2(40, 838), Vector2(120, 14), 10, Palette.MUTED)
 
 	hint_label = _make_label(
 		I18n.t("hud.hint"),
@@ -122,10 +116,6 @@ func _process(delta: float) -> void:
 	else:
 		bounce_label.text = I18n.t("hud.ready")
 
-	level_label.text = I18n.t("hud.level", [int(game.level)])
-	xp_label.text = I18n.t("hud.xp", [int(game.xp), int(game.xp_needed)])
-	_xp_ratio = clampf(float(game.xp) / float(maxi(int(game.xp_needed), 1)), 0.0, 1.0)
-
 	if _toast_time > 0.0:
 		_toast_time -= delta
 		toast_label.modulate.a = clampf(_toast_time / 0.4, 0.0, 1.0)
@@ -167,13 +157,3 @@ func _draw() -> void:
 		col.a = 0.65
 		draw_line(Vector2(40.0 + i * seg_w, 816), Vector2(40.0 + (i + 1) * seg_w, 816), col, 2.0)
 
-	# 经验条
-	var bar := Rect2(170, 844, 510, 5)
-	draw_rect(bar, Color(1, 1, 1, 0.07))
-	if _xp_ratio > 0.0:
-		var fill := Rect2(bar.position, Vector2(bar.size.x * _xp_ratio, bar.size.y))
-		draw_rect(fill, Palette.CYAN)
-		draw_rect(fill, Color(Palette.CYAN.r, Palette.CYAN.g, Palette.CYAN.b, 0.25), false, 2.0)
-	for i in range(1, 10):
-		var x := bar.position.x + bar.size.x * (i / 10.0)
-		draw_line(Vector2(x, bar.position.y), Vector2(x, bar.end.y), Color(0.03, 0.05, 0.1, 0.8), 1.0)

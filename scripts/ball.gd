@@ -106,10 +106,10 @@ func _advance(dist: float) -> void:
 			# 穿透不消耗弹跳次数，穿过期间忽略这块，直到完全离开
 			pierce -= 1
 			_ignored[bid] = true
-			game.hit_block(bid, game.get_ball_damage(damage), 0, position)
+			game.hit_block(bid, damage, position)
 		else:
 			var reflected := _resolve_rect(rect)
-			game.hit_block(bid, game.get_ball_damage(damage), 0, position)
+			game.hit_block(bid, damage, position)
 			if reflected:
 				_spend_bounce()
 				if not alive:

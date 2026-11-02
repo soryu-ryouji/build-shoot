@@ -10,6 +10,7 @@ var turret: Node = null
 var title_label: Label
 var desc_label: Label
 var close_button: Button
+var upgrade_button: Button
 var dismantle_button: Button
 var stat_names: Array[Label] = []
 var stat_values: Array[Label] = []
@@ -20,7 +21,7 @@ var _panel_style: StyleBoxFlat
 
 func _ready() -> void:
 	position = Vector2(452, 208)
-	size = Vector2(228, 330)
+	size = Vector2(228, 390)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
 
@@ -52,8 +53,23 @@ func _ready() -> void:
 		stat_names.append(_make_label(Vector2(16, y), Vector2(96, 22), 11, Palette.MUTED))
 		stat_values.append(_make_label(Vector2(100, y), Vector2(112, 22), 13, Palette.TEXT, HORIZONTAL_ALIGNMENT_RIGHT))
 
+	upgrade_button = Button.new()
+	upgrade_button.position = Vector2(16, 262)
+	upgrade_button.size = Vector2(196, 42)
+	upgrade_button.focus_mode = Control.FOCUS_NONE
+	upgrade_button.add_theme_font_size_override("font_size", 12)
+	upgrade_button.add_theme_color_override("font_color", Color(0.75, 1.0, 0.9))
+	upgrade_button.add_theme_color_override("font_hover_color", Color.WHITE)
+	upgrade_button.add_theme_stylebox_override("normal", _button_style(Color(0.06, 0.22, 0.20, 0.95), Color(0.30, 0.90, 0.65)))
+	upgrade_button.add_theme_stylebox_override("hover", _button_style(Color(0.09, 0.32, 0.28, 0.98), Color(0.45, 1.0, 0.75)))
+	upgrade_button.add_theme_stylebox_override("pressed", _button_style(Color(0.04, 0.16, 0.14, 1.0), Color(0.30, 0.90, 0.65)))
+	upgrade_button.add_theme_stylebox_override("disabled", _button_style(Color(0.06, 0.10, 0.14, 0.8), Color(0.25, 0.32, 0.36, 0.5)))
+	upgrade_button.add_theme_color_override("font_disabled_color", Palette.MUTED)
+	upgrade_button.pressed.connect(_on_upgrade)
+	add_child(upgrade_button)
+
 	dismantle_button = Button.new()
-	dismantle_button.position = Vector2(16, 262)
+	dismantle_button.position = Vector2(16, 312)
 	dismantle_button.size = Vector2(196, 44)
 	dismantle_button.focus_mode = Control.FOCUS_NONE
 	dismantle_button.add_theme_font_size_override("font_size", 12)
@@ -135,9 +151,13 @@ func _update_values() -> void:
 	stat_values[0].text = str(int(turret.get_effective_damage()))
 	stat_values[1].text = I18n.t("focus.interval_value", [String.num(float(turret.interval), 2)])
 	stat_values[2].text = str(int(turret.attack_range))
-	stat_values[3].text = str(int(turret.get_effective_pierce()))
-	stat_values[4].text = str(int(turret.get_effective_bounces()))
+	stat_values[3].text = str(int(turret.pierce))
+	stat_values[4].text = str(int(turret.bounces))
 	stat_values[5].text = str(int(turret.shots))
+	var cost := int(turret.get_upgrade_cost())
+	upgrade_button.text = I18n.t("focus.upgrade", [cost])
+	upgrade_button.disabled = int(game.coins) < cost
+	dismantle_button.text = I18n.t("focus.dismantle", [turret.get_refund()])
 
 
 func _on_locale_changed(_locale: String) -> void:
@@ -148,6 +168,10 @@ func _on_locale_changed(_locale: String) -> void:
 
 func _on_close() -> void:
 	game.clear_selection()
+
+
+func _on_upgrade() -> void:
+	game.upgrade_selected_damage()
 
 
 func _on_dismantle() -> void:

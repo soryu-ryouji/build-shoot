@@ -26,6 +26,8 @@ var color := Palette.CYAN
 
 var shots := 0
 var selected := false
+var upgrade_level := 0
+var upgrade_spent := 0
 
 var aim_angle := -PI / 2.0
 var _time := 0.0
@@ -63,7 +65,17 @@ func get_display_desc() -> String:
 
 
 func get_refund() -> int:
-	return int(cost * 0.5)
+	return int((cost + upgrade_spent) * 0.5)
+
+
+func get_upgrade_cost() -> int:
+	return int(cost * 0.5) + upgrade_level * int(cost * 0.25)
+
+
+func apply_damage_upgrade(paid: int) -> void:
+	upgrade_level += 1
+	upgrade_spent += paid
+	queue_redraw()
 
 
 func has_target() -> bool:
@@ -71,23 +83,7 @@ func has_target() -> bool:
 
 
 func get_effective_damage() -> int:
-	return damage + maxi(0, int(game.stats.damage) - 1)
-
-
-func get_effective_pierce() -> int:
-	return pierce + int(game.stats.pierce)
-
-
-func get_effective_bounces() -> int:
-	return bounces + int(game.stats.bounces)
-
-
-func get_effective_speed() -> float:
-	return ball_speed * (float(game.stats.speed) / 520.0)
-
-
-func get_effective_radius() -> float:
-	return ball_radius + (float(game.stats.radius) - 7.0)
+	return damage + upgrade_level
 
 
 func get_muzzle() -> Vector2:
@@ -129,10 +125,10 @@ func _fire() -> void:
 		get_muzzle(),
 		dir,
 		get_effective_damage(),
-		get_effective_pierce(),
-		get_effective_bounces(),
-		get_effective_speed(),
-		get_effective_radius()
+		pierce,
+		bounces,
+		ball_speed,
+		ball_radius
 	)
 
 
@@ -155,3 +151,7 @@ func _draw() -> void:
 		TurretVisuals.draw_basic_body(self, aim_angle, base_radius, barrel_length, _recoil)
 	else:
 		TurretVisuals.draw_heavy_body(self, aim_angle, base_radius, barrel_length, _recoil, color, _time)
+
+	# 金币强化等级标记
+	for i in mini(upgrade_level, 5):
+		draw_circle(Vector2(-8.0 + i * 4.0, -base_radius - 10.0), 1.6, Palette.ACCENT)
