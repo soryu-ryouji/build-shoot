@@ -4,14 +4,17 @@ extends Node2D
 
 const Palette = preload("res://scripts/palette.gd")
 
+## pierce 取这个值时不限穿透次数，每命中一个目标消耗对应血量所需的威力
+const PIERCE_UNLIMITED := -1
+
 signal vanished
 
 var game: Node
 var dir := Vector2.UP
 var speed := 520.0
 var radius := 7.0
-var damage := 1
-var pierce := 0
+var damage := 1  # 单次伤害；无限穿透时同时作为剩余威力预算
+var pierce := 0  # 剩余穿透次数；PIERCE_UNLIMITED 表示按威力预算无限穿透
 var bounces_left := 6
 var max_bounces := 6
 var alive := true
@@ -102,6 +105,16 @@ func _advance(dist: float) -> void:
 		if not overlapping:
 			continue
 
+		if pierce == PIERCE_UNLIMITED:
+			# 威力即穿透预算：目标吃下多少血就扣多少威力，预算耗尽后停在原地
+			var absorbed := mini(damage, int(b.hp))
+			damage -= absorbed
+			_ignored[bid] = true
+			game.hit_block(bid, absorbed, position)
+			if damage <= 0:
+				_spend_bounce()
+				return
+			continue
 		if pierce > 0:
 			# 穿透不消耗弹跳次数，穿过期间忽略这块，直到完全离开
 			pierce -= 1

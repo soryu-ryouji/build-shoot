@@ -13,7 +13,7 @@
   "item.turret.name": "炮塔",
   "item.turret.desc": "玩家初始的自动炮塔",
   "item.heavy_turret.name": "重型炮塔",
-  "item.heavy_turret.desc": "慢速发射贯穿弹",
+  "item.heavy_turret.desc": "慢速重弹，按威力连续贯穿",
   "shop.cost": "%d 金币",
   "shop.not_enough": "金币不足",
   "shop.invalid": "无法放置",

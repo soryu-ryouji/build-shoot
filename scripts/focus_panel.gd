@@ -168,7 +168,7 @@ func _update_values() -> void:
 	stat_values[0].text = str(int(turret.get_effective_damage()))
 	stat_values[1].text = I18n.t("focus.interval_value", [String.num(float(turret.interval), 2)])
 	stat_values[2].text = str(int(turret.attack_range))
-	stat_values[3].text = str(int(turret.pierce))
+	stat_values[3].text = "∞" if int(turret.pierce) < 0 else str(int(turret.pierce))
 	stat_values[4].text = str(int(turret.bounces))
 	stat_values[5].text = str(int(turret.shots))
 	var cost := int(turret.get_upgrade_cost())

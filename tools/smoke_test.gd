@@ -12,6 +12,8 @@ var tracked_y := 0.0
 var heavy: Node = null
 var auto_coins_baseline := 0
 var auto_destroyed_baseline := 0
+var power_test_blocks: Array[Dictionary] = []
+var power_destroyed_baseline := 0
 
 
 func _ready() -> void:
@@ -147,8 +149,8 @@ func _process(_delta: float) -> void:
 		_check(main.placed_turrets.size() == 1, "heavy turret placed")
 		_check(int(main.coins) == 300, "heavy turret costs 200")
 		heavy = main.placed_turrets[0]
-		_check(int(heavy.damage) == 3, "heavy turret base damage")
-		_check(int(heavy.pierce) == 3, "heavy turret pierces blocks")
+		_check(int(heavy.damage) == 10, "heavy turret base damage")
+		_check(int(heavy.pierce) == -1, "heavy turret pierces while power remains")
 		_check(absf(float(heavy.interval) - 2.0) < 0.001, "heavy turret fires slowly")
 		_check(int(heavy.attack_range) == 500, "heavy turret long range")
 
@@ -156,6 +158,7 @@ func _process(_delta: float) -> void:
 		if heavy != null:
 			main.select_turret(heavy)
 			_check(main.focus_panel.visible, "heavy focus panel opens")
+			_check(main.focus_panel.stat_values[3].text == "∞", "focus panel shows unlimited pierce")
 			main.clear_selection()
 
 	if frame == 120:
@@ -239,6 +242,24 @@ func _process(_delta: float) -> void:
 		if heavy != null:
 			_check(not heavy.has_target(), "turret clears target when no enemy is lockable")
 
+	if frame == 222:
+		# 重炮按威力预算贯穿：5 点威力打掉 3 个 1 血目标，再用剩余 2 点砍掉 3 血目标的 2 点血
+		heavy._cooldown = 999.0
+		var origin := Vector2(360.0, 740.0)
+		for i in 3:
+			power_test_blocks.append(_add_test_block(origin + Vector2(0.0, -50.0 * float(i + 1)), 1))
+		power_test_blocks.append(_add_test_block(origin + Vector2(0.0, -200.0), 3))
+		power_destroyed_baseline = int(main.blocks.destroyed)
+		main.fire_item_ball(heavy, origin, Vector2.UP, 5, -1, 0, 500.0, 7.0)
+
+	if frame == 250:
+		_check(int(main.blocks.destroyed) == power_destroyed_baseline + 3, "heavy ball spends power on each kill")
+		_check(power_test_blocks.size() == 4, "heavy ball test blocks exist")
+		if power_test_blocks.size() == 4:
+			var last: Dictionary = power_test_blocks[3]
+			_check(bool(last.alive) and int(last.hp) == 1, "heavy ball leaves a three-health target at one health")
+		_check(main.active_balls.is_empty(), "heavy ball stops once its power runs out")
+
 	if frame == 230:
 		main.open_settings()
 		_check(main.settings_panel.visible, "in-game settings panel opens")
@@ -273,6 +294,26 @@ func _process(_delta: float) -> void:
 			for f in failures:
 				printerr("FAIL: " + f)
 			get_tree().quit(1)
+
+
+func _add_test_block(center: Vector2, hp: int) -> Dictionary:
+	var id := int(main.blocks._next_id)
+	main.blocks._next_id += 1
+	var block := {
+		"id": id,
+		"kind": "normal",
+		"rect": Rect2(center - Vector2(24.0, 15.0), Vector2(48.0, 30.0)),
+		"hp": hp,
+		"max_hp": hp,
+		"speed_scale": 0.0,
+		"color": Color.WHITE,
+		"flash": 0.0,
+		"hp_bar_time": 0.0,
+		"alive": true,
+	}
+	main.blocks.blocks.append(block)
+	main.blocks.by_id[id] = block
+	return block
 
 
 func _lowest_block() -> Dictionary:

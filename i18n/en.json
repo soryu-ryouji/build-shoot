@@ -13,7 +13,7 @@
   "item.turret.name": "TURRET",
   "item.turret.desc": "The player's starting auto turret",
   "item.heavy_turret.name": "HEAVY TURRET",
-  "item.heavy_turret.desc": "Slow piercing shots",
+  "item.heavy_turret.desc": "Slow heavy shots pierce while power remains",
   "shop.cost": "%d COINS",
   "shop.not_enough": "NOT ENOUGH COINS",
   "shop.invalid": "INVALID POSITION",
