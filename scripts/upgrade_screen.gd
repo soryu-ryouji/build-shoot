@@ -1,6 +1,6 @@
 extends CanvasLayer
 
-## 升级三选一界面。暂停游戏时仍可交互。
+## 升级三选一界面。暂停游戏时仍可交互。文案通过 I18n 的 key 读取。
 
 const Palette = preload("res://scripts/palette.gd")
 
@@ -39,7 +39,6 @@ func _ready() -> void:
 	root.add_child(line)
 
 	title_label = Label.new()
-	title_label.text = "LEVEL UP"
 	title_label.position = Vector2(0, 150)
 	title_label.size = Vector2(720, 56)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -51,7 +50,6 @@ func _ready() -> void:
 	root.add_child(title_label)
 
 	subtitle_label = Label.new()
-	subtitle_label.text = "CHOOSE ONE UPGRADE   ·   1 / 2 / 3"
 	subtitle_label.position = Vector2(0, 212)
 	subtitle_label.size = Vector2(720, 28)
 	subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -65,6 +63,20 @@ func _ready() -> void:
 	card_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	card_row.add_theme_constant_override("separation", 10)
 	root.add_child(card_row)
+
+	I18n.locale_changed.connect(_on_locale_changed)
+	_refresh_static_texts()
+
+
+func _refresh_static_texts() -> void:
+	title_label.text = I18n.t("upgrade.title")
+	subtitle_label.text = I18n.t("upgrade.subtitle")
+
+
+func _on_locale_changed(_locale: String) -> void:
+	_refresh_static_texts()
+	if _active:
+		show_choices(_choices)
 
 
 func show_choices(choices: Array) -> void:
@@ -81,16 +93,18 @@ func show_choices(choices: Array) -> void:
 
 	for i in choices.size():
 		var def: Dictionary = choices[i]
+		var name_key := "upgrade.%s.name" % String(def.id)
+		var desc_key := "upgrade.%s.desc" % String(def.id)
+		var rank_text := I18n.t("upgrade.rank", [int(def.rank), int(def.max)])
 		var btn := Button.new()
 		btn.custom_minimum_size = Vector2(198, 300)
 		btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		btn.focus_mode = Control.FOCUS_NONE
-		btn.text = "[%d]\n\n%s\n\n%s\n\nRANK %d / %d" % [
+		btn.text = "[%d]\n\n%s\n\n%s\n\n%s" % [
 			i + 1,
-			String(def.name),
-			String(def.desc),
-			int(def.rank),
-			int(def.max),
+			I18n.t(name_key),
+			I18n.t(desc_key),
+			rank_text,
 		]
 		btn.add_theme_font_size_override("font_size", 14)
 		btn.add_theme_color_override("font_color", Palette.TEXT)
@@ -148,3 +162,5 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_R:
 				get_tree().paused = false
 				get_tree().reload_current_scene()
+			KEY_L:
+				I18n.toggle_locale()

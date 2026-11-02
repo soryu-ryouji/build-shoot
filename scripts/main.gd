@@ -13,14 +13,14 @@ const UpgradeScreen = preload("res://scripts/upgrade_screen.gd")
 enum State { PLAYING, UPGRADE }
 
 const UPGRADE_DEFS := [
-	{"id": "bounce", "name": "BOUNCE", "desc": "+2 bounces per ball", "max": 4},
-	{"id": "damage", "name": "HEAVY SHELL", "desc": "+1 shell damage", "max": 5},
-	{"id": "pierce", "name": "PIERCE", "desc": "Pierce +1 block", "max": 3},
-	{"id": "chain", "name": "CHAIN REACTION", "desc": "Broken blocks explode", "max": 3},
-	{"id": "speed", "name": "OVERCLOCK", "desc": "+12% ball speed", "max": 5},
-	{"id": "crit", "name": "CRITICAL", "desc": "+15% double damage", "max": 4},
-	{"id": "salvage", "name": "SALVAGE", "desc": "+25% XP from blocks", "max": 4},
-	{"id": "big", "name": "BIG GUNS", "desc": "+2 ball radius", "max": 3},
+	{"id": "bounce", "max": 4},
+	{"id": "damage", "max": 5},
+	{"id": "pierce", "max": 3},
+	{"id": "chain", "max": 3},
+	{"id": "speed", "max": 5},
+	{"id": "crit", "max": 4},
+	{"id": "salvage", "max": 4},
+	{"id": "big", "max": 3},
 ]
 
 var arena: Node2D
@@ -125,10 +125,15 @@ func _process(delta: float) -> void:
 			combo = 0
 
 
+
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_R:
-		get_tree().paused = false
-		get_tree().reload_current_scene()
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.keycode:
+			KEY_R:
+				get_tree().paused = false
+				get_tree().reload_current_scene()
+			KEY_L:
+				I18n.toggle_locale()
 
 
 # ---------------------------------------------------------------- 射击
@@ -239,8 +244,6 @@ func _pick_upgrades(count: int) -> Array:
 		if cur < int(def.max):
 			pool.append({
 				"id": def.id,
-				"name": def.name,
-				"desc": def.desc,
 				"rank": cur + 1,
 				"max": def.max,
 			})
@@ -263,7 +266,7 @@ func _on_upgrade_chosen(id: String) -> void:
 	upgrade_screen.hide_screen()
 	state = State.PLAYING
 	get_tree().paused = false
-	hud.toast("UPGRADE INSTALLED", Palette.ACCENT)
+	hud.toast(I18n.t("toast.upgrade_installed"), Palette.ACCENT)
 
 
 func _apply_upgrade(id: String) -> void:
