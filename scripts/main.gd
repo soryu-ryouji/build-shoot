@@ -250,15 +250,31 @@ func cancel_placement() -> void:
 
 func snap_to_grid(pos: Vector2) -> Vector2:
 	var rect: Rect2 = get_play_rect()
-	var origin := rect.position + Vector2(PLACE_GRID * 0.5, PLACE_GRID * 0.5)
-	var gx := origin.x + roundf((pos.x - origin.x) / PLACE_GRID) * PLACE_GRID
-	var gy := origin.y + roundf((pos.y - origin.y) / PLACE_GRID) * PLACE_GRID
+	var x0 := rect.position.x + 32.0
+	var y0 := rect.position.y + 32.0
+	var x1 := rect.end.x - 32.0
+	var y1 := rect.end.y - 32.0
+
+	# 用 64px 的单元铺满四边，最外侧格子中心距边缘 32px，底座刚好放得下
+	var steps_x := maxi(1, int(floorf((x1 - x0) / PLACE_GRID)))
+	var steps_y := maxi(1, int(floorf((y1 - y0) / PLACE_GRID)))
+	var step_x := (x1 - x0) / float(steps_x)
+	var step_y := (y1 - y0) / float(steps_y)
+
+	var gx := x0 + roundf((pos.x - x0) / step_x) * step_x
+	var gy := y0 + roundf((pos.y - y0) / step_y) * step_y
+
+	# 在场地及边框附近拖动时，把最外侧的格子夹到可用范围内，避免边缘一直判红
+	if rect.grow(16.0).has_point(pos):
+		gx = clampf(gx, x0, x1)
+		gy = clampf(gy, y0, y1)
+
 	return Vector2(gx, gy)
 
 
 func is_valid_placement(pos: Vector2) -> bool:
 	var rect: Rect2 = get_play_rect()
-	var margin := 60.0
+	var margin := 32.0
 	if pos.x < rect.position.x + margin or pos.x > rect.end.x - margin:
 		return false
 	if pos.y < rect.position.y + margin or pos.y > rect.end.y - margin:
