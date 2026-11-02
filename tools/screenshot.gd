@@ -14,8 +14,9 @@ var main: Node
 
 
 func _ready() -> void:
+	var target_size := _requested_size()
 	get_window().content_scale_size = Vector2i(720, 960)
-	get_window().size = Vector2i(720, 960)
+	get_window().size = target_size
 
 	var packed: PackedScene = load("res://scenes/main.tscn")
 	main = packed.instantiate()
@@ -48,11 +49,22 @@ func _ready() -> void:
 		main.open_settings()
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
-	if img.get_size() != Vector2i(720, 960):
-		img.resize(720, 960, Image.INTERPOLATE_LANCZOS)
 	var path := "res://game_settings_preview.png" if show_settings else SHOT_PATH
+	if target_size != Vector2i(720, 960):
+		path = "res://image_%dx%d%s.png" % [target_size.x, target_size.y, "_settings" if show_settings else ""]
+	elif img.get_size() != Vector2i(720, 960):
+		img.resize(720, 960, Image.INTERPOLATE_LANCZOS)
 	img.save_png(ProjectSettings.globalize_path(path))
 	get_tree().quit()
+
+
+func _requested_size() -> Vector2i:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--size="):
+			var parts := arg.trim_prefix("--size=").split("x")
+			if parts.size() == 2 and parts[0].is_valid_int() and parts[1].is_valid_int():
+				return Vector2i(maxi(320, int(parts[0])), maxi(480, int(parts[1])))
+	return Vector2i(720, 960)
 
 
 func _place(item_id: String, target: Vector2) -> void:
