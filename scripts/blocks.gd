@@ -12,6 +12,13 @@ const CELL_GAP_X := 4.0
 const GRID_ORIGIN_X := 76.0
 const ROW_PITCH := 48.0
 const SPAWN_Y := PLAY_TOP - CELL_SIZE.y - 6.0
+const ROWS_PER_WAVE := 5
+
+const KIND_NORMAL := "normal"
+const KIND_SWIFT := "swift"
+const KIND_ARMORED := "armored"
+const KIND_ELITE := "elite"
+const HEALTH_BAR_HEIGHT := 6.0
 
 var blocks: Array[Dictionary] = []
 var by_id := {}
@@ -52,7 +59,7 @@ func _physics_process(delta: float) -> void:
 	var dy := scroll_speed * delta
 	for b in blocks:
 		if bool(b.alive):
-			b.rect.position.y += dy
+			b.rect.position.y += dy * float(b.get("speed_scale", 1.0))
 
 	# 移除已经滚出底部或被击碎的方块
 	var i := blocks.size() - 1
@@ -161,32 +168,66 @@ func damage(id: int, amount: int) -> Dictionary:
 	}
 
 
+func _wave_for_row(row: int) -> int:
+	return int(row / ROWS_PER_WAVE) + 1
+
+
+func _base_health_for_wave(wave: int) -> int:
+	return 2 + maxi(wave, 1)
+
+
+func _enemy_count_for_wave(wave: int) -> int:
+	return clampi(2 + maxi(wave, 1), 3, COLS)
+
+
+func _pick_kind(wave: int) -> String:
+	var roll := _rng.randf()
+	if wave >= 4 and roll < 0.10:
+		return KIND_ELITE
+	if wave >= 3 and roll < 0.28:
+		return KIND_ARMORED
+	if wave >= 2 and roll < 0.55:
+		return KIND_SWIFT
+	return KIND_NORMAL
+
+
+func _health_for_kind(kind: String, base_hp: int) -> int:
+	match kind:
+		KIND_SWIFT:
+			return maxi(2, int(round(base_hp * 0.7)))
+		KIND_ARMORED:
+			return int(round(base_hp * 2.0))
+		KIND_ELITE:
+			return int(round(base_hp * 3.5))
+	return base_hp
+
+
+func _speed_for_kind(kind: String) -> float:
+	match kind:
+		KIND_SWIFT:
+			return 1.3
+		KIND_ARMORED:
+			return 0.8
+		KIND_ELITE:
+			return 0.9
+	return 1.0
+
+
 func _spawn_row(y: float) -> void:
 	var row := spawned_rows
 	spawned_rows += 1
 
+	var wave := _wave_for_row(row)
 	var color_index := int(row / 2) % 6 + 1
-	var hp_base := clampi(1 + int(row / 14), 1, 5)
+	var hp_base := _base_health_for_wave(wave)
 
-	# 先铺满，再挖 2~3 段连续缺口，保证行与行之间、块与块之间都有空隙
+	# 每 5 行组成一波：第一波每行 3~4 只，之后每波约增加 1 只
+	var target_count := mini(COLS, _enemy_count_for_wave(wave) + _rng.randi_range(0, 1))
 	var present: Array[bool] = []
 	present.resize(COLS)
-	present.fill(true)
-	var gap_count := _rng.randi_range(2, 3)
-	for g in gap_count:
-		var gap_len := _rng.randi_range(2, 3)
-		var start := _rng.randi_range(0, COLS - gap_len)
-		for c in range(start, start + gap_len):
-			present[c] = false
-	for c in COLS:
-		if _rng.randf() < 0.04:
-			present[c] = false
-
+	present.fill(false)
 	var filled := 0
-	for c in COLS:
-		if present[c]:
-			filled += 1
-	while filled < 5:
+	while filled < target_count:
 		var c := _rng.randi_range(0, COLS - 1)
 		if not present[c]:
 			present[c] = true
@@ -195,10 +236,16 @@ func _spawn_row(y: float) -> void:
 	for c in COLS:
 		if not present[c]:
 			continue
-		var hp := hp_base
-		if _rng.randf() < 0.15:
-			hp += 1
-		hp = clampi(hp, 1, 6)
+		var kind := _pick_kind(wave)
+		var hp := _health_for_kind(kind, hp_base)
+		var color := Palette.block_color(color_index)
+		match kind:
+			KIND_SWIFT:
+				color = Palette.CYAN
+			KIND_ARMORED:
+				color = Palette.METAL.lightened(0.20)
+			KIND_ELITE:
+				color = Palette.PINK
 		var rect := Rect2(
 			Vector2(GRID_ORIGIN_X + c * (CELL_SIZE.x + CELL_GAP_X), y),
 			CELL_SIZE
@@ -207,15 +254,50 @@ func _spawn_row(y: float) -> void:
 		_next_id += 1
 		var block := {
 			"id": id,
+			"kind": kind,
 			"rect": rect,
 			"hp": hp,
 			"max_hp": hp,
-			"color": Palette.block_color(color_index),
+			"speed_scale": _speed_for_kind(kind),
+			"color": color,
 			"flash": 0.0,
 			"alive": true,
 		}
 		blocks.append(block)
 		by_id[id] = block
+
+
+func _draw_kind(inner: Rect2, kind: String, col: Color) -> void:
+	var c := inner.get_center() + Vector2(0.0, -2.0)
+	match kind:
+		KIND_SWIFT:
+			var mark := Color(0.9, 1.0, 1.0, 0.72)
+			draw_polyline(PackedVector2Array([
+				c + Vector2(-8.0, -5.0),
+				c + Vector2(0.0, 2.0),
+				c + Vector2(8.0, -5.0),
+			]), mark, 2.0, true)
+		KIND_ARMORED:
+			draw_rect(inner.grow(-3.0), col.lightened(0.35), false, 2.0)
+			for x in [inner.position.x + 5.0, inner.end.x - 5.0]:
+				draw_circle(Vector2(x, inner.position.y + 5.0), 1.5, col.lightened(0.55))
+		KIND_ELITE:
+			draw_arc(c, 7.0, 0.0, TAU, 6, col.lightened(0.60), 2.0, true)
+			draw_circle(c, 2.5, Color(1.0, 0.9, 0.95, 0.85))
+
+
+func _draw_health_bar(inner: Rect2, hp: int, max_hp: int) -> void:
+	var ratio := clampf(float(hp) / float(maxi(max_hp, 1)), 0.0, 1.0)
+	var back := Rect2(
+		Vector2(inner.position.x + 4.0, inner.end.y - HEALTH_BAR_HEIGHT - 2.0),
+		Vector2(inner.size.x - 8.0, HEALTH_BAR_HEIGHT)
+	)
+	draw_rect(back, Color(0.01, 0.02, 0.04, 0.9))
+	if ratio > 0.0:
+		var fill := Rect2(back.position, Vector2(back.size.x * ratio, back.size.y))
+		var fill_color := Color("7bf1a8") if ratio > 0.30 else Palette.DANGER
+		draw_rect(fill, fill_color)
+	draw_rect(back, Color(1.0, 1.0, 1.0, 0.25), false, 1.0)
 
 
 func _draw() -> void:
@@ -226,6 +308,7 @@ func _draw() -> void:
 		var max_hp: int = int(b.max_hp)
 		var hp: int = int(b.hp)
 		var col: Color = b.color
+		var kind := String(b.get("kind", KIND_NORMAL))
 
 		draw_rect(rect.grow(4.0), Color(col.r, col.g, col.b, 0.07))
 		draw_rect(rect, col.darkened(0.72))
@@ -233,6 +316,7 @@ func _draw() -> void:
 		draw_rect(inner, col.darkened(0.30))
 		draw_line(inner.position + Vector2(1.0, 1.0), Vector2(inner.end.x - 1.0, inner.position.y + 1.0), col.lightened(0.45), 2.0)
 		draw_line(Vector2(inner.position.x + 1.0, inner.end.y - 1.0), Vector2(inner.end.x - 1.0, inner.end.y - 1.0), col.darkened(0.62), 2.0)
+		_draw_kind(inner, kind, col)
 
 		if hp < max_hp:
 			draw_rect(inner, Color(0.02, 0.03, 0.08, 0.38))
@@ -244,6 +328,5 @@ func _draw() -> void:
 		if flash > 0.0:
 			draw_rect(inner, Color(1.0, 1.0, 1.0, 0.45 * flash))
 
-		for j in hp:
-			var pip := Rect2(Vector2(inner.position.x + 4.0 + j * 5.0, inner.end.y - 6.0), Vector2(3.0, 3.0))
-			draw_rect(pip, Color(1.0, 1.0, 1.0, 0.6))
+		# 用连续粗血条替代血点，高血量怪物也能准确显示剩余比例
+		_draw_health_bar(inner, hp, max_hp)

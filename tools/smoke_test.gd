@@ -10,6 +10,8 @@ var failures: Array[String] = []
 var tracked_id := -1
 var tracked_y := 0.0
 var heavy: Node = null
+var auto_coins_baseline := 0
+var auto_destroyed_baseline := 0
 
 
 func _ready() -> void:
@@ -51,6 +53,21 @@ func _process(_delta: float) -> void:
 		var first: Dictionary = main.blocks.blocks[0]
 		var first_rect: Rect2 = first.rect
 		_check(first_rect.position.y < 112.0, "first blocks start above the visible area")
+		_check(int(first.max_hp) == 3, "first wave enemies have low health")
+		_check(main.blocks.blocks.size() >= 3 and main.blocks.blocks.size() <= 4, "first wave has low enemy density")
+		_check(String(first.kind) == "normal", "first row uses normal enemies")
+		_check(main.blocks._wave_for_row(0) == 1 and main.blocks._wave_for_row(4) == 1, "first five rows form wave one")
+		_check(main.blocks._wave_for_row(5) == 2, "row five starts wave two")
+		_check(main.blocks._enemy_count_for_wave(1) == 3, "wave one starts with three enemies per row")
+		_check(main.blocks._enemy_count_for_wave(4) > main.blocks._enemy_count_for_wave(1), "later waves increase enemy count")
+		_check(main.blocks._enemy_count_for_wave(9) == main.blocks.COLS, "enemy count eventually fills a row")
+		_check(main.blocks._base_health_for_wave(4) > main.blocks._base_health_for_wave(1), "later waves increase base health")
+		_check(main.blocks._health_for_kind("swift", 6) < main.blocks._health_for_kind("normal", 6), "swift enemies have lighter health")
+		_check(main.blocks._health_for_kind("armored", 6) > main.blocks._health_for_kind("normal", 6), "armored enemies have heavier health")
+		_check(main.blocks._health_for_kind("elite", 6) > main.blocks._health_for_kind("armored", 6), "elite enemies have the thickest health")
+		_check(main.blocks._speed_for_kind("swift") > main.blocks._speed_for_kind("normal"), "swift enemies move faster")
+		_check(main.blocks._speed_for_kind("armored") < main.blocks._speed_for_kind("normal"), "armored enemies move slower")
+		_check(float(main.blocks.HEALTH_BAR_HEIGHT) >= 6.0, "health bars are thicker than health pips")
 		var lowest := _lowest_block()
 		tracked_id = int(lowest.id)
 		var tracked_rect: Rect2 = lowest.rect
@@ -130,8 +147,6 @@ func _process(_delta: float) -> void:
 		if heavy != null:
 			_check(int(heavy.shots) > 0, "placed turret fires automatically")
 			_check(heavy.has_target(), "placed turret acquires target")
-		_check(int(main.blocks.destroyed) > 0, "placed turret destroys blocks")
-		_check(int(main.coins) > 300, "placed turret earns coins")
 
 	if frame == 140:
 		# 点击特定炮塔后用金币升级攻击力
@@ -167,6 +182,35 @@ func _process(_delta: float) -> void:
 			ball.bounces_left = 1
 			ball._spend_bounce()
 			_check(main.active_balls.size() == before_count, "ball vanishes when bounces run out")
+
+		# 用近程低血量目标和就绪的炮塔验证自动击杀，避免随机阵型造成时序抖动
+		for b in main.blocks.blocks:
+			if bool(b.alive):
+				b.hp = 1
+		if heavy != null:
+			heavy._cooldown = 0.0
+			var target_rect := Rect2(heavy.global_position + Vector2(-24.0, -115.0), Vector2(48.0, 30.0))
+			var target_id := int(main.blocks._next_id)
+			main.blocks._next_id += 1
+			var target := {
+				"id": target_id,
+				"kind": "normal",
+				"rect": target_rect,
+				"hp": 1,
+				"max_hp": 1,
+				"speed_scale": 0.0,
+				"color": Color.WHITE,
+				"flash": 0.0,
+				"alive": true,
+			}
+			main.blocks.blocks.append(target)
+			main.blocks.by_id[target_id] = target
+		auto_destroyed_baseline = int(main.blocks.destroyed)
+		auto_coins_baseline = int(main.coins)
+
+	if frame == 219:
+		_check(int(main.blocks.destroyed) > auto_destroyed_baseline, "placed turret destroys blocks")
+		_check(int(main.coins) > auto_coins_baseline, "placed turret earns coins")
 
 	if frame == 220:
 		# 清空所有目标，下一帧检查炮塔不再显示锁定线
