@@ -93,6 +93,20 @@
 Godot_v4.7.2-stable_win64.exe --path .
 ```
 
+## 多分辨率与自适应布局
+
+- 游戏锁定纯竖屏；设计视口为 720×960，使用 `canvas_items` 与 `expand`。
+- HUD、主界面和设置使用 Anchors、MarginContainer、HBoxContainer、VBoxContainer 与内容驱动尺寸。
+- 商店位于底部横排；主界面功能菜单固定在左侧中部。移动设备读取安全区域，避开刘海和系统手势区。
+- 战场 Camera 只按屏幕宽度缩放，左右各保留 8 逻辑像素，不根据高度反向压缩；地图向上下延伸。
+- 屏幕／触摸坐标经过 Camera 变换后再用于点击和拖拽部署；主界面背景等比覆盖，不拉伸人物。
+
+响应式回归测试覆盖 720×960、1000×2000、1080×1920、1080×2400，并动态检查战场实际边界宽度、面板边界、菜单位置、设置面板和触摸拖拽部署：
+
+```bash
+Godot_v4.7.2-stable_win64.exe --headless --fixed-fps 60 --path . res://tools/responsive_test.tscn
+```
+
 ## 无头冒烟测试
 
 ```bash
@@ -107,7 +121,7 @@ Godot_v4.7.2-stable_win64.exe --headless --fixed-fps 60 --path . res://tools/smo
 Godot_v4.7.2-stable_win64.exe --path . res://tools/screenshot.tscn
 ```
 
-脚本会先快进让方块流铺满场地，再布置示例炮塔并开火，最后把当前画面保存为 `image.png`。
+脚本会先快进让方块流铺满场地，再布置示例炮塔并开火，最后把当前画面保存为 `image.png`。可用 `-- --size=1000x2000` 或 `-- --size=1080x2400` 生成指定竖屏尺寸的预览；主界面截图工具支持相同参数。
 
 ## 美术素材
 
@@ -138,14 +152,15 @@ assets/ui/                  AI 生成的主界面、战场、怪物动画与炮�
 scripts/main_menu.gd        主界面布局与场景入口
 scripts/settings_panel.gd   主界面／游戏内共用设置面板
 scripts/game_settings.gd    设置存储、全屏与显示选项
-scripts/main.gd             游戏状态、暂停菜单、金币道具与炮塔强化
+scripts/responsive_layout.gd 竖屏逻辑视口与安全区域计算
+scripts/main.gd             游戏状态、Camera、触摸换算、暂停菜单与炮塔强化
 scripts/i18n.gd             i18n 单例：读取 JSON、切换语言、t(key)
 scripts/ball.gd             弹球：分步移动、圆-矩形碰撞、弹跳次数
 scripts/turret_visuals.gd   场上炮塔共用：导引线、锁定环、sprite 转向与后坐力
 scripts/blocks.gd           滚动怪物流：生成、移动、伤害、sprite 与血条
 scripts/hit_effects.gd      命中粒子：火花、闪光、金币碎屑
 scripts/item_defs.gd        可购买道具的数值定义
-scripts/shop_bar.gd         底部道具栏与拖拽手势
+scripts/shop_bar.gd         纯竖屏底部道具栏与拖拽手势
 scripts/item_card.gd        道具卡片：价格、图标、可购买状态
 scripts/placed_turret.gd    场上炮塔：自动索敌、射程、开火、网格落点
 scripts/focus_panel.gd      炮塔聚焦面板：属性与拆除
@@ -157,6 +172,7 @@ i18n/zh_CN.json             中文翻译表（默认）
 i18n/en.json                英文翻译表
 theme/game_theme.tres       全局 UI 字体（含 CJK 回退）
 tools/smoke_test.tscn/gd    无头冒烟测试
+tools/responsive_test.tscn/gd 多尺寸竖屏、宽度适配与触摸部署回归测试
 tools/screenshot.tscn/gd    游戏与游戏内设置截图工具
 tools/menu_screenshot.tscn/gd 主界面与主界面设置截图工具
 tools/generate_ui_assets.py 调用 ComfyUI qwen_workflow 生成 UI 素材
