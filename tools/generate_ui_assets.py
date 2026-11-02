@@ -81,20 +81,78 @@ PRESETS = {
             "no text, no letters, no numbers, no dividers, no border, no UI, no extra objects"
         ),
     },
-    "turrets": {
+    "turret_base": {
         "landscape": True,
-        "seed": 58163,
+        "seed": 65201,
         "prompt": (
-            "Two separate original anime tactical defense turret sprites for a 2D tower "
-            "defense game, strict orthographic top-down view, side by side on a perfectly "
-            "uniform solid very dark charcoal background. Both barrels point straight toward "
-            "the top edge, bases centered below the barrels. Japanese anime game illustration, "
-            "crisp cel shading, angular graphite mechanisms, warm ivory armor plates and "
-            "signal orange energy cores. Left: compact rapid-fire turret with a large circular "
-            "base and one short sturdy barrel. Right: heavy siege turret with a broad hexagonal "
-            "armored base and two parallel reinforced barrels. No humans, readable at small "
-            "size, generous empty margins, no perspective tilt, no text, no letters, no numbers, "
-            "no border, no UI, no extra objects"
+            "Single isolated 2D game sprite of a circular turret mounting plate seen in a "
+            "strict orthographic top-down view with the camera pointing straight down. "
+            "Perfectly circular and radially symmetric like a flat technical diagram: "
+            "concentric metal rings, a recessed dark circular socket in the center, evenly "
+            "spaced bolts and vent slits around the rim, warm ivory and graphite gray metal "
+            "with a few small amber indicator lights. Completely flat even lighting, no "
+            "shadows, no highlights, no glossy reflections, no perspective, no tilt, no "
+            "visible inner wall, no three dimensional bevel, thin crisp cel-shaded lines, "
+            "Japanese anime game asset, centered on a perfectly uniform solid very dark "
+            "charcoal background, generous empty margins, no turret body, no barrel, no gun, "
+            "no text, no letters, no numbers, no border, no UI, no extra objects"
+        ),
+    },
+    "heavy_turret_base": {
+        "landscape": True,
+        "seed": 65213,
+        "prompt": (
+            "Single isolated 2D game sprite of a broad regular octagonal turret mounting "
+            "plate seen in a strict orthographic top-down view with the camera pointing "
+            "straight down. Eight sided plate with exact eight fold rotational symmetry, "
+            "like a flat technical diagram: concentric metal rings, a recessed dark circular "
+            "socket in the center, evenly spaced bolts and vent slits, layered warm ivory and "
+            "graphite gray plates with a few small amber indicator lights. Completely flat "
+            "even lighting, no shadows, no highlights, no glossy reflections, no perspective, "
+            "no tilt, no visible inner wall, no three dimensional bevel, thin crisp cel-shaded "
+            "lines, Japanese anime game asset, centered on a perfectly uniform solid very dark "
+            "charcoal background, generous empty margins, no turret body, no barrel, no gun, "
+            "no text, no letters, no numbers, no border, no UI, no extra objects"
+        ),
+    },
+    "turret_layers": {
+        "landscape": True,
+        "seed": 64103,
+        "prompt": (
+            "Two separate original anime defense turret parts for a 2D tower defense game, "
+            "arranged vertically on a perfectly uniform solid very dark charcoal background, "
+            "both drawn in the same strict orthographic top-down view as if seen from directly "
+            "above. Bottom: a compact circular armored base plate with a recessed empty "
+            "circular bowl in the middle, panel seams, bolts, vents and small amber lights, "
+            "with no turret body and no barrel on it. Top: the turret head that fits into that "
+            "bowl, a graphite and warm ivory gun housing with one short sturdy barrel pointing "
+            "straight up toward the top edge and a glowing signal orange energy core, with no "
+            "base plate beneath it. A clear empty gap of plain background separates the two "
+            "parts. Japanese anime game illustration, crisp cel shading, angular graphite "
+            "mechanisms, warm ivory armor plates, signal orange accents. Both parts share the "
+            "same vertical center axis, readable silhouettes, generous empty margins, no "
+            "humans, no perspective tilt, no text, no letters, no numbers, no dividers, no "
+            "border, no UI, no extra objects"
+        ),
+    },
+    "heavy_turret_layers": {
+        "landscape": True,
+        "seed": 64117,
+        "prompt": (
+            "Two separate original anime defense turret parts for a 2D tower defense game, "
+            "arranged vertically on a perfectly uniform solid very dark charcoal background, "
+            "both drawn in the same strict orthographic top-down view as if seen from directly "
+            "above. Bottom: a broad hexagonal armored base plate with a recessed empty "
+            "circular bowl in the middle, layered ivory and graphite plates, panel seams and "
+            "orange warning lights, with no turret body and no barrel on it. Top: the heavy "
+            "turret head that fits into that bowl, a massive graphite and warm ivory gun "
+            "housing with two parallel reinforced barrels pointing straight up toward the top "
+            "edge and glowing signal orange energy cores, with no base plate beneath it. A "
+            "clear empty gap of plain background separates the two parts. Japanese anime game "
+            "illustration, crisp cel shading, angular graphite mechanisms, warm ivory armor "
+            "plates, signal orange accents. Both parts share the same vertical center axis, "
+            "readable silhouettes, generous empty margins, no humans, no perspective tilt, no "
+            "text, no letters, no numbers, no dividers, no border, no UI, no extra objects"
         ),
     },
 }
@@ -258,9 +316,17 @@ def main() -> None:
     if args.preset == "all":
         names = PRESETS
     elif args.preset == "base":
-        names = ["arena", "menu", "monsters", "turrets"]
+        names = [
+            "arena",
+            "menu",
+            "monsters",
+            "turret_base",
+            "heavy_turret_base",
+            "turret_layers",
+            "heavy_turret_layers",
+        ]
     elif args.preset == "units":
-        names = ["monsters", "turrets"]
+        names = ["monsters", "turret_base", "heavy_turret_base", "turret_layers", "heavy_turret_layers"]
     elif args.preset == "animations":
         names = [f"anim_{kind}" for kind in ANIMATION_PRESETS]
     else:

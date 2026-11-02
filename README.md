@@ -125,14 +125,14 @@ Godot_v4.7.2-stable_win64.exe --path . res://tools/screenshot.tscn
 
 ## 美术素材
 
-主界面背景（移动都市巨构 key visual）、战场底板、四类怪物以及商店与场上炮塔由本地 ComfyUI 的 `qwen_workflow` 生成，成品位于 `assets/ui/`。每种怪物有一张四帧横向动画图集，按类型以 6～12 FPS 播放并使用不同相位；保留原碰撞矩形、受击后限时显示的血条和受击闪光。炮塔 sprite 随瞄准方向旋转，放置预览使用同一套素材。需要重新生成时，先启动 `http://127.0.0.1:8188/`，再运行：
+主界面背景（移动都市巨构 key visual）、战场底板、四类怪物以及商店与场上炮塔由本地 ComfyUI 的 `qwen_workflow` 生成，成品位于 `assets/ui/`。每种怪物有一张四帧横向动画图集，按类型以 6～12 FPS 播放并使用不同相位；保留原碰撞矩形、受击后限时显示的血条和受击闪光。炮塔拆成基盘与炮塔头两层素材：基盘是严格俯视的扁平圆盘／八边形板，后处理时按 36／8 重旋转对称化，随瞄准旋转时不会出现光照翻转或透视变化；炮塔头按同一枢轴叠放，开炮只让头部后坐，放置预览使用同一套分层素材。需要重新生成时，先启动 `http://127.0.0.1:8188/`，再运行：
 
 ```bash
 python tools/generate_ui_assets.py all
 python tools/process_ui_assets.py
 ```
 
-后处理脚本需要 Pillow，负责尺寸调整、压暗战场、裁切单位、设置炮塔旋转轴心和透明底处理。原始生成图写入 `assets/ui/source/`，可在成品确认后删除。只需重新制作战斗单位或怪物动画时，分别运行 `generate_ui_assets.py units`／`animations`，再运行 `process_ui_assets.py units`／`animations`；挑选主界面画面时可用 `generate_ui_assets.py menu --seed <数字>` 覆盖预设种子。
+后处理脚本需要 Pillow，负责尺寸调整、压暗战场、裁切单位、设置炮塔旋转轴心、基盘径向对称化与透明底处理。原始生成图写入 `assets/ui/source/`，可在成品确认后删除。只需重新制作战斗单位或怪物动画时，分别运行 `generate_ui_assets.py units`／`animations`，再运行 `process_ui_assets.py units`／`animations`；重做炮塔时先生成 `turret_base`／`turret_layers`（重型同理），再按顺序运行 `process_ui_assets.py bases` 和 `layers`；挑选主界面画面时可用 `generate_ui_assets.py menu --seed <数字>` 覆盖预设种子。
 
 主界面截图工具：
 
@@ -148,7 +148,7 @@ Godot_v4.7.2-stable_win64.exe --path . res://tools/menu_screenshot.tscn -- --set
 ```
 scenes/main_menu.tscn       主界面：开始、设置、退出
 scenes/main.tscn            游戏场景（节点由脚本创建）
-assets/ui/                  AI 生成的主界面、战场、怪物动画与炮塔 sprite
+assets/ui/                  AI 生成的主界面、战场、怪物动画与炮塔分层素材
 scripts/main_menu.gd        主界面布局与场景入口
 scripts/settings_panel.gd   主界面／游戏内共用设置面板
 scripts/game_settings.gd    设置存储、全屏与显示选项

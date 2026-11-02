@@ -3,12 +3,15 @@ extends RefCounted
 ## 主炮塔和场上炮塔共用的锁定标记 / 导引线绘制。
 
 const Palette = preload("res://scripts/palette.gd")
-const BasicFieldTexture = preload("res://assets/ui/turret_field.png")
-const HeavyFieldTexture = preload("res://assets/ui/heavy_turret_field.png")
+const BasicBaseTexture = preload("res://assets/ui/turret_base_field.png")
+const BasicHeadTexture = preload("res://assets/ui/turret_head_field.png")
+const HeavyBaseTexture = preload("res://assets/ui/heavy_turret_base_field.png")
+const HeavyHeadTexture = preload("res://assets/ui/heavy_turret_head_field.png")
 
-# 贴图里基盘与炮塔上半身的分界行（原图 320px），上半身沿炮口方向后退时不带基盘
-const BASIC_SPLIT_ROW := 158.0
-const HEAVY_SPLIT_ROW := 192.0
+# 基盘贴图 320x320，中心就是旋转轴；头部贴图 320x384，头部枢轴在 (160, 320)。
+const BASE_TEXTURE_SIZE := Vector2(320.0, 320.0)
+const HEAD_TEXTURE_SIZE := Vector2(320.0, 384.0)
+const HEAD_TEXTURE_PIVOT := Vector2(160.0, 320.0)
 
 
 static func predict(blocks: Node, play_rect: Rect2, origin: Vector2, direction: Vector2) -> Vector2:
@@ -54,52 +57,50 @@ static func draw_lock(canvas: CanvasItem, local_target: Vector2, time: float) ->
 
 
 static func draw_basic_body(canvas: CanvasItem, aim_angle: float, base_radius: float, _barrel_length: float, recoil: float) -> void:
-	_draw_field_sprite(canvas, BasicFieldTexture, aim_angle, base_radius, recoil, Palette.CYAN, 7.0, 6.0, BASIC_SPLIT_ROW)
+	_draw_field_sprite(canvas, BasicBaseTexture, BasicHeadTexture, aim_angle, base_radius, recoil, Palette.CYAN, 7.0, 6.0)
 
 
 static func draw_heavy_body(canvas: CanvasItem, aim_angle: float, base_radius: float, _barrel_length: float, recoil: float, color: Color, time: float) -> void:
-	_draw_field_sprite(canvas, HeavyFieldTexture, aim_angle, base_radius, recoil, color, 9.0, 4.8, HEAVY_SPLIT_ROW)
+	_draw_field_sprite(canvas, HeavyBaseTexture, HeavyHeadTexture, aim_angle, base_radius, recoil, color, 9.0, 4.8)
 	var pulse := 0.5 + 0.5 * sin(time * 4.0)
 	canvas.draw_circle(Vector2.ZERO, base_radius * 0.26, Color(color.r, color.g, color.b, 0.05 + 0.08 * pulse))
 
 
 static func _draw_field_sprite(
 	canvas: CanvasItem,
-	texture: Texture2D,
+	base_texture: Texture2D,
+	head_texture: Texture2D,
 	aim_angle: float,
 	base_radius: float,
 	recoil: float,
 	color: Color,
 	recoil_distance: float,
-	size_factor: float,
-	split_row: float
+	size_factor: float
 ) -> void:
 	canvas.draw_circle(Vector2.ZERO, base_radius + 8.0, Color(color.r, color.g, color.b, 0.055))
-	var tex_w := float(texture.get_width())
-	var tex_h := float(texture.get_height())
-	var scale := base_radius * size_factor / tex_w
-	var side := tex_w * scale
-	var top := -side * 0.5
-	var split_h := split_row * scale
+	var scale := base_radius * size_factor / BASE_TEXTURE_SIZE.x
+	var side := BASE_TEXTURE_SIZE.x * scale
 	# 生成素材统一朝上；逻辑中的 0 弧度朝右，因此补 90 度。基盘只旋转，不随开炮移动。
 	var turn := aim_angle + PI / 2.0
 
-	# 上半身：沿炮口反方向后退
-	var recoil_offset := -Vector2.from_angle(aim_angle) * recoil_distance * recoil
-	canvas.draw_set_transform(recoil_offset, turn, Vector2.ONE)
-	canvas.draw_texture_rect_region(
-		texture,
-		Rect2(top, top, side, split_h + scale),
-		Rect2(0.0, 0.0, tex_w, split_row + 1.0),
+	canvas.draw_set_transform(Vector2.ZERO, turn, Vector2.ONE)
+	canvas.draw_texture_rect(
+		base_texture,
+		Rect2(Vector2(-side * 0.5, -side * 0.5), Vector2(side, side)),
+		false,
 		Color.WHITE
 	)
 
-	# 基盘：画在上半身之上，让后退的炮身收进基盘里
-	canvas.draw_set_transform(Vector2.ZERO, turn, Vector2.ONE)
-	canvas.draw_texture_rect_region(
-		texture,
-		Rect2(top, top + split_h, side, side - split_h),
-		Rect2(0.0, split_row, tex_w, tex_h - split_row),
+	# 上半身按同一枢轴摆放，开炮时沿炮口反方向后退
+	var recoil_offset := -Vector2.from_angle(aim_angle) * recoil_distance * recoil
+	canvas.draw_set_transform(recoil_offset, turn, Vector2.ONE)
+	canvas.draw_texture_rect(
+		head_texture,
+		Rect2(
+			Vector2(-HEAD_TEXTURE_PIVOT.x * scale, -HEAD_TEXTURE_PIVOT.y * scale),
+			HEAD_TEXTURE_SIZE * scale
+		),
+		false,
 		Color.WHITE
 	)
 	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

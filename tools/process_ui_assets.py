@@ -114,14 +114,7 @@ def process_units() -> None:
     for name, box in boxes.items():
         process_sprite(monsters, box, name)
 
-    turrets = Image.open(SOURCE / "turrets.png")
-    boxes = {
-        "turret": (0, 0, turrets.width // 2, turrets.height),
-        "heavy_turret": (turrets.width // 2, 0, turrets.width, turrets.height),
-    }
-    for name, box in boxes.items():
-        process_sprite(turrets, box, name)
-        process_sprite(turrets, box, f"{name}_field", output_size=320, base_anchor=True)
+
 
 
 def process_animations() -> None:
@@ -143,9 +136,180 @@ def process_animations() -> None:
         atlas.save(TARGET / f"monster_{kind}_anim.png", optimize=True)
 
 
+# ---------------------------------------------------------------- 炮塔分层素材
+
+LAYER_SIZE = 320
+# 头部贴图比基盘高，给长炮管留出空间；绘制时按头部枢轴对齐到基盘中心
+HEAD_CANVAS = (LAYER_SIZE, 384)
+HEAD_PIVOT_Y = 320
+# 每个炮塔在场上贴图里基盘应占的宽度：绘制时整张贴图按 base_radius * factor 缩放，
+# 基盘直径需要正好是 2 * base_radius。
+LAYER_TARGETS = {
+    "turret": {
+        "source": "turret_layers.png",
+        "base_source": "turret_base.png",
+        "base_width": LAYER_SIZE * 2.0 / 6.0,
+        "folds": 36,
+    },
+    "heavy_turret": {
+        "source": "heavy_turret_layers.png",
+        "base_source": "heavy_turret_base.png",
+        "base_width": LAYER_SIZE * 2.0 / 4.8,
+        "folds": 8,
+    },
+}
+# 炮塔头落进基盘时，头部底边相对基盘中心下压的像素数
+HEAD_SEAT = 4
+
+
+def _background_color(image: Image.Image) -> tuple[int, int, int]:
+    points = [(2, 2), (image.width - 3, 2), (2, image.height - 3)]
+    return tuple(int(statistics.median(channel)) for channel in zip(*(image.getpixel(p) for p in points)))
+
+
+def _cut_foreground(image: Image.Image) -> tuple[Image.Image, Image.Image]:
+    image = image.convert("RGB")
+    background = _background_color(image)
+    difference = ImageChops.difference(image, Image.new("RGB", image.size, background)).convert("L")
+    strong = difference.point(lambda value: 255 if value > 22 else 0)
+    alpha = difference.point(lambda value: max(0, min(255, round((value - 3) * 255 / 20))))
+    # 背景带轻微渐变，先按强边缘裁掉低幅噪声，再轻微羽化
+    alpha = ImageChops.multiply(alpha, strong)
+    alpha = alpha.filter(ImageFilter.GaussianBlur(0.45))
+    alpha = alpha.point(lambda value: 0 if value < 8 else value)
+    rgba = image.convert("RGBA")
+    rgba.putalpha(alpha)
+    return rgba, strong
+
+
+def _row_filled(mask: Image.Image, y: int) -> bool:
+    return mask.crop((0, y, mask.width, y + 1)).getbbox() is not None
+
+
+def _split_parts(mask: Image.Image) -> int:
+    rows = [y for y in range(mask.height) if _row_filled(mask, y)]
+    best_start, best_length = -1, 0
+    start = None
+    for y in range(rows[0], rows[-1] + 1):
+        filled = _row_filled(mask, y)
+        if not filled and start is None:
+            start = y
+        if filled and start is not None:
+            if y - start > best_length:
+                best_start, best_length = start, y - start
+            start = None
+    if best_start < 0:
+        raise RuntimeError("Turret layers must have a visible gap between head and base")
+    return best_start + best_length // 2
+
+
+def _composite(canvas: Image.Image, part: Image.Image, scale: float, left: float, top: float) -> None:
+    scaled = part.resize(
+        (max(1, round(part.width * scale)), max(1, round(part.height * scale))),
+        Image.Resampling.LANCZOS,
+    )
+    canvas.alpha_composite(scaled, (round(left), round(top)))
+
+
+def _tint_base(image: Image.Image) -> Image.Image:
+    """压暗偏灰，避免纯白基座在浅色战场上失去对比。"""
+    alpha = image.getchannel("A")
+    rgb = ImageEnhance.Brightness(image.convert("RGB")).enhance(0.78)
+    rgb = Image.blend(rgb, Image.new("RGB", rgb.size, (115, 120, 124)), 0.22)
+    result = rgb.convert("RGBA")
+    result.putalpha(alpha)
+    return result
+
+
+def _symmetrize(image: Image.Image, folds: int) -> Image.Image:
+    """绕画布中心旋转叠加，抹掉烘焙的光照方向，保证旋转时基座不"翻面"。"""
+    center = (image.width * 0.5, image.height * 0.5)
+    result = image
+    for i in range(1, folds):
+        rotated = image.rotate(360.0 * i / folds, center=center, resample=Image.Resampling.BICUBIC)
+        result = Image.blend(result, rotated, 1.0 / (i + 1))
+    alpha = result.getchannel("A").point(lambda value: 0 if value < 20 else value)
+    result.putalpha(alpha)
+    return result
+
+
+def process_turret_bases() -> None:
+    for name, spec in LAYER_TARGETS.items():
+        image = Image.open(SOURCE / spec["base_source"])
+        rgba, strong = _cut_foreground(image)
+        bounds = strong.getbbox()
+        if bounds is None:
+            raise RuntimeError(f"No base plate found in {spec['base_source']}")
+
+        canvas = Image.new("RGBA", (LAYER_SIZE, LAYER_SIZE), (0, 0, 0, 0))
+        scale = spec["base_width"] / (bounds[2] - bounds[0])
+        _composite(
+            canvas,
+            rgba,
+            scale,
+            LAYER_SIZE * 0.5 - (bounds[0] + bounds[2]) * 0.5 * scale,
+            LAYER_SIZE * 0.5 - (bounds[1] + bounds[3]) * 0.5 * scale,
+        )
+        canvas = _tint_base(_symmetrize(canvas, spec["folds"]))
+        canvas.save(TARGET / f"{name}_base_field.png", optimize=True)
+
+
+def process_turret_layers() -> None:
+    for name, spec in LAYER_TARGETS.items():
+        source = Image.open(SOURCE / spec["source"])
+        rgba, strong = _cut_foreground(source)
+        split = _split_parts(strong)
+
+        head = rgba.crop((0, 0, rgba.width, split))
+        head_box = strong.crop((0, 0, strong.width, split)).getbbox()
+        # 分层图里的基盘只用来给炮塔头定尺寸，场上基盘来自单独的扁平贴图
+        base_box = strong.crop((0, split, strong.width, strong.height)).getbbox()
+        if head_box is None or base_box is None:
+            raise RuntimeError(f"Missing turret layer in {spec['source']}")
+        scale = spec["base_width"] / (base_box[2] - base_box[0])
+
+        base_path = TARGET / f"{name}_base_field.png"
+        if not base_path.exists():
+            raise RuntimeError("Run `process_ui_assets.py bases` before `layers`")
+        base_canvas = Image.open(base_path).convert("RGBA")
+
+        head_canvas = Image.new("RGBA", HEAD_CANVAS, (0, 0, 0, 0))
+        head_center_x = (head_box[0] + head_box[2]) * 0.5
+        _composite(
+            head_canvas,
+            head,
+            scale,
+            LAYER_SIZE * 0.5 - head_center_x * scale,
+            HEAD_PIVOT_Y + HEAD_SEAT - head_box[3] * scale,
+        )
+        head_canvas.save(TARGET / f"{name}_head_field.png", optimize=True)
+
+        # 商店图标用同一套分层素材拼装，保证图标和场上造型一致
+        icon = Image.new("RGBA", (LAYER_SIZE, HEAD_CANVAS[1] + LAYER_SIZE), (0, 0, 0, 0))
+        icon.alpha_composite(base_canvas, (0, HEAD_PIVOT_Y - LAYER_SIZE // 2))
+        icon.alpha_composite(head_canvas)
+        bounds = icon.split()[3].getbbox()
+        pad = 12
+        icon = icon.crop(
+            (
+                max(0, bounds[0] - pad),
+                max(0, bounds[1] - pad),
+                min(icon.width, bounds[2] + pad),
+                min(icon.height, bounds[3] + pad),
+            )
+        )
+        icon = icon.resize((256, 256), Image.Resampling.LANCZOS)
+        icon.save(TARGET / f"{name}.png", optimize=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("preset", nargs="?", default="all", choices=["all", "ui", "arena", "menu", "units", "animations"])
+    parser.add_argument(
+        "preset",
+        nargs="?",
+        default="all",
+        choices=["all", "ui", "arena", "menu", "units", "bases", "layers", "animations"],
+    )
     args = parser.parse_args()
     TARGET.mkdir(parents=True, exist_ok=True)
     if args.preset in ("all", "ui"):
@@ -157,6 +321,10 @@ def main() -> None:
         process_menu()
     if args.preset in ("all", "units"):
         process_units()
+    if args.preset in ("all", "bases"):
+        process_turret_bases()
+    if args.preset in ("all", "layers"):
+        process_turret_layers()
     if args.preset in ("all", "animations"):
         process_animations()
     print(f"Processed {args.preset} assets into assets/ui/")
