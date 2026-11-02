@@ -18,6 +18,7 @@ var by_id := {}
 var destroyed := 0
 var spawned_rows := 0
 var scroll_speed := 20.0
+var active := false
 
 var _next_id := 1
 var _spawn_timer := 0.0
@@ -30,6 +31,7 @@ func _ready() -> void:
 
 
 func reset_stream() -> void:
+	active = true
 	blocks.clear()
 	by_id.clear()
 	_next_id = 1
@@ -39,12 +41,14 @@ func reset_stream() -> void:
 	_spawn_timer = 3.5
 	_flashing = false
 
-	for i in 2:
-		_spawn_row(PLAY_TOP + 8.0 + i * ROW_PITCH)
+	# 只在顶部视野外预置一行，倒计时结束后从边缘逐渐滚入
+	_spawn_row(SPAWN_Y)
 	queue_redraw()
 
 
 func _physics_process(delta: float) -> void:
+	if not active:
+		return
 	var dy := scroll_speed * delta
 	for b in blocks:
 		if bool(b.alive):
@@ -81,7 +85,25 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
-## 自动炮塔的目标：优先选择最靠近底部、且还在炮塔上方的方块。
+## 场上炮塔的目标：射程内最近的方块。
+func get_nearest_target(origin: Vector2, max_range: float) -> Dictionary:
+	var best: Dictionary = {}
+	var best_dist := max_range * max_range
+	for b in blocks:
+		if not bool(b.alive):
+			continue
+		var rect: Rect2 = b.rect
+		var center := rect.get_center()
+		if center.y < PLAY_TOP:
+			continue
+		var dist := center.distance_squared_to(origin)
+		if dist <= best_dist:
+			best_dist = dist
+			best = b
+	return best
+
+
+## 底部主炮塔的目标：优先选择最靠近底部、且还在炮塔上方的方块。
 ## 同一行里选离炮塔最近的一块，方便炮塔左右扫射。
 func get_auto_target(origin: Vector2) -> Dictionary:
 	var best: Dictionary = {}
@@ -93,7 +115,7 @@ func get_auto_target(origin: Vector2) -> Dictionary:
 			continue
 		var rect: Rect2 = b.rect
 		var c := rect.get_center()
-		if c.y > max_y:
+		if c.y < PLAY_TOP or c.y > max_y:
 			continue
 		var dx := absf(c.x - origin.x)
 		if c.y > best_y + 0.5:

@@ -16,6 +16,7 @@ var bounce_label: Label
 var level_label: Label
 var xp_label: Label
 var hint_label: Label
+var prep_label: Label
 var toast_label: Label
 
 var _xp_ratio := 0.0
@@ -44,16 +45,21 @@ func _build() -> void:
 
 	destroyed_label = _make_label(I18n.t("hud.destroyed", [0]), Vector2(480, 18), Vector2(200, 22), 14, Palette.MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
 
-	balls_label = _make_label(I18n.t("hud.ball_many", [0]), Vector2(40, 824), Vector2(260, 32), 22, Palette.CYAN)
-	bounce_label = _make_label(I18n.t("hud.ready"), Vector2(280, 830), Vector2(160, 24), 14, Palette.CYAN, HORIZONTAL_ALIGNMENT_CENTER)
-	level_label = _make_label(I18n.t("hud.level", [1]), Vector2(520, 822), Vector2(160, 34), 24, Palette.ACCENT, HORIZONTAL_ALIGNMENT_RIGHT)
+	balls_label = _make_label(I18n.t("hud.ball_many", [0]), Vector2(40, 816), Vector2(260, 22), 16, Palette.CYAN)
+	bounce_label = _make_label(I18n.t("hud.ready"), Vector2(280, 818), Vector2(160, 20), 12, Palette.CYAN, HORIZONTAL_ALIGNMENT_CENTER)
+	level_label = _make_label(I18n.t("hud.level", [1]), Vector2(520, 814), Vector2(160, 26), 18, Palette.ACCENT, HORIZONTAL_ALIGNMENT_RIGHT)
 
-	xp_label = _make_label(I18n.t("hud.xp", [0, 80]), Vector2(40, 856), Vector2(300, 20), 12, Palette.MUTED)
+	xp_label = _make_label(I18n.t("hud.xp", [0, 80]), Vector2(40, 838), Vector2(120, 14), 10, Palette.MUTED)
 
 	hint_label = _make_label(
 		I18n.t("hud.hint"),
-		Vector2(40, 922), Vector2(640, 24), 12, Palette.MUTED, HORIZONTAL_ALIGNMENT_CENTER
+		Vector2(40, 934), Vector2(640, 18), 10, Palette.MUTED, HORIZONTAL_ALIGNMENT_CENTER
 	)
+
+	prep_label = _make_label("", Vector2(60, 296), Vector2(600, 56), 38, Palette.CYAN, HORIZONTAL_ALIGNMENT_CENTER)
+	prep_label.add_theme_constant_override("outline_size", 10)
+	prep_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.7))
+	prep_label.visible = false
 
 	toast_label = _make_label("", Vector2(60, 400), Vector2(600, 64), 40, Palette.CYAN, HORIZONTAL_ALIGNMENT_CENTER)
 	toast_label.add_theme_constant_override("outline_size", 10)
@@ -95,6 +101,12 @@ func _process(delta: float) -> void:
 		coins_label.scale = Vector2.ONE * (1.0 + 0.15 * _coin_pop)
 	else:
 		coins_label.scale = Vector2.ONE
+
+	if game.preparing:
+		prep_label.visible = true
+		prep_label.text = I18n.t("hud.prepare", [ceili(float(game.prep_timer))])
+	else:
+		prep_label.visible = false
 
 	destroyed_label.text = I18n.t("hud.destroyed", [int(game.blocks.destroyed)])
 
@@ -156,12 +168,12 @@ func _draw() -> void:
 		draw_line(Vector2(40.0 + i * seg_w, 816), Vector2(40.0 + (i + 1) * seg_w, 816), col, 2.0)
 
 	# 经验条
-	var bar := Rect2(40, 890, 640, 8)
+	var bar := Rect2(170, 844, 510, 5)
 	draw_rect(bar, Color(1, 1, 1, 0.07))
 	if _xp_ratio > 0.0:
 		var fill := Rect2(bar.position, Vector2(bar.size.x * _xp_ratio, bar.size.y))
 		draw_rect(fill, Palette.CYAN)
-		draw_rect(fill, Color(Palette.CYAN.r, Palette.CYAN.g, Palette.CYAN.b, 0.25), false, 3.0)
+		draw_rect(fill, Color(Palette.CYAN.r, Palette.CYAN.g, Palette.CYAN.b, 0.25), false, 2.0)
 	for i in range(1, 10):
 		var x := bar.position.x + bar.size.x * (i / 10.0)
 		draw_line(Vector2(x, bar.position.y), Vector2(x, bar.end.y), Color(0.03, 0.05, 0.1, 0.8), 1.0)
