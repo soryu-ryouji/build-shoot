@@ -69,7 +69,7 @@
 - 游戏内按 Esc 或点击右上角 `≡` 打开系统面板，战斗暂停；可继续、重开或返回主界面。
 - 设置包含中英文、全屏、怪物动画、场地网格和索敌提示，更改即时生效。
 - 设置保存到 `user://settings.cfg`；无头测试不会读取或改写用户配置。
-- 主界面使用原创成年女性战术角色，立绘为巨构风格：角色站在观景平台上遥望步行式移动都市；背景与人物分成两层素材，着色器按脚底、颈部、肩部和衣摆的局部权重做头颈转动、呼吸、手臂摆动与发梢／衣摆跟随，并叠加偶发阵风，长屏时整层左移避免被裁。战斗场景不加入人形单位，整体采用明亮工业背景、白色面板与信号橙强调色。
+- 主界面使用原创成年女性战术角色，立绘为巨构风格：角色站在观景平台上遥望步行式移动都市；背景和人物分层，人物再拆成腿、大衣、躯干、右臂和头五张图，各自绕脚底、髋、颈、肩和衣摆枢轴摆动，右臂与大衣用弹簧滞后跟随，长屏时整层左移避免被裁。战斗场景不加入人形单位，整体采用明亮工业背景、白色面板与信号橙强调色。
 
 ![主界面：遥望步行式移动都市巨构](menu_preview.png)
 
@@ -125,14 +125,14 @@ Godot_v4.7.2-stable_win64.exe --path . res://tools/screenshot.tscn
 
 ## 美术素材
 
-主界面背景与人物立绘（分两层）、战场底板、四类怪物以及商店与场上炮塔由本地 ComfyUI 的 `qwen_workflow` 生成，成品位于 `assets/ui/`。主界面人物在纯绿幕上单独生成，后处理按绿色强度抠像并压掉绿边，人物层和背景共用 720x960 设计稿坐标，`shaders/menu_character.gdshader` 以脚底、颈部、肩部和衣摆为锚点，按局部权重叠加头颈转动、呼吸、手臂摆动和发梢／衣摆的延迟跟随，并周期性加入阵风。每种怪物有一张四帧横向动画图集，按类型以 6～12 FPS 播放并使用不同相位；保留原碰撞矩形、受击后限时显示的血条和受击闪光。炮塔拆成基盘与炮塔头两层素材：基盘是严格俯视的扁平圆盘／八边形板，后处理时按 36／8 重旋转对称化，随瞄准旋转时不会出现光照翻转或透视变化；炮塔头按机身最宽处对齐基盘圆心，和基盘共用同一旋转轴，开炮只让头部后坐，放置预览使用同一套分层素材。需要重新生成时，先启动 `http://127.0.0.1:8188/`，再运行：
+主界面背景与人物立绘（分两层）、战场底板、四类怪物以及商店与场上炮塔由本地 ComfyUI 的 `qwen_workflow` 生成，成品位于 `assets/ui/`。主界面人物在纯绿幕上单独生成，后处理按绿色强度抠像并压掉绿边，放到 720x960 设计稿坐标后拆成腿部、大衣、躯干、右臂、头部五层，被上层遮住的接缝按邻接像素向内填充；`scripts/menu_character_rig.gd` 以脚底、髋、颈、肩和衣摆为枢轴分别旋转，步态、呼吸、摆臂和衣摆共用一套时间轴。每种怪物有一张四帧横向动画图集，按类型以 6～12 FPS 播放并使用不同相位；保留原碰撞矩形、受击后限时显示的血条和受击闪光。炮塔拆成基盘与炮塔头两层素材：基盘是严格俯视的扁平圆盘／八边形板，后处理时按 36／8 重旋转对称化，随瞄准旋转时不会出现光照翻转或透视变化；炮塔头按机身最宽处对齐基盘圆心，和基盘共用同一旋转轴，开炮只让头部后坐，放置预览使用同一套分层素材。需要重新生成时，先启动 `http://127.0.0.1:8188/`，再运行：
 
 ```bash
 python tools/generate_ui_assets.py all
 python tools/process_ui_assets.py
 ```
 
-后处理脚本需要 Pillow，负责尺寸调整、压暗战场、裁切单位、绿幕抠像、设置炮塔旋转轴心、基盘径向对称化与透明底处理。原始生成图写入 `assets/ui/source/`，可在成品确认后删除。只需重新制作战斗单位或怪物动画时，分别运行 `generate_ui_assets.py units`／`animations`，再运行 `process_ui_assets.py units`／`animations`；重做炮塔时先生成 `turret_base`／`turret_layers`（重型同理），再按顺序运行 `process_ui_assets.py bases` 和 `layers`；重做主界面时运行 `generate_ui_assets.py menu`（依次生成背景板和绿幕人物），再运行 `process_ui_assets.py menu`；挑选画面时可用 `--seed <数字>` 覆盖预设种子。
+后处理脚本需要 Pillow，负责尺寸调整、压暗战场、裁切单位、绿幕抠像、立绘拆层、设置炮塔旋转轴心、基盘径向对称化与透明底处理。重新生成或替换 PNG 后先运行一次 `--headless --path . --import`，否则游戏仍会读到旧的导入缓存。原始生成图写入 `assets/ui/source/`，可在成品确认后删除。只需重新制作战斗单位或怪物动画时，分别运行 `generate_ui_assets.py units`／`animations`，再运行 `process_ui_assets.py units`／`animations`；重做炮塔时先生成 `turret_base`／`turret_layers`（重型同理），再按顺序运行 `process_ui_assets.py bases` 和 `layers`；重做主界面时运行 `generate_ui_assets.py menu`（依次生成背景板和绿幕人物），再运行 `process_ui_assets.py menu`；挑选画面时可用 `--seed <数字>` 覆盖预设种子。
 
 主界面截图工具：
 
@@ -149,7 +149,7 @@ Godot_v4.7.2-stable_win64.exe --path . res://tools/menu_screenshot.tscn -- --set
 scenes/main_menu.tscn       主界面：开始、设置、退出
 scenes/main.tscn            游戏场景（节点由脚本创建）
 assets/ui/                  AI 生成的主界面背景与人物层、战场、怪物动画与炮塔分层素材
-shaders/menu_character.gdshader 主界面人物待机动效
+scripts/menu_character_rig.gd 主界面人物分层骨架与待机动效
 scripts/main_menu.gd        主界面布局与场景入口
 scripts/settings_panel.gd   主界面／游戏内共用设置面板
 scripts/game_settings.gd    设置存储、全屏与显示选项

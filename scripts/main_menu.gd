@@ -6,8 +6,7 @@ const Palette = preload("res://scripts/palette.gd")
 const SettingsPanel = preload("res://scripts/settings_panel.gd")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
 const MenuTexture = preload("res://assets/ui/menu_background.png")
-const MenuCharacterTexture = preload("res://assets/ui/menu_character.png")
-const MenuCharacterShader = preload("res://shaders/menu_character.gdshader")
+const MenuCharacterRig = preload("res://scripts/menu_character_rig.gd")
 # 立绘右边缘在设计稿中的位置（720x960），用于在更长的屏幕上把人整体挪回画面内
 const MENU_CHARACTER_RIGHT := 659.0 / 720.0
 
@@ -21,8 +20,7 @@ var mode_label: Label
 var title_box: VBoxContainer
 var actions_box: VBoxContainer
 var background: TextureRect
-var character: TextureRect
-var character_material: ShaderMaterial
+var character: Control
 
 
 func _ready() -> void:
@@ -45,16 +43,8 @@ func _build() -> void:
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
 
-	# 人物单独一层，尺寸跟背景的 cover 缩放一致，着色器负责待机动效
-	character = TextureRect.new()
-	character.texture = MenuCharacterTexture
-	character.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	character.stretch_mode = TextureRect.STRETCH_SCALE
-	character.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	character.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	character_material = ShaderMaterial.new()
-	character_material.shader = MenuCharacterShader
-	character.material = character_material
+	# 人物按背景的 cover 尺寸摆放，由 rig 自己驱动分层待机
+	character = MenuCharacterRig.new()
 	add_child(character)
 
 	title_box = VBoxContainer.new()

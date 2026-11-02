@@ -5,7 +5,7 @@ import argparse
 from pathlib import Path
 import statistics
 
-from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageStat
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "assets" / "ui" / "source"
@@ -27,6 +27,31 @@ MENU_CHARACTER_HEIGHT = 730
 MENU_CHARACTER_CENTER_X = 560
 MENU_CHARACTER_FEET_Y = 935
 
+# 立绘拆件用的多边形，坐标对应 720x960 设计稿
+MENU_HEAD = [
+    (506, 350), (497, 320), (503, 250), (515, 218), (545, 203), (585, 200),
+    (615, 210), (636, 240), (645, 285), (642, 310), (636, 320), (624, 326),
+    (614, 330), (602, 326), (590, 320), (578, 316), (566, 320), (554, 326),
+    (542, 328), (534, 322), (522, 338), (513, 352),
+]
+MENU_ARM_RIGHT = [
+    (600, 400), (606, 370), (622, 350), (642, 350), (655, 370), (660, 400),
+    (662, 440), (660, 480), (656, 515), (650, 545), (644, 570), (638, 592),
+    (635, 585), (631, 570), (627, 550), (622, 530), (615, 510), (610, 490),
+    (605, 470), (600, 450),
+]
+MENU_COAT = [
+    (462, 505), (540, 500), (575, 505), (650, 510), (672, 540), (676, 630),
+    (670, 700), (640, 715), (560, 712), (500, 710), (465, 700), (455, 640),
+    (456, 570),
+]
+# 左臂连同斜挎的枪械一起留在躯干层，避免枪带被拆断
+MENU_RIFLE = [
+    (445, 495), (495, 500), (500, 540), (492, 580), (486, 620), (490, 660),
+    (482, 700), (452, 705), (445, 650), (448, 580),
+]
+MENU_LEGS = [(452, 505), (676, 505), (676, 960), (452, 960)]
+
 
 def process_menu() -> None:
     background = Image.open(SOURCE / "menu_bg.png").convert("RGB")
@@ -34,7 +59,11 @@ def process_menu() -> None:
     background = ImageEnhance.Brightness(background).enhance(0.98)
     background.save(TARGET / "menu_background.png", optimize=True)
 
-    # 人物单独抠图后放进和背景同尺寸的透明画布，游戏里两张图共用 720x960 设计稿坐标
+    character = _place_menu_character()
+    split_menu_character(character)
+
+
+def _place_menu_character() -> Image.Image:
     character = _cut_chroma(Image.open(SOURCE / "menu_character.png"))
     bounds = character.getchannel("A").getbbox()
     if bounds is None:
@@ -55,7 +84,82 @@ def process_menu() -> None:
     shadow = shadow.filter(ImageFilter.GaussianBlur(7))
     layer.alpha_composite(shadow, (MENU_CHARACTER_CENTER_X - shadow_width // 2, MENU_CHARACTER_FEET_Y - 16))
     layer.alpha_composite(character, (left, top))
-    layer.save(TARGET / "menu_character.png", optimize=True)
+    return layer
+
+
+def _polygon(points: list[tuple[int, int]]) -> Image.Image:
+    mask = Image.new("L", MENU_SIZE, 0)
+    ImageDraw.Draw(mask).polygon(points, fill=255)
+    return mask
+
+
+def _rectangle(box: tuple[int, int, int, int]) -> Image.Image:
+    mask = Image.new("L", MENU_SIZE, 0)
+    ImageDraw.Draw(mask).rectangle(box, fill=255)
+    return mask
+
+
+def _inner_band(mask: Image.Image, radius: int) -> Image.Image:
+    return ImageChops.subtract(mask, mask.filter(ImageFilter.MinFilter(radius * 2 + 1)))
+
+
+def _fill_layer(character, known, fill_zone, alpha, iterations=26) -> Image.Image:
+    rgb = character.convert("RGB")
+    average = tuple(int(value) for value in ImageStat.Stat(rgb, known).mean)
+    filled = Image.new("RGB", MENU_SIZE, average)
+    filled.paste(rgb, mask=known)
+    for _ in range(iterations):
+        blurred = filled.filter(ImageFilter.GaussianBlur(3))
+        filled = Image.composite(blurred, filled, fill_zone)
+    result = filled.convert("RGBA")
+    # 保留原图的软边，内部切线做 1px 羽化
+    support = ImageChops.lighter(known, fill_zone).filter(ImageFilter.GaussianBlur(1.0))
+    result.putalpha(ImageChops.multiply(support, alpha))
+    return result
+
+
+def split_menu_character(character: Image.Image) -> None:
+    """把整张立绘拆成腿部、大衣、躯干、右臂、头部五层。
+
+    被上层挡住的区域按邻接像素向内填充一圈，动作幅度小于这一圈时不会露出底色。
+    """
+    soft_alpha = character.getchannel("A")
+    alpha = soft_alpha.point(lambda value: 255 if value > 40 else 0)
+    head = ImageChops.multiply(_polygon(MENU_HEAD), alpha)
+    arm = ImageChops.multiply(_polygon(MENU_ARM_RIGHT), alpha)
+    rifle = ImageChops.multiply(_polygon(MENU_RIFLE), alpha)
+
+    coat_region = ImageChops.multiply(_polygon(MENU_COAT), alpha)
+    coat_known = ImageChops.multiply(coat_region, ImageChops.invert(ImageChops.lighter(arm, rifle)))
+    coat_fill = ImageChops.multiply(
+        ImageChops.lighter(_inner_band(arm, 14), _inner_band(rifle, 10)),
+        ImageChops.invert(coat_known),
+    )
+
+    torso_region = ImageChops.lighter(
+        ImageChops.multiply(_rectangle((0, 0, MENU_SIZE[0], 535)), alpha), rifle
+    )
+    torso_known = ImageChops.multiply(torso_region, ImageChops.invert(ImageChops.lighter(head, arm)))
+    torso_fill = ImageChops.multiply(
+        ImageChops.lighter(_inner_band(head, 14), _inner_band(arm, 14)),
+        ImageChops.invert(torso_known),
+    )
+
+    legs_region = ImageChops.multiply(_polygon(MENU_LEGS), alpha)
+    legs_known = ImageChops.multiply(_rectangle((0, 712, MENU_SIZE[0], MENU_SIZE[1])), alpha)
+    legs_fill = ImageChops.subtract(legs_region, legs_known)
+
+    empty = Image.new("L", MENU_SIZE, 0)
+    layers = {
+        "legs": (legs_known, legs_fill),
+        "coat": (coat_known, coat_fill),
+        "torso": (torso_known, torso_fill),
+        "arm_r": (arm, empty),
+        "head": (head, empty),
+    }
+    for name, (known, fill_zone) in layers.items():
+        layer = _fill_layer(character, known, fill_zone, soft_alpha)
+        layer.save(TARGET / f"menu_char_{name}.png", optimize=True)
 
 
 def build_sprite(
