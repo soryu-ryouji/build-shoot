@@ -11,7 +11,7 @@
   "hud.bounces": "BOUNCES %d",
   "hud.level": "LV %02d",
   "hud.xp": "XP %d / %d",
-  "hud.hint": "MOUSE / TOUCH TO AIM    AUTO FIRE    R TO RESTART    L LANGUAGE",
+  "hud.hint": "AUTO LOCK & FIRE    CHOOSE UPGRADES    R TO RESTART    L LANGUAGE",
   "toast.upgrade_installed": "UPGRADE INSTALLED",
   "upgrade.title": "LEVEL UP",
   "upgrade.subtitle": "CHOOSE ONE UPGRADE    1 / 2 / 3",

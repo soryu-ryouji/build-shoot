@@ -81,6 +81,31 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
+## 自动炮塔的目标：优先选择最靠近底部、且还在炮塔上方的方块。
+## 同一行里选离炮塔最近的一块，方便炮塔左右扫射。
+func get_auto_target(origin: Vector2) -> Dictionary:
+	var best: Dictionary = {}
+	var best_y := -INF
+	var best_dx := INF
+	var max_y := origin.y - 12.0
+	for b in blocks:
+		if not bool(b.alive):
+			continue
+		var rect: Rect2 = b.rect
+		var c := rect.get_center()
+		if c.y > max_y:
+			continue
+		var dx := absf(c.x - origin.x)
+		if c.y > best_y + 0.5:
+			best = b
+			best_y = c.y
+			best_dx = dx
+		elif absf(c.y - best_y) <= 0.5 and dx < best_dx:
+			best = b
+			best_dx = dx
+	return best
+
+
 func damage(id: int, amount: int) -> Dictionary:
 	var b = by_id.get(id)
 	if b == null:

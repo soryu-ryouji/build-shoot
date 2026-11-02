@@ -41,6 +41,7 @@ var combo_timer := 0.0
 var active_balls: Array = []
 var pending_levels := 0
 var fire_timer := 0.0
+var shots_fired := 0
 
 var upgrades := {}
 var stats := {
@@ -113,9 +114,10 @@ func _draw() -> void:
 
 
 func _process(delta: float) -> void:
+	_update_auto_target()
 	fire_timer = maxf(0.0, fire_timer - delta)
 
-	# 炮塔默认持续开火，鼠标/触摸只负责调整方向
+	# 炮塔自动锁定并持续开火，玩家只负责升级
 	if auto_fire:
 		request_fire()
 
@@ -124,6 +126,16 @@ func _process(delta: float) -> void:
 		if combo_timer <= 0.0:
 			combo = 0
 
+
+func _update_auto_target() -> void:
+	if blocks == null or turret == null:
+		return
+	var target: Dictionary = blocks.get_auto_target(turret.global_position)
+	if target.is_empty():
+		turret.clear_target()
+		return
+	var rect: Rect2 = target.rect
+	turret.set_target(rect.get_center())
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -144,6 +156,9 @@ func request_fire() -> void:
 	# 枪的冷却独立结算，不等场上的球
 	if fire_timer > 0.0:
 		return
+	# 炮塔转到目标方向后才开火
+	if not turret.is_locked():
+		return
 
 	# 每次发射生成一颗独立的球，旧球继续飞行，不会被吞掉
 	fire_timer = float(stats.cooldown)
@@ -152,6 +167,7 @@ func request_fire() -> void:
 
 
 func _spawn_ball(pos: Vector2, dir: Vector2) -> void:
+	shots_fired += 1
 	var ball = Ball.new()
 	ball.setup(
 		self,

@@ -11,7 +11,7 @@
   "hud.bounces": "弹跳 %d",
   "hud.level": "等级 %02d",
   "hud.xp": "经验 %d / %d",
-  "hud.hint": "鼠标 / 触摸调整方向    自动开火    R 重开    L 语言",
+  "hud.hint": "自动锁定开火    升级时选择强化    R 重开    L 语言",
   "toast.upgrade_installed": "强化已安装",
   "upgrade.title": "升级",
   "upgrade.subtitle": "选择一个强化    1 / 2 / 3",

@@ -1,6 +1,6 @@
 extends Node
 
-## 无头冒烟测试：滚动方块、初始节奏、单球替换、弹跳耗尽、升级、经验。
+## 无头冒烟测试：滚动方块、自动锁定、自动开火、弹跳耗尽、升级、经验、i18n。
 ## 用法：
 ##   Godot_v4.7.2-stable_win64.exe --headless --fixed-fps 60 --path . res://tools/smoke_test.tscn
 
@@ -11,6 +11,7 @@ var tracked_id := -1
 var tracked_y := 0.0
 var target_id := -1
 var target_hp := 0
+var auto_shots_before := 0
 
 
 func _ready() -> void:
@@ -22,6 +23,16 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	frame += 1
+
+	if frame == 3:
+		_check(I18n.locale == "zh_CN", "default locale is Chinese")
+		_check(I18n.t("hud.ready") == "就绪", "Chinese translation loaded")
+		var missing := I18n.missing_keys("en")
+		_check(missing.is_empty(), "en locale has all keys: %s" % str(missing))
+		I18n.set_locale("en")
+		_check(I18n.t("hud.ready") == "READY", "English translation loads")
+		I18n.toggle_locale()
+		_check(I18n.locale == "zh_CN", "locale toggles back to Chinese")
 
 	if frame == 2:
 		_check(main.blocks.blocks.size() > 0, "initial stream populated")
@@ -48,11 +59,23 @@ func _process(_delta: float) -> void:
 			var rect: Rect2 = block.rect
 			_check(rect.position.y > tracked_y + 10.0, "blocks scroll downward")
 
-		var target := _lowest_block()
+		main._update_auto_target()
+		var target: Dictionary = main.blocks.get_auto_target(main.turret.global_position)
+		_check(not target.is_empty(), "auto target found")
+		_check(main.turret.has_target, "turret has a target")
 		target_id = int(target.id)
 		target_hp = int(target.hp)
-		_fire_at_lowest()
-		_check(main.active_balls.size() == 1, "ball spawned")
+
+		# 未对准目标时不能开火
+		main.turret.aim_angle = main.turret.target_angle + 0.4
+		main.fire_timer = 0.0
+		main.request_fire()
+		_check(main.active_balls.is_empty(), "shot blocked while turret is not locked")
+
+		# 对准后开火
+		main.turret.aim_angle = main.turret.target_angle
+		main.request_fire()
+		_check(main.active_balls.size() == 1, "ball spawned after lock")
 		_check(int(main.active_balls[0].bounces_left) == 0, "ball has no bounces at start")
 
 	if frame == 66:
@@ -61,7 +84,7 @@ func _process(_delta: float) -> void:
 		_check(main.active_balls.size() == 1 and main.active_balls[0] == before, "gun cooldown blocks refire")
 
 	if frame == 82:
-		_fire_at_lowest()
+		_fire_auto()
 		_check(main.active_balls.size() == 2, "consecutive shots keep the old ball")
 		if main.active_balls.size() == 2:
 			_check(main.active_balls[0] != main.active_balls[1], "each shot is a separate ball")
@@ -116,7 +139,7 @@ func _process(_delta: float) -> void:
 				main._apply_upgrade(String(def.id))
 		_check(int(main.stats.bounces) == 8, "bounce upgrades stack (0 + 4x2)")
 		_check(float(main.stats.crit) > 0.0, "crit upgrade applied")
-		_fire_at_lowest()
+		_fire_auto()
 		_check(main.active_balls.size() == 1, "can fire after previous ball vanished")
 		_check(int(main.active_balls[0].bounces_left) == 8, "new ball receives upgraded bounces")
 
@@ -134,13 +157,18 @@ func _process(_delta: float) -> void:
 				b.alive = false
 				b.queue_free()
 		main.active_balls.clear()
+		main.blocks.scroll_speed = 20.0
+		main._update_auto_target()
+		if main.turret.has_target:
+			main.turret.aim_angle = main.turret.target_angle
 		main.auto_fire = true
 		main.fire_timer = 0.0
+		auto_shots_before = int(main.shots_fired)
 
 	if frame == 520:
 		_check(main.blocks.blocks.size() < 200, "scrolled blocks are culled")
 		_check(main.blocks.spawned_rows > 4, "new rows keep spawning")
-		_check(main.active_balls.size() > 0, "auto fire spawns balls without input")
+		_check(int(main.shots_fired) > auto_shots_before, "auto fire shoots after lock without input")
 		_check(main.active_balls.size() < 40, "live ball count stays bounded")
 
 	if frame >= 540:
@@ -168,11 +196,12 @@ func _lowest_block() -> Dictionary:
 	return lowest
 
 
-func _fire_at_lowest() -> void:
-	var target := _lowest_block()
-	var rect: Rect2 = target.rect
-	var origin: Vector2 = main.turret.get_muzzle()
-	main.turret.aim_angle = (rect.get_center() - origin).angle()
+func _fire_auto() -> void:
+	main._update_auto_target()
+	if not main.turret.has_target:
+		return
+	main.turret.aim_angle = main.turret.target_angle
+	main.fire_timer = 0.0
 	main.request_fire()
 
 

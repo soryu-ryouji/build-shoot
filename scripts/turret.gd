@@ -1,17 +1,23 @@
 extends Node2D
 
-## 固定在底部的炮塔：鼠标/触摸瞄准，点击或空格发射。
+## 自动炮塔：锁定目标、平滑转向、自动开火。玩家不再控制方向。
 
 const Palette = preload("res://scripts/palette.gd")
 
 const BARREL_LENGTH := 54.0
-const AIM_MIN := -PI + 0.12
-const AIM_MAX := -0.12
+const AIM_MIN := -PI + 0.02
+const AIM_MAX := -0.02
+const TURN_SPEED := 14.0
+const LOCK_TOLERANCE := 0.05
 
 var game: Node
 var aim_angle := -PI / 2.0
+var has_target := false
+var target_pos := Vector2.ZERO
+var target_angle := -PI / 2.0
 
 var _recoil := 0.0
+var _time := 0.0
 
 
 func _ready() -> void:
@@ -20,8 +26,29 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	_time += delta
 	_recoil = maxf(0.0, _recoil - delta * 6.0)
+	if has_target:
+		aim_angle = lerp_angle(aim_angle, target_angle, clampf(delta * TURN_SPEED, 0.0, 1.0))
+		aim_angle = clampf(aim_angle, AIM_MIN, AIM_MAX)
 	queue_redraw()
+
+
+func set_target(pos: Vector2) -> void:
+	target_pos = pos
+	target_angle = clampf((pos - global_position).angle(), AIM_MIN, AIM_MAX)
+	has_target = true
+
+
+func clear_target() -> void:
+	has_target = false
+
+
+func is_locked() -> bool:
+	if not has_target:
+		return false
+	var diff := wrapf(aim_angle - target_angle, -PI, PI)
+	return absf(diff) <= LOCK_TOLERANCE
 
 
 func get_muzzle() -> Vector2:
@@ -32,31 +59,7 @@ func play_recoil() -> void:
 	_recoil = 1.0
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	# 只调整方向，开火由 main 的自动射击驱动
-	if event is InputEventMouseMotion:
-		_aim_at(event.position)
-	elif event is InputEventMouseButton:
-		if event.pressed:
-			_aim_at(event.position)
-	elif event is InputEventScreenTouch:
-		if event.pressed:
-			_aim_at(event.position)
-	elif event is InputEventScreenDrag:
-		_aim_at(event.position)
-
-
-func _aim_at(target: Vector2) -> void:
-	var d := target - global_position
-	if d.length_squared() < 4.0:
-		return
-	var a := d.angle()
-	if d.y >= 0.0:
-		a = AIM_MAX if d.x >= 0.0 else AIM_MIN
-	aim_angle = clampf(a, AIM_MIN, AIM_MAX)
-
-
-## 预测射线：用来画瞄准虚线，撞到方块/反射板/墙就停。
+## 预测射线：用来画瞄准虚线，撞到方块或墙就停。
 func _predict(origin: Vector2, direction: Vector2) -> Vector2:
 	var play_rect: Rect2 = game.get_play_rect()
 	var p := origin
@@ -90,6 +93,20 @@ func _draw() -> void:
 	if dots > 0:
 		draw_arc(hit, 10.0, 0.0, TAU, 24, Color(Palette.CYAN.r, Palette.CYAN.g, Palette.CYAN.b, 0.7), 1.5)
 		draw_circle(hit, 2.0, Color(Palette.CYAN.r, Palette.CYAN.g, Palette.CYAN.b, 0.85))
+
+	# 锁定环
+	if has_target:
+		var lock := target_pos - global_position
+		var pulse := 0.5 + 0.5 * sin(_time * 6.0)
+		draw_arc(lock, 24.0 + pulse * 2.0, 0.0, TAU, 32, Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.45 + pulse * 0.25), 1.5)
+		for k in 4:
+			var a := k * PI / 2.0
+			draw_line(
+				lock + Vector2.from_angle(a) * 19.0,
+				lock + Vector2.from_angle(a) * 27.0,
+				Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.6),
+				1.5
+			)
 
 	# 炮塔底座
 	draw_circle(Vector2.ZERO, 34.0, Color(Palette.CYAN.r, Palette.CYAN.g, Palette.CYAN.b, 0.06))
