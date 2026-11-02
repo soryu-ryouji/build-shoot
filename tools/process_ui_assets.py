@@ -158,8 +158,7 @@ LAYER_TARGETS = {
         "folds": 8,
     },
 }
-# 炮塔头落进基盘时，头部底边相对基盘中心下压的像素数
-HEAD_SEAT = 4
+# 头部贴图里炮塔机身的中心行对齐到基盘圆心
 
 
 def _background_color(image: Image.Image) -> tuple[int, int, int]:
@@ -201,6 +200,20 @@ def _split_parts(mask: Image.Image) -> int:
     if best_start < 0:
         raise RuntimeError("Turret layers must have a visible gap between head and base")
     return best_start + best_length // 2
+
+
+def _body_center(mask: Image.Image) -> float:
+    """炮塔机身的中心行：取最宽的那几行，忽略细长炮管。"""
+    rows: list[tuple[int, int]] = []
+    widest = 0
+    for y in range(mask.height):
+        box = mask.crop((0, y, mask.width, y + 1)).getbbox()
+        width = 0 if box is None else box[2] - box[0]
+        if width > 0:
+            rows.append((y, width))
+            widest = max(widest, width)
+    body = [y for y, width in rows if width > widest * 0.6]
+    return (body[0] + body[-1]) * 0.5
 
 
 def _composite(canvas: Image.Image, part: Image.Image, scale: float, left: float, top: float) -> None:
@@ -273,6 +286,8 @@ def process_turret_layers() -> None:
             raise RuntimeError("Run `process_ui_assets.py bases` before `layers`")
         base_canvas = Image.open(base_path).convert("RGBA")
 
+        # 炮塔机身中心对准基盘圆心，炮管向前伸出，避免炮身整体偏出基座
+        body_center = _body_center(strong.crop((0, 0, strong.width, split)))
         head_canvas = Image.new("RGBA", HEAD_CANVAS, (0, 0, 0, 0))
         head_center_x = (head_box[0] + head_box[2]) * 0.5
         _composite(
@@ -280,7 +295,7 @@ def process_turret_layers() -> None:
             head,
             scale,
             LAYER_SIZE * 0.5 - head_center_x * scale,
-            HEAD_PIVOT_Y + HEAD_SEAT - head_box[3] * scale,
+            HEAD_PIVOT_Y - body_center * scale,
         )
         head_canvas.save(TARGET / f"{name}_head_field.png", optimize=True)
 
