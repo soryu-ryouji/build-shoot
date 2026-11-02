@@ -71,6 +71,18 @@ func _process(_delta: float) -> void:
 		_check(main.blocks._speed_for_kind("swift") > main.blocks._speed_for_kind("normal"), "swift enemies move faster")
 		_check(main.blocks._speed_for_kind("armored") < main.blocks._speed_for_kind("normal"), "armored enemies move slower")
 		_check(float(main.blocks.HEALTH_BAR_HEIGHT) >= 6.0, "health bars are thicker than health pips")
+		_check(float(first.get("hp_bar_time", -1.0)) == 0.0, "health bar hidden before the first hit")
+		var hit: Dictionary = main.blocks.damage(int(first.id), 1)
+		_check(bool(hit.hit) and not bool(hit.destroyed), "damage registers on a healthy block")
+		_check(absf(float(first.hp_bar_time) - float(main.blocks.HEALTH_BAR_DURATION)) < 0.001, "health bar appears on hit")
+		_check(is_equal_approx(float(main.blocks.HEALTH_BAR_DURATION), 3.0), "health bar lasts three seconds")
+		# 手动推进一帧后再补一刀，确认倒计时被刷新而不是继续递减
+		main.blocks._process(1.0)
+		_check(float(first.hp_bar_time) < float(main.blocks.HEALTH_BAR_DURATION), "health bar countdown ticks down")
+		main.blocks.damage(int(first.id), 1)
+		_check(absf(float(first.hp_bar_time) - float(main.blocks.HEALTH_BAR_DURATION)) < 0.001, "repeated hits refresh the health bar timer")
+		main.blocks._process(float(main.blocks.HEALTH_BAR_DURATION) + 0.1)
+		_check(float(first.hp_bar_time) == 0.0, "health bar disappears after the timer runs out")
 		var lowest := _lowest_block()
 		tracked_id = int(lowest.id)
 		var tracked_rect: Rect2 = lowest.rect

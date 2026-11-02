@@ -18,7 +18,6 @@ var coins_title_label: Label
 var destroyed_label: Label
 var balls_label: Label
 var bounce_label: Label
-var prep_label: Label
 var toast_label: Label
 var settings_button: Button
 
@@ -108,11 +107,6 @@ func _build() -> void:
 	balls_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bounce_label = _make_label(status_row, "", 11, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
 
-	prep_label = _make_label(self, "", 32, Palette.ACCENT, HORIZONTAL_ALIGNMENT_CENTER)
-	prep_label.add_theme_constant_override("outline_size", 4)
-	prep_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.55))
-	prep_label.visible = false
-
 	toast_label = _make_label(self, "", 25, Palette.ACCENT, HORIZONTAL_ALIGNMENT_CENTER)
 	toast_label.add_theme_constant_override("outline_size", 4)
 	toast_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.55))
@@ -156,10 +150,8 @@ func _layout() -> void:
 	status_row.size = Vector2(maxf(160.0, status_width), 24)
 
 	var message_width := minf(420.0, view.x - 32.0)
-	prep_label.size = Vector2(message_width, 64)
-	prep_label.position = Vector2((view.x - message_width) * 0.5, view.y * 0.45 - 32.0)
 	toast_label.size = Vector2(message_width, 54)
-	toast_label.position = Vector2((view.x - message_width) * 0.5, view.y * 0.45 + 40.0)
+	toast_label.position = Vector2((view.x - message_width) * 0.5, view.y * 0.45 - 20.0)
 	queue_redraw()
 
 
@@ -184,10 +176,6 @@ func _process(delta: float) -> void:
 		coins_label.scale = Vector2.ONE * (1.0 + 0.12 * _coin_pop)
 	else:
 		coins_label.scale = Vector2.ONE
-
-	prep_label.visible = game.preparing
-	if game.preparing:
-		prep_label.text = I18n.t("hud.prepare", [ceili(float(game.prep_timer))])
 
 	destroyed_label.text = I18n.t("hud.destroyed", [int(game.blocks.destroyed)])
 	var ball_count: int = game.active_balls.size()
@@ -224,8 +212,6 @@ func _draw() -> void:
 		draw_line(Vector2(status_row.position.x, y), Vector2(status_row.position.x + status_row.size.x, y), Color(0.10, 0.12, 0.13, 0.20), 1.0)
 		draw_rect(Rect2(status_row.position.x - 12, status_row.position.y + 7, 8, 8), Palette.ACCENT)
 
-	if game != null and game.preparing:
-		draw_style_box(_message_style, Rect2(prep_label.position + Vector2(100, 4), Vector2(prep_label.size.x - 200, 56)))
 	if toast_label.modulate.a > 0.0:
 		_message_style.bg_color.a = 0.96 * toast_label.modulate.a
 		_message_style.border_color.a = 0.75 * toast_label.modulate.a

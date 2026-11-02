@@ -31,6 +31,8 @@ const KIND_SWIFT := "swift"
 const KIND_ARMORED := "armored"
 const KIND_ELITE := "elite"
 const HEALTH_BAR_HEIGHT := 6.0
+## 受击后血条显示的持续时间，再次受击会刷新
+const HEALTH_BAR_DURATION := 3.0
 const ANIMATION_FRAME_SIZE := 256.0
 
 var blocks: Array[Dictionary] = []
@@ -100,7 +102,16 @@ func _process(delta: float) -> void:
 		if GameSettings.animate_monsters:
 			_animation_time += delta
 		queue_redraw()
+	var any_hp_bar := false
+	for b in blocks:
+		var bar_time := float(b.get("hp_bar_time", 0.0))
+		if bar_time > 0.0:
+			b.hp_bar_time = maxf(0.0, bar_time - delta)
+			any_hp_bar = true
+
 	if not _flashing:
+		if any_hp_bar:
+			queue_redraw()
 		return
 	var any := false
 	for b in blocks:
@@ -164,9 +175,11 @@ func damage(id: int, amount: int) -> Dictionary:
 
 	block.hp = int(block.hp) - amount
 	block.flash = 1.0
+	block.hp_bar_time = HEALTH_BAR_DURATION
 	_flashing = true
 	if int(block.hp) <= 0:
 		block.alive = false
+		block.hp_bar_time = 0.0
 		destroyed += 1
 		queue_redraw()
 		return {
@@ -280,6 +293,7 @@ func _spawn_row(y: float) -> void:
 			"speed_scale": _speed_for_kind(kind),
 			"color": color,
 			"flash": 0.0,
+			"hp_bar_time": 0.0,
 			"alive": true,
 		}
 		blocks.append(block)
@@ -378,5 +392,6 @@ func _draw() -> void:
 			else:
 				draw_rect(inner, Color(1.0, 1.0, 1.0, 0.45 * flash))
 
-		# 用连续粗血条替代血点，高血量怪物也能准确显示剩余比例
-		_draw_health_bar(inner, hp, max_hp)
+		# 血条只在受击后的短时间内显示，避免长时间占满屏幕
+		if float(b.get("hp_bar_time", 0.0)) > 0.0 and hp < max_hp:
+			_draw_health_bar(inner, hp, max_hp)
