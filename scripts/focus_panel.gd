@@ -3,6 +3,7 @@ extends Control
 ## 点击已放置炮塔后弹出的聚焦面板：属性、射程、发射数、拆除按钮。
 
 const Palette = preload("res://scripts/palette.gd")
+const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
 
 var game: Node
 var turret: Node = null
@@ -85,6 +86,8 @@ func _ready() -> void:
 	add_child(dismantle_button)
 
 	I18n.locale_changed.connect(_on_locale_changed)
+	get_viewport().size_changed.connect(_layout)
+	_layout()
 
 
 func _make_label(pos: Vector2, label_size: Vector2, font_size: int, color: Color, align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
@@ -112,10 +115,21 @@ func _button_style(fill: Color, border: Color) -> StyleBoxFlat:
 func show_turret(t: Node) -> void:
 	turret = t
 	_accent = Palette.ACCENT
-	position.x = 30.0 if t.global_position.x > 360.0 else 426.0
 	visible = true
+	_layout()
 	_refresh_texts()
 	queue_redraw()
+
+
+func _layout() -> void:
+	var view := ResponsiveLayout.viewport_size(self)
+	var margin := ResponsiveLayout.margin(self)
+	position.y = clampf((view.y - size.y) * 0.5, 92.0, maxf(92.0, view.y - size.y - 24.0))
+	if turret != null and is_instance_valid(turret):
+		var screen_x: float = game.world_to_screen(turret.global_position).x
+		position.x = margin if screen_x > view.x * 0.5 else view.x - size.x - margin
+	else:
+		position.x = view.x - size.x - margin
 
 
 func hide_panel() -> void:

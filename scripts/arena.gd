@@ -8,6 +8,7 @@ const ArenaTexture = preload("res://assets/ui/arena.png")
 const PLAY_RECT := Rect2(64.0, 112.0, 592.0, 688.0)
 const FRAME_RECT := Rect2(48.0, 96.0, 624.0, 720.0)
 const TEXTURE_RECT := Rect2(0.0, 0.0, 720.0, 960.0)
+const TEXTURE_TILES := Rect2(-1440.0, -1920.0, 3600.0, 4800.0)
 
 
 func get_play_rect() -> Rect2:
@@ -20,7 +21,8 @@ func _ready() -> void:
 
 func _draw() -> void:
 	draw_rect(TEXTURE_RECT, Palette.ARENA_BG)
-	draw_texture_rect(ArenaTexture, TEXTURE_RECT, false, Color.WHITE)
+	# 长屏与横屏超出原图时延续地图，而不是露出纯色空白。
+	draw_texture_rect(ArenaTexture, TEXTURE_TILES, true, Color.WHITE)
 	# 中央战斗区只轻微统一明度，四周地图细节保持完整。
 	draw_rect(FRAME_RECT, Color(Palette.PAPER, 0.16))
 

@@ -14,6 +14,7 @@ const FocusPanel = preload("res://scripts/focus_panel.gd")
 const PlacedTurret = preload("res://scripts/placed_turret.gd")
 const PlacementGhost = preload("res://scripts/placement_ghost.gd")
 const SettingsPanel = preload("res://scripts/settings_panel.gd")
+const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
 
 const PREP_TIME := 5.0
 const PLACE_GRID := 64.0
@@ -28,8 +29,8 @@ var placement_ghost: Node2D
 var hud: Control
 var shop_bar: Control
 var focus_panel: Control
-var settings_button: Button
 var settings_panel: Control
+var world_camera: Camera2D
 
 var placed_turrets: Array = []
 var selected_turret: Node = null
@@ -100,6 +101,12 @@ func _setup_nodes() -> void:
 	placement_ghost.name = "PlacementGhost"
 	add_child(placement_ghost)
 
+	world_camera = Camera2D.new()
+	world_camera.name = "WorldCamera"
+	world_camera.position = Vector2(360, 456)
+	add_child(world_camera)
+	world_camera.make_current()
+
 	var hud_layer := CanvasLayer.new()
 	hud_layer.name = "HudLayer"
 	hud_layer.layer = 1
@@ -109,6 +116,7 @@ func _setup_nodes() -> void:
 	hud.name = "Hud"
 	hud.game = self
 	hud_layer.add_child(hud)
+	hud.settings_requested.connect(open_settings)
 
 	var ui_layer := CanvasLayer.new()
 	ui_layer.name = "UILayer"
@@ -128,31 +136,33 @@ func _setup_nodes() -> void:
 	focus_panel.game = self
 	ui_layer.add_child(focus_panel)
 
-	settings_button = Button.new()
-	settings_button.name = "SettingsButton"
-	settings_button.text = "≡"
-	settings_button.tooltip_text = I18n.t("settings.open")
-	settings_button.position = Vector2(650, 27)
-	settings_button.size = Vector2(32, 36)
-	settings_button.flat = true
-	settings_button.focus_mode = Control.FOCUS_NONE
-	settings_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	settings_button.add_theme_font_size_override("font_size", 20)
-	settings_button.add_theme_color_override("font_color", Palette.INK)
-	settings_button.add_theme_color_override("font_hover_color", Palette.ACCENT)
-	settings_button.pressed.connect(open_settings)
-	ui_layer.add_child(settings_button)
-
 	settings_panel = SettingsPanel.new()
 	settings_panel.name = "SettingsPanel"
 	ui_layer.add_child(settings_panel)
 	settings_panel.closed.connect(_on_settings_closed)
 	settings_panel.restart_requested.connect(_on_settings_restart)
 	settings_panel.menu_requested.connect(_on_settings_menu)
+	get_viewport().size_changed.connect(_layout)
+	_layout()
+
+
+func _layout() -> void:
+	var view := ResponsiveLayout.viewport_size(self)
+	# 纯竖屏按宽度适配，左右各保留 8 逻辑像素；高度不反向压缩战场。
+	var zoom := (view.x - 16.0) / 624.0
+	world_camera.zoom = Vector2.ONE * zoom
+
+
+func screen_to_world(pos: Vector2) -> Vector2:
+	return get_viewport().get_canvas_transform().affine_inverse() * pos
+
+
+func world_to_screen(pos: Vector2) -> Vector2:
+	return get_viewport().get_canvas_transform() * pos
 
 
 func _draw() -> void:
-	draw_rect(Rect2(-40.0, -40.0, 800.0, 1040.0), Palette.ARENA_BG)
+	draw_rect(Rect2(-3000.0, -3000.0, 6000.0, 6000.0), Palette.ARENA_BG)
 
 
 func open_settings() -> void:
@@ -194,9 +204,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		_handle_world_click(event.position)
+		_handle_world_click(screen_to_world(event.position))
 	elif event is InputEventScreenTouch and event.pressed:
-		_handle_world_click(event.position)
+		_handle_world_click(screen_to_world(event.position))
 
 
 # ---------------------------------------------------------------- 球
@@ -236,11 +246,11 @@ func _on_shop_drag_started(item_id: String) -> void:
 
 
 func _on_shop_drag_moved(pos: Vector2) -> void:
-	update_placement(pos)
+	update_placement(screen_to_world(pos))
 
 
 func _on_shop_drag_released(item_id: String, pos: Vector2) -> void:
-	finish_placement(item_id, pos)
+	finish_placement(item_id, screen_to_world(pos))
 
 
 func begin_placement(item_id: String) -> void:
@@ -256,7 +266,7 @@ func begin_placement(item_id: String) -> void:
 	placing_id = item_id
 	placing_cost = int(item.cost)
 	placement_ghost.begin(item)
-	update_placement(get_viewport().get_mouse_position())
+	update_placement(screen_to_world(get_viewport().get_mouse_position()))
 
 
 func update_placement(pos: Vector2) -> void:
