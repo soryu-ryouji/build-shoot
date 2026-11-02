@@ -6,6 +6,10 @@ const Palette = preload("res://scripts/palette.gd")
 const SettingsPanel = preload("res://scripts/settings_panel.gd")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
 const MenuTexture = preload("res://assets/ui/menu_background.png")
+const MenuCharacterTexture = preload("res://assets/ui/menu_character.png")
+const MenuCharacterShader = preload("res://shaders/menu_character.gdshader")
+# 立绘右边缘在设计稿中的位置（720x960），用于在更长的屏幕上把人整体挪回画面内
+const MENU_CHARACTER_RIGHT := 659.0 / 720.0
 
 var start_button: Button
 var settings_button: Button
@@ -17,6 +21,8 @@ var mode_label: Label
 var title_box: VBoxContainer
 var actions_box: VBoxContainer
 var background: TextureRect
+var character: TextureRect
+var character_material: ShaderMaterial
 
 
 func _ready() -> void:
@@ -38,6 +44,18 @@ func _build() -> void:
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
+
+	# 人物单独一层，尺寸跟背景的 cover 缩放一致，着色器负责待机动效
+	character = TextureRect.new()
+	character.texture = MenuCharacterTexture
+	character.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	character.stretch_mode = TextureRect.STRETCH_SCALE
+	character.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	character.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	character_material = ShaderMaterial.new()
+	character_material.shader = MenuCharacterShader
+	character.material = character_material
+	add_child(character)
 
 	title_box = VBoxContainer.new()
 	title_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -114,6 +132,7 @@ func _style(fill: Color, border: Color, accent: bool) -> StyleBoxFlat:
 
 func _layout() -> void:
 	background.texture = MenuTexture
+	_layout_character()
 	var safe := ResponsiveLayout.safe_rect(self)
 	var margin := ResponsiveLayout.margin(self)
 	var width := minf(clampf(safe.size.x * 0.46, 260.0, 360.0), safe.size.x - margin * 2.0)
@@ -123,6 +142,20 @@ func _layout() -> void:
 	# 功能菜单位于左侧中部，避免长屏设备上落到拇指难以触及的底部。
 	actions_box.position = Vector2(safe.position.x + margin, safe.position.y + safe.size.y * 0.46)
 	queue_redraw()
+
+
+func _layout_character() -> void:
+	var view := size
+	if view.x <= 0.0 or view.y <= 0.0:
+		return
+	# 人物层固定按设计稿比例缩放，和背景 cover 映射重合；长屏时整体左移，避免右侧被裁
+	var cover := maxf(view.x / 720.0, view.y / 960.0)
+	var drawn := Vector2(720.0, 960.0) * cover
+	var origin := (view - drawn) * 0.5
+	var right := origin.x + MENU_CHARACTER_RIGHT * drawn.x
+	origin.x -= maxf(0.0, right - (view.x - 14.0))
+	character.size = drawn
+	character.position = origin
 
 
 func _refresh_texts() -> void:

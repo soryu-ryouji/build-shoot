@@ -5,7 +5,7 @@ import argparse
 from pathlib import Path
 import statistics
 
-from PIL import Image, ImageChops, ImageEnhance, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "assets" / "ui" / "source"
@@ -21,19 +21,41 @@ def process_arena() -> None:
     image.save(TARGET / "arena.png", optimize=True)
 
 
+MENU_SIZE = (720, 960)
+# 人物立绘单独成层：脚底落在观察甲板上，右侧留白避开左侧菜单
+MENU_CHARACTER_HEIGHT = 730
+MENU_CHARACTER_CENTER_X = 560
+MENU_CHARACTER_FEET_Y = 935
+
+
 def process_menu() -> None:
-    image = Image.open(SOURCE / "menu.png").convert("RGB")
-    # Cover the viewport without changing the character's aspect ratio.
-    scale = max(720.0 / image.width, 960.0 / image.height)
-    resized = image.resize(
-        (round(image.width * scale), round(image.height * scale)),
+    background = Image.open(SOURCE / "menu_bg.png").convert("RGB")
+    background = background.resize(MENU_SIZE, Image.Resampling.LANCZOS)
+    background = ImageEnhance.Brightness(background).enhance(0.98)
+    background.save(TARGET / "menu_background.png", optimize=True)
+
+    # 人物单独抠图后放进和背景同尺寸的透明画布，游戏里两张图共用 720x960 设计稿坐标
+    character = _cut_chroma(Image.open(SOURCE / "menu_character.png"))
+    bounds = character.getchannel("A").getbbox()
+    if bounds is None:
+        raise RuntimeError("No foreground found in menu_character.png")
+    character = character.crop(bounds)
+    scale = MENU_CHARACTER_HEIGHT / character.height
+    character = character.resize(
+        (max(1, round(character.width * scale)), MENU_CHARACTER_HEIGHT),
         Image.Resampling.LANCZOS,
     )
-    left = (resized.width - 720) // 2
-    top = (resized.height - 960) // 2
-    image = resized.crop((left, top, left + 720, top + 960))
-    image = ImageEnhance.Brightness(image).enhance(0.98)
-    image.save(TARGET / "menu_background.png", optimize=True)
+    left = round(MENU_CHARACTER_CENTER_X - character.width * 0.5)
+    top = MENU_CHARACTER_FEET_Y - character.height
+
+    layer = Image.new("RGBA", MENU_SIZE, (0, 0, 0, 0))
+    shadow_width = max(40, round(character.width * 0.92))
+    shadow = Image.new("RGBA", (shadow_width, 26), (0, 0, 0, 0))
+    ImageDraw.Draw(shadow).ellipse((0, 2, shadow_width - 1, 23), fill=(0, 0, 0, 96))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(7))
+    layer.alpha_composite(shadow, (MENU_CHARACTER_CENTER_X - shadow_width // 2, MENU_CHARACTER_FEET_Y - 16))
+    layer.alpha_composite(character, (left, top))
+    layer.save(TARGET / "menu_character.png", optimize=True)
 
 
 def build_sprite(
@@ -179,6 +201,23 @@ def _cut_foreground(image: Image.Image) -> tuple[Image.Image, Image.Image]:
     rgba = image.convert("RGBA")
     rgba.putalpha(alpha)
     return rgba, strong
+
+
+def _cut_chroma(image: Image.Image) -> Image.Image:
+    """绿幕抠像：按绿色强度取 alpha，并把残留绿边压回中性色。"""
+    rgb = image.convert("RGB")
+    red, green, blue = rgb.split()
+    excess = ImageChops.subtract(green, ImageChops.lighter(red, blue))
+    alpha = excess.point(lambda value: 255 - max(0, min(255, round((value - 20) * 255 / 55))))
+    alpha = alpha.filter(ImageFilter.GaussianBlur(0.6))
+    # 只压掉绿色分量（G 超过 max(R, B) 的部分），橙红装饰色不受影响
+    despilled = Image.merge(
+        "RGB",
+        (red, ImageChops.darker(green, ImageChops.lighter(red, blue)), blue),
+    )
+    result = Image.blend(rgb, despilled, 0.9)
+    result.putalpha(alpha)
+    return result
 
 
 def _row_filled(mask: Image.Image, y: int) -> bool:
