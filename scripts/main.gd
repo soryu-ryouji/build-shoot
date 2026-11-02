@@ -39,8 +39,6 @@ var level := 1
 var xp := 0
 var xp_needed := 80
 var coins := 0
-var combo := 0
-var combo_timer := 0.0
 var active_balls: Array = []
 var pending_levels := 0
 var fire_timer := 0.0
@@ -127,11 +125,6 @@ func _process(delta: float) -> void:
 	# 炮塔自动锁定并持续开火，玩家只负责升级
 	if auto_fire:
 		request_fire()
-
-	if combo > 0:
-		combo_timer -= delta
-		if combo_timer <= 0.0:
-			combo = 0
 
 func _update_auto_target() -> void:
 	if blocks == null or turret == null:
@@ -229,13 +222,9 @@ func hit_block(id: int, amount: int, depth: int = 0, hit_pos: Vector2 = Vector2.
 
 
 func _reward_block(max_hp: int) -> void:
-	combo += 1
-	combo_timer = 2.4
 	coins += maxi(1, max_hp)
-	var combo_mult := 1.0 + minf((combo - 1) * 0.06, 1.0)
-	var gain := int(round((4.0 + max_hp * 2.0) * combo_mult * float(stats.salvage)))
+	var gain := int(round((4.0 + max_hp * 2.0) * float(stats.salvage)))
 	add_xp(gain)
-	hud.pop_combo(combo)
 	hud.pop_coins()
 
 

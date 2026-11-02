@@ -30,7 +30,5 @@
   "upgrade.salvage.desc": "+25% XP from blocks",
   "upgrade.big.name": "BIG GUNS",
   "upgrade.big.desc": "+2 ball radius",
-  "hud.coins": "COINS %d",
-  "hud.combo": "COMBO",
-  "hud.combo_value": "x%d"
+  "hud.coins": "COINS %d"
 }

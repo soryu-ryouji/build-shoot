@@ -1,6 +1,6 @@
 extends Control
 
-## 界面：顶部模式/金币/连击/击碎数，底部球状态/等级/经验条，中间飘字。
+## 界面：顶部模式/金币/击碎数，底部球状态/等级/经验条，中间飘字。
 ## 所有文案通过 I18n 的 key 读取，默认中文。
 
 const Palette = preload("res://scripts/palette.gd")
@@ -10,8 +10,6 @@ var game: Node
 var mode_label: Label
 var tag_label: Label
 var coins_label: Label
-var combo_caption: Label
-var combo_label: Label
 var destroyed_label: Label
 var balls_label: Label
 var bounce_label: Label
@@ -22,7 +20,6 @@ var toast_label: Label
 
 var _xp_ratio := 0.0
 var _toast_time := 0.0
-var _combo_pop := 0.0
 var _coin_pop := 0.0
 
 
@@ -36,22 +33,16 @@ func _ready() -> void:
 
 
 func _build() -> void:
-	mode_label = _make_label(I18n.t("hud.mode"), Vector2(40, 16), Vector2(320, 40), 28, Palette.TEXT, HORIZONTAL_ALIGNMENT_LEFT)
+	mode_label = _make_label(I18n.t("hud.mode"), Vector2(40, 16), Vector2(260, 40), 28, Palette.TEXT, HORIZONTAL_ALIGNMENT_LEFT)
 	mode_label.add_theme_constant_override("outline_size", 6)
 	mode_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.6))
 
 	tag_label = _make_label(I18n.t("hud.tag"), Vector2(40, 56), Vector2(420, 26), 16, Palette.MUTED)
 
-	coins_label = _make_label(I18n.t("hud.coins", [0]), Vector2(330, 14), Vector2(190, 32), 22, Palette.ACCENT)
+	coins_label = _make_label(I18n.t("hud.coins", [0]), Vector2(330, 14), Vector2(140, 32), 22, Palette.ACCENT)
 	coins_label.pivot_offset = Vector2(0, 16)
 
-	combo_caption = _make_label(I18n.t("hud.combo"), Vector2(540, 12), Vector2(140, 20), 14, Palette.MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
-	combo_label = _make_label("x1", Vector2(540, 22), Vector2(140, 44), 34, Palette.ACCENT, HORIZONTAL_ALIGNMENT_RIGHT)
-	combo_label.add_theme_constant_override("outline_size", 8)
-	combo_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.65))
-	combo_label.pivot_offset = Vector2(70, 22)
-
-	destroyed_label = _make_label(I18n.t("hud.destroyed", [0]), Vector2(480, 70), Vector2(200, 20), 13, Palette.MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
+	destroyed_label = _make_label(I18n.t("hud.destroyed", [0]), Vector2(480, 18), Vector2(200, 22), 14, Palette.MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
 
 	balls_label = _make_label(I18n.t("hud.ball_many", [0]), Vector2(40, 824), Vector2(260, 32), 22, Palette.CYAN)
 	bounce_label = _make_label(I18n.t("hud.ready"), Vector2(280, 830), Vector2(160, 24), 14, Palette.CYAN, HORIZONTAL_ALIGNMENT_CENTER)
@@ -68,9 +59,6 @@ func _build() -> void:
 	toast_label.add_theme_constant_override("outline_size", 10)
 	toast_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.7))
 	toast_label.modulate.a = 0.0
-
-	combo_caption.visible = false
-	combo_label.visible = false
 
 
 func _make_label(text: String, pos: Vector2, size: Vector2, font_size: int, color: Color, align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
@@ -90,7 +78,6 @@ func _make_label(text: String, pos: Vector2, size: Vector2, font_size: int, colo
 func _refresh_static_texts() -> void:
 	mode_label.text = I18n.t("hud.mode")
 	tag_label.text = I18n.t("hud.tag")
-	combo_caption.text = I18n.t("hud.combo")
 	hint_label.text = I18n.t("hud.hint")
 
 
@@ -108,19 +95,6 @@ func _process(delta: float) -> void:
 		coins_label.scale = Vector2.ONE * (1.0 + 0.15 * _coin_pop)
 	else:
 		coins_label.scale = Vector2.ONE
-
-	if int(game.combo) >= 2:
-		combo_caption.visible = true
-		combo_label.visible = true
-		combo_label.text = I18n.t("hud.combo_value", [int(game.combo)])
-		if _combo_pop > 0.0:
-			_combo_pop = maxf(0.0, _combo_pop - delta * 4.0)
-			combo_label.scale = Vector2.ONE * (1.0 + 0.28 * _combo_pop)
-		else:
-			combo_label.scale = Vector2.ONE
-	else:
-		combo_caption.visible = false
-		combo_label.visible = false
 
 	destroyed_label.text = I18n.t("hud.destroyed", [int(game.blocks.destroyed)])
 
@@ -146,14 +120,7 @@ func _process(delta: float) -> void:
 	else:
 		toast_label.modulate.a = 0.0
 
-	combo_caption.visible = false
-	combo_label.visible = false
-
 	queue_redraw()
-
-
-func pop_combo(_value: int) -> void:
-	_combo_pop = 1.0
 
 
 func pop_coins() -> void:

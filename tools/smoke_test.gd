@@ -134,7 +134,6 @@ func _process(_delta: float) -> void:
 		var before_particles: int = int(main.effects.count())
 		main.hit_block(int(target.id), 999)
 		_check(int(main.blocks.destroyed) == before_destroyed + 1, "direct hit destroys a block")
-		_check(int(main.combo) > 0, "combo counted")
 		_check(int(main.coins) >= before_coins + reward, "block destruction awards coins")
 		_check(int(main.effects.count()) > before_particles, "hit spawns particles")
 		_resolve_all_upgrades()
