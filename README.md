@@ -69,9 +69,9 @@
 - 游戏内按 Esc 或点击右上角 `≡` 打开系统面板，战斗暂停；可继续、重开或返回主界面。
 - 设置包含中英文、全屏、怪物动画、场地网格和索敌提示，更改即时生效。
 - 设置保存到 `user://settings.cfg`；无头测试不会读取或改写用户配置。
-- 主界面使用原创成年女性战术角色；战斗场景不加入人形单位，整体采用明亮工业背景、白色面板与信号橙强调色。
+- 主界面使用原创成年女性战术角色，立绘为巨构风格：角色站在观景平台上遥望步行式移动都市；战斗场景不加入人形单位，整体采用明亮工业背景、白色面板与信号橙强调色。
 
-![主界面：无人炮塔阵地与战术终端菜单](menu_preview.png)
+![主界面：遥望步行式移动都市巨构](menu_preview.png)
 
 ## 多语言（i18n）
 
@@ -125,14 +125,14 @@ Godot_v4.7.2-stable_win64.exe --path . res://tools/screenshot.tscn
 
 ## 美术素材
 
-主界面背景、战场底板、四类怪物以及商店与场上炮塔由本地 ComfyUI 的 `qwen_workflow` 生成，成品位于 `assets/ui/`。每种怪物有一张四帧横向动画图集，按类型以 6～12 FPS 播放并使用不同相位；保留原碰撞矩形、受击后限时显示的血条和受击闪光。炮塔 sprite 随瞄准方向旋转，放置预览使用同一套素材。需要重新生成时，先启动 `http://127.0.0.1:8188/`，再运行：
+主界面背景（移动都市巨构 key visual）、战场底板、四类怪物以及商店与场上炮塔由本地 ComfyUI 的 `qwen_workflow` 生成，成品位于 `assets/ui/`。每种怪物有一张四帧横向动画图集，按类型以 6～12 FPS 播放并使用不同相位；保留原碰撞矩形、受击后限时显示的血条和受击闪光。炮塔 sprite 随瞄准方向旋转，放置预览使用同一套素材。需要重新生成时，先启动 `http://127.0.0.1:8188/`，再运行：
 
 ```bash
 python tools/generate_ui_assets.py all
 python tools/process_ui_assets.py
 ```
 
-后处理脚本需要 Pillow，负责尺寸调整、压暗战场、裁切单位、设置炮塔旋转轴心和透明底处理。原始生成图写入 `assets/ui/source/`，可在成品确认后删除。只需重新制作战斗单位或怪物动画时，分别运行 `generate_ui_assets.py units`／`animations`，再运行 `process_ui_assets.py units`／`animations`。
+后处理脚本需要 Pillow，负责尺寸调整、压暗战场、裁切单位、设置炮塔旋转轴心和透明底处理。原始生成图写入 `assets/ui/source/`，可在成品确认后删除。只需重新制作战斗单位或怪物动画时，分别运行 `generate_ui_assets.py units`／`animations`，再运行 `process_ui_assets.py units`／`animations`；挑选主界面画面时可用 `generate_ui_assets.py menu --seed <数字>` 覆盖预设种子。
 
 主界面截图工具：
 

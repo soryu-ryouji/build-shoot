@@ -41,17 +41,24 @@ PRESETS = {
         "landscape": False,
         "width": 768,
         "height": 1024,
-        "seed": 41051,
+        "seed": 52273,
         "prompt": (
-            "Portrait key visual for an original anime tactical tower defense game. A beautiful "
-            "adult anime woman tactical operator, full body standing on the right half, ash "
-            "silver short hair, amber eyes, calm confident expression, practical opaque black "
-            "and warm ivory tactical uniform with signal orange accents, angular coat and "
-            "utility equipment, no existing copyrighted character. Bright cool light-gray "
-            "industrial interior with metal beams and subtle warning stripes, high-end Japanese "
-            "anime game illustration, crisp cel shading, detailed clean face, elegant dynamic "
-            "silhouette, quiet light lower-left area for menu UI, no other people, no text, "
-            "no letters, no numbers, no logo, no border, no UI, no interface panels, no icons"
+            "Portrait key visual for an original anime tactical tower defense game set in a "
+            "world of colossal mobile industrial cities. A female tactical operator in the "
+            "lower right foreground, seen from behind at a three-quarter angle so her face is "
+            "mostly hidden, ash silver short hair, long graphite and warm ivory tactical coat "
+            "with signal orange trim, standing on a steel observation walkway and gazing out at "
+            "the horizon. Beyond her stands an immense nomadic city megastructure: a colossal "
+            "armored crawler fortress carried on gigantic treaded legs and hydraulic struts, "
+            "stacked arcology towers, cranes, gantries, hanging modules, pipes, antenna masts "
+            "and thousands of tiny warm lights, its silhouette dissolving into pale atmospheric "
+            "haze and low clouds. Mile-deep perspective with tiny transport vehicles and "
+            "walkways for scale, the megastructure dwarfing everything in the frame. Cool "
+            "light-gray and off-white industrial palette with restrained signal orange accents, "
+            "bright overcast light, high-end Japanese anime game key visual, crisp cel shading, "
+            "detailed clean rendering, cinematic vertical composition, airy bright lower-left "
+            "area for menu UI. No other prominent people, no close-up crop, no text, no letters, "
+            "no numbers, no logo, no border, no UI, no interface panels, no icons"
         ),
     },
     "monsters": {
@@ -196,8 +203,10 @@ def api_workflow(preset: dict, prefix: str, reference_name: str = "") -> dict:
     return graph
 
 
-def generate(name: str) -> None:
+def generate(name: str, seed: int | None = None) -> None:
     preset = PRESETS[name]
+    if seed is not None:
+        preset = {**preset, "seed": seed}
     prefix = f"build_shoot/{name}"
     reference_name = ""
     if "reference" in preset:
@@ -244,6 +253,7 @@ def generate(name: str) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("preset", choices=[*PRESETS, "base", "units", "animations", "all"])
+    parser.add_argument("--seed", type=int, help="覆盖预设种子，用于挑选画面")
     args = parser.parse_args()
     if args.preset == "all":
         names = PRESETS
@@ -256,7 +266,7 @@ def main() -> None:
     else:
         names = [args.preset]
     for name in names:
-        generate(name)
+        generate(name, args.seed)
 
 
 if __name__ == "__main__":
