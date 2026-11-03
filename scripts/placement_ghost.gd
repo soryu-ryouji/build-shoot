@@ -157,9 +157,6 @@ func _draw_orientation() -> void:
 
 	_draw_body(Color(1.0, 1.0, 1.0, 0.82), facing)
 
-	if int(ItemDefs.get_item(item_id).get("buff_multiplier", 1)) > 1:
-		_draw_line_range()
-
 	# 朝向箭头
 	var direction := Vector2.from_angle(facing)
 	var tip := direction * 82.0
@@ -178,53 +175,6 @@ func _draw_range_cells() -> void:
 		var cell := Rect2(local - Vector2.ONE * side * 0.5, Vector2(side, side))
 		draw_rect(cell, RANGE_FILL)
 		draw_rect(cell, RANGE_LINE, false, 1.0)
-
-
-func _draw_line_range() -> void:
-	var span := _line_rect_span(global_position, Vector2.from_angle(facing), play_rect)
-	if span.size() < 2:
-		return
-	var a: Vector2 = span[0] - global_position
-	var b: Vector2 = span[1] - global_position
-	draw_line(a, b, Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.45), 2.0)
-
-
-func _line_rect_span(origin: Vector2, direction: Vector2, rect: Rect2) -> Array:
-	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
-		return []
-	var far := 4000.0
-	var a := origin - direction * far
-	var b := origin + direction * far
-	var edges := [
-		[rect.position, Vector2(rect.end.x, rect.position.y)],
-		[Vector2(rect.end.x, rect.position.y), rect.end],
-		[rect.end, Vector2(rect.position.x, rect.end.y)],
-		[Vector2(rect.position.x, rect.end.y), rect.position],
-	]
-	var points: Array[Vector2] = []
-	for edge in edges:
-		var hit = Geometry2D.segment_intersects_segment(a, b, edge[0], edge[1])
-		if hit == null:
-			continue
-		var point: Vector2 = hit
-		var duplicate := false
-		for existing in points:
-			if point.distance_to(existing) < 0.5:
-				duplicate = true
-				break
-		if not duplicate:
-			points.append(point)
-	if points.size() < 2:
-		return []
-	var best: Array[Vector2] = [points[0], points[1]]
-	var best_distance := points[0].distance_squared_to(points[1])
-	for i in points.size():
-		for j in range(i + 1, points.size()):
-			var distance := points[i].distance_squared_to(points[j])
-			if distance > best_distance:
-				best_distance = distance
-				best = [points[i], points[j]]
-	return best
 
 
 func _draw_body(tint: Color, angle := -PI / 2.0) -> void:

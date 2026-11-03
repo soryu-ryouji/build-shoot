@@ -330,9 +330,6 @@ func _draw() -> void:
 	if selected:
 		_draw_selection()
 
-	if category == ItemDefs.CATEGORY_FORTIFICATION and buff_line:
-		_draw_buff_line()
-
 	match category:
 		ItemDefs.CATEGORY_FIREPOWER:
 			_draw_firepower()
@@ -419,68 +416,6 @@ func _draw_fortification() -> void:
 		draw_arc(Vector2.ZERO, 13.0 + pulse * 2.0, 0.0, TAU, 24, Color(0.70, 0.96, 1.0, 0.25 + pulse * 0.25), 1.5)
 	else:
 		_draw_static_texture(SandbagTexture)
-
-
-func _draw_buff_line() -> void:
-	var rect: Rect2 = game.get_play_rect()
-	var direction := Vector2.from_angle(facing_angle)
-	var span := _line_rect_span(global_position, direction, rect)
-	if span.size() < 2:
-		return
-	var a: Vector2 = span[0] - global_position
-	var b: Vector2 = span[1] - global_position
-	var alpha := 0.62 if selected else 0.38
-	if not powered:
-		alpha = 0.07
-	var line_color := Color(0.38, 0.86, 0.98, alpha)
-	draw_line(a, b, Color(0.45, 0.88, 0.98, alpha * 0.16), 10.0)
-	draw_line(a, b, line_color, 4.0 if selected else 3.0)
-	var length := a.distance_to(b)
-	if length <= 0.1:
-		return
-	var along := (b - a).normalized()
-	var offset := fmod(_time * 90.0, 54.0)
-	var point := a + along * offset
-	while point.distance_to(a) < length:
-		draw_circle(point, 2.2 if selected else 1.7, Color(0.82, 0.98, 1.0, alpha + 0.18))
-		point += along * 54.0
-
-
-## 求一条无限直线与矩形边界的两个交点，用于把压缩塔光束裁到战场内。
-func _line_rect_span(origin: Vector2, direction: Vector2, rect: Rect2) -> Array:
-	var far := 4000.0
-	var a := origin - direction * far
-	var b := origin + direction * far
-	var edges := [
-		[rect.position, Vector2(rect.end.x, rect.position.y)],
-		[Vector2(rect.end.x, rect.position.y), rect.end],
-		[rect.end, Vector2(rect.position.x, rect.end.y)],
-		[Vector2(rect.position.x, rect.end.y), rect.position],
-	]
-	var points: Array[Vector2] = []
-	for edge in edges:
-		var hit = Geometry2D.segment_intersects_segment(a, b, edge[0], edge[1])
-		if hit == null:
-			continue
-		var point: Vector2 = hit
-		var duplicate := false
-		for existing in points:
-			if point.distance_to(existing) < 0.5:
-				duplicate = true
-				break
-		if not duplicate:
-			points.append(point)
-	if points.size() < 2:
-		return []
-	var best: Array[Vector2] = [points[0], points[1]]
-	var best_distance := points[0].distance_squared_to(points[1])
-	for i in points.size():
-		for j in range(i + 1, points.size()):
-			var distance := points[i].distance_squared_to(points[j])
-			if distance > best_distance:
-				best_distance = distance
-				best = [points[i], points[j]]
-	return best
 
 
 func _draw_energy() -> void:
