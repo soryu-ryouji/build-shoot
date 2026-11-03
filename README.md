@@ -28,7 +28,7 @@
 - 普通怪基础血量从 3 开始，每波增加 1；血条只在受击后显示 3 秒，重复受击刷新倒计时，死亡或超时后隐藏
 - 方块被击中/击碎时会溅出对应颜色的火花和闪光，击碎时额外爆出金币碎屑
 - 击碎方块按方块最大血量获得金币，顶部 HUD 显示金币数；金币用于在底部道具栏购买炮塔
-- 点击已放置的炮塔会弹出聚焦面板，显示伤害/攻击间隔/射程/穿透/弹跳/发射数，可拆除并返还 50% 金币
+- 点击已放置的炮塔会在屏幕底部弹出聚焦面板，显示伤害/攻击间隔/射程/穿透/弹跳/发射数，可拆除并返还 50% 金币
 - 击碎方块只产出金币，不再有经验/等级/三选一卡牌
 - 点击已放置的炮塔打开聚焦面板，可以用金币升级攻击力；每次 +1 伤害，费用随强化等级提高
 - 暂无失败条件（无尽模式），重开按 R
@@ -86,22 +86,31 @@
 
 ## 运行
 
-- Godot 4.7，移动渲染器，设计分辨率 720×960（竖屏）
+- Godot 4.7，移动渲染器，设计视口 400×800（竖屏，1 逻辑像素约等于手机上的 1dp）
+- 桌面窗口默认按 480×960 打开，内容按设计视口等比放大；真机全屏时宽度固定 400，长屏向上扩展
 - 编辑器打开项目后 F5，或命令行：
 
 ```bash
 Godot_v4.7.2-stable_win64.exe --path .
 ```
 
+## 移动端界面尺寸
+
+- 设计视口从 720×960 改为 400×800。之前 13px 的正文在 1080×2400 手机上只有约 5dp，按钮只有约 17dp，按不到也看不清；现在同样的数值直接对应手机上的 dp。
+- 可点击控件短边不小于 48（HUD 设置键 52、道具卡 92、聚焦面板按钮 50～58、设置项 56、主菜单 66）；正文 15～17，标题 21～42。
+- 底部道具栏整条可拖拽；聚焦面板改为贴底宽面板，升级/拆除按钮落在拇指区；主界面「开始行动」移到底部。
+- 炮塔点击判定半径从 34 世界单位放宽到 46，并改为选取最近的一座。
+- 尺寸基线集中在 `scripts/ui_metrics.gd`，各界面统一引用；回归测试会检查控件短边和正文字号。
+
 ## 多分辨率与自适应布局
 
-- 游戏锁定纯竖屏；设计视口为 720×960，使用 `canvas_items` 与 `expand`。
+- 游戏锁定纯竖屏；设计视口为 400×800，使用 `canvas_items` 与 `expand`。
 - HUD、主界面和设置使用 Anchors、MarginContainer、HBoxContainer、VBoxContainer 与内容驱动尺寸。
-- 商店位于底部横排；主界面功能菜单固定在左侧中部。移动设备读取安全区域，避开刘海和系统手势区。
+- 商店位于底部横排；主界面功能菜单位于底部拇指区。移动设备读取安全区域，避开刘海和系统手势区。
 - 战场 Camera 只按屏幕宽度缩放，左右各保留 8 逻辑像素，不根据高度反向压缩；地图向上下延伸。
 - 屏幕／触摸坐标经过 Camera 变换后再用于点击和拖拽部署；主界面背景等比覆盖，不拉伸人物。
 
-响应式回归测试覆盖 720×960、1000×2000、1080×1920、1080×2400，并动态检查战场实际边界宽度、面板边界、菜单位置、设置面板和触摸拖拽部署：
+响应式回归测试覆盖 720×960、1000×2000、1080×1920、1080×2400，并动态检查战场实际边界宽度、面板边界、菜单位置、设置面板、触摸拖拽部署，以及按钮短边和正文字号：
 
 ```bash
 Godot_v4.7.2-stable_win64.exe --headless --fixed-fps 60 --path . res://tools/responsive_test.tscn
@@ -121,7 +130,9 @@ Godot_v4.7.2-stable_win64.exe --headless --fixed-fps 60 --path . res://tools/smo
 Godot_v4.7.2-stable_win64.exe --path . res://tools/screenshot.tscn
 ```
 
-脚本会先快进让方块流铺满场地，再布置示例炮塔并开火，最后把当前画面保存为 `image.png`。可用 `-- --size=1000x2000` 或 `-- --size=1080x2400` 生成指定竖屏尺寸的预览；主界面截图工具支持相同参数。
+脚本会先快进让方块流铺满场地，再布置示例炮塔并开火，最后把当前画面保存为 `image.png`（默认 1080×2400）。可用 `-- --size=1000x2000` 或 `-- --size=1080x2400` 生成指定竖屏尺寸的预览；附加 `-- --settings` 保存 `game_settings_preview.png`，附加 `-- --focus` 保存聚焦面板 `focus_preview.png`；`-- --locale=en` 可检查英文排版。主界面截图工具支持相同参数。
+
+![聚焦面板：贴底的炮塔属性与升级按钮](focus_preview.png)
 
 ## 美术素材
 
@@ -141,7 +152,7 @@ Godot_v4.7.2-stable_win64.exe --path . res://tools/menu_screenshot.tscn
 Godot_v4.7.2-stable_win64.exe --path . res://tools/menu_screenshot.tscn -- --settings
 ```
 
-分别保存 `menu_preview.png` 和 `menu_settings_preview.png`。游戏截图工具附加 `-- --settings` 可保存 `game_settings_preview.png`。
+分别保存 `menu_preview.png` 和 `menu_settings_preview.png`（默认 1080×2400）。游戏截图工具附加 `-- --settings` 可保存 `game_settings_preview.png`。
 
 ## 文件结构
 
@@ -154,6 +165,7 @@ scripts/main_menu.gd        主界面布局与场景入口
 scripts/settings_panel.gd   主界面／游戏内共用设置面板
 scripts/game_settings.gd    设置存储、全屏与显示选项
 scripts/responsive_layout.gd 竖屏逻辑视口与安全区域计算
+scripts/ui_metrics.gd       UI 尺寸基线：边距、字号、点击区域
 scripts/main.gd             游戏状态、Camera、触摸换算、暂停菜单与炮塔强化
 scripts/i18n.gd             i18n 单例：读取 JSON、切换语言、t(key)
 scripts/ball.gd             弹球：分步移动、圆-矩形碰撞、弹跳次数
@@ -173,8 +185,8 @@ i18n/zh_CN.json             中文翻译表（默认）
 i18n/en.json                英文翻译表
 theme/game_theme.tres       全局 UI 字体（含 CJK 回退）
 tools/smoke_test.tscn/gd    无头冒烟测试
-tools/responsive_test.tscn/gd 多尺寸竖屏、宽度适配与触摸部署回归测试
-tools/screenshot.tscn/gd    游戏与游戏内设置截图工具
+tools/responsive_test.tscn/gd 多尺寸竖屏、宽度适配、触摸部署与控件尺寸回归测试
+tools/screenshot.tscn/gd    游戏、设置面板与聚焦面板截图工具
 tools/menu_screenshot.tscn/gd 主界面与主界面设置截图工具
 tools/generate_ui_assets.py 调用 ComfyUI qwen_workflow 生成 UI 素材
 tools/process_ui_assets.py  裁切、压暗和透明底后处理
