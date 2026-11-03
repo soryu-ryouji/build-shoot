@@ -7,8 +7,6 @@ const Palette = preload("res://scripts/palette.gd")
 ## pierce 取这个值时不限穿透次数，每命中一个目标消耗对应血量所需的威力
 const PIERCE_UNLIMITED := -1
 
-signal vanished
-
 var game: Node
 var dir := Vector2.UP
 var speed := 520.0
@@ -215,7 +213,6 @@ func _vanish() -> void:
 	if not alive:
 		return
 	alive = false
-	vanished.emit()
 	queue_free()
 
 

@@ -1,6 +1,6 @@
 extends Control
 
-## 响应式 HUD：顶部信息面板、底部球数状态和中居战斗提示。
+## 响应式 HUD：顶部信息面板（金币、能源、波次、击碎数）和中居战斗提示。
 ## 尺寸按 400×800 移动端基线取，按钮不低于 52 逻辑像素。
 
 signal settings_requested
@@ -12,23 +12,18 @@ const UiMetrics = preload("res://scripts/ui_metrics.gd")
 
 var game: Node
 var top_panel: PanelContainer
-var status_row: HBoxContainer
 var mode_label: Label
 var tag_label: Label
 var coins_label: Label
 var coins_title_label: Label
 var destroyed_label: Label
-var balls_label: Label
 var energy_label: Label
-var bounce_label: Label
 var toast_label: Label
 var settings_button: Button
 
 var _toast_time := 0.0
 var _coin_pop := 0.0
 var _message_style: StyleBoxFlat
-var _status_style: StyleBoxFlat
-var _status_strip := Rect2()
 
 
 func _ready() -> void:
@@ -43,7 +38,6 @@ func _ready() -> void:
 
 func _build() -> void:
 	_message_style = _style(Color(Palette.PAPER, 0.96), Palette.ACCENT, false)
-	_status_style = _style(Color(Palette.PAPER, 0.92), Palette.ACCENT, true)
 
 	top_panel = PanelContainer.new()
 	top_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -116,16 +110,8 @@ func _build() -> void:
 	column.add_child(info)
 	tag_label = _make_label(info, "", UiMetrics.FONT_MICRO, Palette.INK_MUTED)
 	tag_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	energy_label = _make_label(info, "", UiMetrics.FONT_SMALL, Palette.ACCENT, HORIZONTAL_ALIGNMENT_RIGHT)
 	destroyed_label = _make_label(info, "", UiMetrics.FONT_SMALL, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
-
-	status_row = HBoxContainer.new()
-	status_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	status_row.custom_minimum_size.y = UiMetrics.STATUS_HEIGHT
-	add_child(status_row)
-	balls_label = _make_label(status_row, "", UiMetrics.FONT_BODY, Palette.INK)
-	balls_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	energy_label = _make_label(status_row, "", UiMetrics.FONT_SMALL, Palette.ACCENT, HORIZONTAL_ALIGNMENT_RIGHT)
-	bounce_label = _make_label(status_row, "", UiMetrics.FONT_SMALL, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
 
 	toast_label = _make_label(self, "", 21, Palette.ACCENT, HORIZONTAL_ALIGNMENT_CENTER)
 	toast_label.add_theme_constant_override("outline_size", 4)
@@ -172,11 +158,6 @@ func _layout() -> void:
 	top_panel.position = safe.position + Vector2(margin, margin)
 	top_panel.size = Vector2(safe.size.x - margin * 2.0, UiMetrics.HUD_HEIGHT)
 
-	var status_width := safe.size.x - margin * 2.0
-	_status_strip = Rect2(safe.position.x + margin, safe.end.y - margin - UiMetrics.SHOP_HEIGHT - 4.0 - UiMetrics.STATUS_HEIGHT, status_width, UiMetrics.STATUS_HEIGHT + 4.0)
-	status_row.position = Vector2(_status_strip.position.x + 8.0, _status_strip.position.y)
-	status_row.size = Vector2(maxf(160.0, status_width - 16.0), UiMetrics.STATUS_HEIGHT)
-
 	var message_width := minf(360.0, view.x - 32.0)
 	toast_label.size = Vector2(message_width, UiMetrics.TOAST_HEIGHT)
 	toast_label.position = Vector2((view.x - message_width) * 0.5, view.y * 0.42 - 20.0)
@@ -221,17 +202,6 @@ func _process(delta: float) -> void:
 	if wave > 0:
 		var next_wave := int(ceil(float(game.blocks.next_wave_in)))
 		tag_label.text = I18n.t("hud.wave_next", [wave, next_wave]) if next_wave > 0 else I18n.t("hud.wave", [wave])
-	var ball_count: int = game.active_balls.size()
-	var ball_key := "hud.ball_one" if ball_count == 1 else "hud.ball_many"
-	balls_label.text = I18n.t(ball_key, [ball_count])
-	if offline > 0:
-		# 缺电时把位置让给红色的离线提示
-		bounce_label.text = ""
-	elif ball_count > 0:
-		var ball: Node = game.active_balls[ball_count - 1]
-		bounce_label.text = I18n.t("hud.bounces", [int(ball.bounces_left)]) if int(ball.bounces_left) > 0 else I18n.t("hud.single_hit")
-	else:
-		bounce_label.text = I18n.t("hud.ready")
 
 	if _toast_time > 0.0:
 		_toast_time -= delta
@@ -253,9 +223,6 @@ func toast(text: String, color: Color) -> void:
 
 
 func _draw() -> void:
-	if _status_strip.size.y > 0.0:
-		draw_style_box(_status_style, _status_strip)
-
 	if toast_label != null and toast_label.modulate.a > 0.0:
 		_message_style.bg_color.a = 0.96 * toast_label.modulate.a
 		_message_style.border_color.a = 0.75 * toast_label.modulate.a

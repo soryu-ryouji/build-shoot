@@ -9,7 +9,7 @@ const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
 const UiMetrics = preload("res://scripts/ui_metrics.gd")
 const ItemDefs = preload("res://scripts/item_defs.gd")
 
-const FIREPOWER_STATS := ["focus.damage", "focus.rate", "focus.range", "focus.pierce", "focus.bounce", "focus.shots"]
+const FIREPOWER_STATS := ["focus.damage", "focus.rate", "focus.range", "focus.pierce", "focus.shots"]
 const FORTIFICATION_STATS := ["focus.hp", "focus.block", "focus.buff", "focus.energy", "focus.line", "focus.status"]
 const ENERGY_STATS := ["focus.output", "focus.hp", "focus.energy_net", "focus.status"]
 
@@ -304,7 +304,6 @@ func _update_values() -> void:
 				I18n.t("focus.rate_value", [String.num(float(building.get_effective_rate()), 2)]),
 				str(int(building.attack_range)),
 				"∞" if int(building.pierce) < 0 else str(int(building.pierce)),
-				str(int(building.bounces)),
 				str(int(building.shots)),
 			]
 		ItemDefs.CATEGORY_FORTIFICATION:

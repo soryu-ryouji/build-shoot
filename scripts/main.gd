@@ -41,8 +41,6 @@ var placing_cost := 0
 var preparing := true
 var prep_timer := PREP_TIME
 var coins := 50
-var active_balls: Array = []
-var shots_fired := 0
 
 ## 全局能源：按建筑布置顺序供电，既有建筑优先；产能不足时只有排在后面的建筑离线。
 var power_supply := 0
@@ -214,12 +212,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		_handle_world_click(screen_to_world(event.position))
 	elif event is InputEventScreenTouch and event.pressed:
 		_handle_world_click(screen_to_world(event.position))
-
-
-# ---------------------------------------------------------------- 球
-
-func _on_ball_vanished(ball: Node) -> void:
-	active_balls.erase(ball)
 
 
 # ---------------------------------------------------------------- 方块 / 金币
@@ -543,9 +535,6 @@ func has_firepower(exclude: Node = null) -> bool:
 
 
 func fire_item_ball(source: Node, pos: Vector2, dir: Vector2, dmg: int, pierce: int, bounces: int, speed: float, radius: float, electric: bool = false) -> void:
-	shots_fired += 1
 	var ball = Ball.new()
 	ball.setup(self, pos, dir, speed, radius, dmg, pierce, bounces, electric)
 	balls_layer.add_child(ball)
-	ball.vanished.connect(_on_ball_vanished.bind(ball))
-	active_balls.append(ball)

@@ -32,12 +32,12 @@ func _run() -> void:
 
 	# ---------------------------------------------------------------- i18n
 	_check(I18n.locale == "zh_CN", "default locale is Chinese")
-	_check(I18n.t("hud.ready") == "就绪", "Chinese translation loaded")
+	_check(I18n.t("hud.mode") == "无尽模式", "Chinese translation loaded")
 	_check(I18n.t("category.firepower") == "火力", "category translation loaded")
 	var missing := I18n.missing_keys("en")
 	_check(missing.is_empty(), "en locale has all keys: %s" % str(missing))
 	I18n.set_locale("en")
-	_check(I18n.t("hud.ready") == "READY", "English translation loads")
+	_check(I18n.t("hud.mode") == "ENDLESS", "English translation loads")
 	I18n.toggle_locale()
 	_check(I18n.locale == "zh_CN", "locale toggles back to Chinese")
 
@@ -188,14 +188,14 @@ func _run() -> void:
 
 	var laser_target := _add_test_block(Vector2(560, 470), 40)
 	laser.aim_angle = (laser_target.rect.get_center() - laser.global_position).angle()
-	var balls_before: int = int(main.active_balls.size())
+	var balls_before: int = int(main.balls_layer.get_child_count())
 	var hp_before := int(laser_target.hp)
 	var shots_before := int(laser.shots)
 	laser._fire_laser(laser_target)
 	_check(int(laser_target.hp) == hp_before - 5, "laser beam damages its target directly")
 	_check(int(laser.shots) == shots_before + 1, "laser shot recorded")
 	_check(float(laser._beam_hold) > 0.0, "laser beam stays visible")
-	_check(int(main.active_balls.size()) == balls_before, "laser does not spawn a ball")
+	_check(int(main.balls_layer.get_child_count()) == balls_before, "laser does not spawn a ball")
 	main.blocks.blocks.erase(laser_target)
 	main.blocks.by_id.erase(int(laser_target.id))
 
@@ -270,7 +270,7 @@ func _run() -> void:
 	main.blocks.next_wave_in = 999.0
 	main.blocks.blocks.clear()
 	main.blocks.by_id.clear()
-	for ball in main.active_balls:
+	for ball in main.balls_layer.get_children():
 		if is_instance_valid(ball):
 			ball._vanish()
 	_clear_buildings()
@@ -310,11 +310,11 @@ func _run() -> void:
 	_check(main.focus_panel.stat_values[2].text == "+4", "focus panel shows fusion net output")
 	main.clear_selection()
 
-	var balls_before_buff: int = int(main.active_balls.size())
+	var balls_before_buff: int = int(main.balls_layer.get_child_count())
 	row_turret._fire_projectile()
-	_check(int(main.active_balls.size()) == balls_before_buff + 1, "buffed turret fires a ball")
-	if main.active_balls.size() > balls_before_buff:
-		var electric_ball: Node = main.active_balls[main.active_balls.size() - 1]
+	_check(int(main.balls_layer.get_child_count()) == balls_before_buff + 1, "buffed turret fires a ball")
+	if main.balls_layer.get_child_count() > balls_before_buff:
+		var electric_ball: Node = main.balls_layer.get_child(main.balls_layer.get_child_count() - 1)
 		_check(int(electric_ball.damage) == 2, "compression doubles ball damage")
 		_check(bool(electric_ball.electric), "compression gives balls an electric effect")
 		electric_ball._vanish()
@@ -413,7 +413,7 @@ func _run() -> void:
 	await _frames(30)
 	_check(int(main.blocks.destroyed) == power_baseline + 3, "heavy ball spends power on each kill")
 	_check(bool(last_target.alive) and int(last_target.hp) == 1, "heavy ball leaves a three-health target at one health")
-	_check(main.active_balls.is_empty(), "heavy ball stops once its power runs out")
+	_check(main.balls_layer.get_child_count() == 0, "heavy ball stops once its power runs out")
 
 	# 自动索敌与开火
 	main.blocks.blocks.clear()
