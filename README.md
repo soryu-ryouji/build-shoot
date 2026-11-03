@@ -84,7 +84,7 @@
   - `i18n/en.json`
 - 新增语言：复制一份 JSON 翻译好，把语言代码加入 `scripts/i18n.gd` 的 `LOCALES` 即可
 - 缺少某个 key 时回退到中文，再回退到 key 本身
-- 中文显示使用 `theme/game_theme.tres` 里的 SystemFont，字体候选包含微软雅黑、Noto Sans CJK、苹方等
+- 中文显示使用内置的 Noto Sans SC 子集（`assets/ui/font/`，含 OFL 许可），桌面与 Web 一致，不依赖系统字体
 
 ## 运行
 
@@ -95,6 +95,8 @@
 ```bash
 Godot_v4.7.2-stable_win64.exe --path .
 ```
+
+- 导出 Web 版：`.\tools\build_web.ps1`（产物在 `build\web`，外层 `web/index.html` 负责桌面竖屏舞台）
 
 ## 移动端界面尺寸
 

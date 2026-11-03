@@ -2,5 +2,8 @@
 .godot/
 /android/
 
+# Web export artifacts
+/build/
+
 # Python
 __pycache__/

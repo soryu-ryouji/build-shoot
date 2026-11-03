@@ -1,5 +1,6 @@
-[gd_resource type="SystemFont" format=3]
+[gd_resource type="FontVariation" load_steps=2 format=3]
+
+[ext_resource type="FontFile" path="res://assets/ui/font/game_numbers.otf" id="1"]
 
 [resource]
-font_names = PackedStringArray("Arial", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", "sans-serif")
-font_weight = 300
+base_font = ExtResource("1")
