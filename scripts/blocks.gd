@@ -1,8 +1,11 @@
 extends Node2D
 
-## 从上往下滚动的方块流。方块用 id 标识，方便在滚动/移除时安全引用。
+## 敌人流：从地图顶部的缺口出场，沿 battle_map 里的路线走向底部核心。
+## 被阵地建筑挡住时停下攻击，撞到核心则扣基地血量。
 
 const Palette = preload("res://scripts/palette.gd")
+const BattleMap = preload("res://scripts/battle_map.gd")
+
 const MONSTER_TEXTURES := {
 	"normal": preload("res://assets/ui/monster_normal.png"),
 	"swift": preload("res://assets/ui/monster_swift.png"),
@@ -16,34 +19,18 @@ const MONSTER_ANIMATIONS := {
 	"elite": preload("res://assets/ui/monster_elite_anim.png"),
 }
 
-const PLAY_TOP := 112.0
-const PLAY_BOTTOM := 800.0
-## 敌人走到战场底部前先淡出，避免被裁剪线从中间切断
-const EXIT_FADE := 40.0
-## 淡出提前量，保证整个贴图在碰到裁剪线之前就不可见
-const EXIT_MARGIN := 12.0
-const COLS := 11
 const CELL_SIZE := Vector2(48.0, 30.0)
-const CELL_GAP_X := 4.0
-const GRID_ORIGIN_X := 76.0
-
-## 战场顶部的四处出怪缺口：敌人从最近的缺口钻出来，横向最多偏移一列
-const GATE_COLUMNS := [1, 4, 7, 10]
-const GATE_Y := 142.0
-const GATE_SIZE := Vector2(76.0, 34.0)
-## 敌人冒头时方块顶部的位置，落在缺口下沿
-const SPAWN_Y := GATE_Y + 26.0
-## 单只敌人从缺口钻出的时长，同一缺口内相邻敌人错峰
-const EMERGE_TIME := 0.45
-const EMERGE_STAGGER := 0.12
+## 基础行走速度（世界像素/秒）；各类敌人再乘自己的倍率
+const WALK_SPEED := 84.0
+## 出场淡入时长
+const SPAWN_FADE := 0.3
 
 ## 波次节奏：开场只有一小撮，约 12 秒后第一波爆发，之后每波之间留出清场时间。
 const OPENING_CALM := 12.0
-## 两波之间的基础间隔；行数越多留的时间越长，避免波次叠在一起
 const WAVE_CALM_BASE := 18.0
 const WAVE_CALM_PER_ROW := 3.0
-## 同一波内行与行的间距，比常规行距更紧，进门时像一堵墙压下来
-const WAVE_ROW_SPACING := 36.0
+## 一波里两只敌人之间的出场间隔
+const SPAWN_INTERVAL := 0.55
 const WAVE_MAX_ROWS := 5
 ## 每波血量按该系数复利增长，逼玩家把金币投进强化
 const HEALTH_GROWTH := 1.28
@@ -60,8 +47,7 @@ const ANIMATION_FRAME_SIZE := 256.0
 var blocks: Array[Dictionary] = []
 var by_id := {}
 var destroyed := 0
-var spawned_rows := 0
-var scroll_speed := 20.0
+var spawned := 0
 var active := false
 var game: Node
 
@@ -74,56 +60,22 @@ var _next_id := 1
 var _rng := RandomNumberGenerator.new()
 var _flashing := false
 var _animation_time := 0.0
-
-## 还没出场的行，出场间隔按行距折算
-var _pending_rows: Array = []
-## 每个缺口最近的出怪闪光，补齐"敌人是从这里冒出来"的反馈
-var _gate_flash: Array[float] = []
-var _gate_socket: StyleBoxFlat
-var _gate_glow: StyleBoxFlat
-var _gate_core: StyleBoxFlat
-var _gate_halo: StyleBoxFlat
-var _gate_ring: StyleBoxFlat
+## 待出场的敌人：{delay, gate}
+var _pending: Array = []
 
 
 func _ready() -> void:
 	_rng.randomize()
-	_gate_socket = StyleBoxFlat.new()
-	_gate_socket.bg_color = Color(Palette.INK, 0.92)
-	_gate_socket.border_color = Color(Palette.DANGER.darkened(0.20), 0.90)
-	_gate_socket.set_border_width_all(2)
-	_gate_socket.set_corner_radius_all(8)
-	_gate_socket.shadow_color = Color(0.0, 0.0, 0.0, 0.28)
-	_gate_socket.shadow_size = 3
-
-	_gate_glow = StyleBoxFlat.new()
-	_gate_glow.set_corner_radius_all(6)
-
-	_gate_core = StyleBoxFlat.new()
-	_gate_core.set_corner_radius_all(4)
-
-	_gate_halo = StyleBoxFlat.new()
-	_gate_halo.set_corner_radius_all(14)
-
-	_gate_ring = StyleBoxFlat.new()
-	_gate_ring.bg_color = Color(0.0, 0.0, 0.0, 0.0)
-	_gate_ring.set_border_width_all(2)
-	_gate_ring.set_corner_radius_all(12)
-
-	_gate_flash.resize(GATE_COLUMNS.size())
-	_gate_flash.fill(0.0)
-	queue_redraw()
 
 
 func reset_stream() -> void:
 	active = true
 	blocks.clear()
 	by_id.clear()
-	_pending_rows.clear()
-	_gate_flash.fill(0.0)
+	_pending.clear()
 	_next_id = 1
 	destroyed = 0
-	spawned_rows = 0
+	spawned = 0
 	_flashing = false
 	_animation_time = 0.0
 
@@ -139,66 +91,82 @@ func _physics_process(delta: float) -> void:
 		return
 	_advance_blocks(delta)
 	_schedule_waves(delta)
-	_spawn_pending_rows(delta)
+	_spawn_pending(delta)
 
 	if not blocks.is_empty():
 		queue_redraw()
 
 
 func _advance_blocks(delta: float) -> void:
-	var dy := scroll_speed * delta
 	for b in blocks:
 		if not bool(b.alive):
 			continue
-		# 还在缺口里钻出来时不前进、不参与阻挡，钻出来后正常滚动
-		var emerge := float(b.get("emerge", 1.0))
-		if emerge < 1.0:
-			b.emerge = minf(1.0, emerge + delta / EMERGE_TIME)
-			if emerge <= 0.0 and float(b.emerge) > 0.0:
-				_flash_gate(int(b.get("gate", 0)))
-			continue
+		if float(b.spawn) < 1.0:
+			b.spawn = minf(1.0, float(b.spawn) + delta / SPAWN_FADE)
 		# 被阵地建筑挡住时停下攻击，不再前进
 		if _update_block_attack(b, delta):
 			continue
-		var step := dy * float(b.get("speed_scale", 1.0))
-		if step <= 0.0:
-			continue
-		var rect: Rect2 = b.rect
-		rect.position.y += step
-		b.rect = rect
-		_try_block(b)
+		_walk(b, delta)
 
-	# 移除已经滚出底部或被击碎的方块
+	# 撞到核心、被击碎或已经在终点消失的方块统一清掉
 	var i := blocks.size() - 1
 	while i >= 0:
 		var removed: Dictionary = blocks[i]
-		var removed_rect: Rect2 = removed.rect
-		if not bool(removed.alive) or removed_rect.position.y >= PLAY_BOTTOM:
+		if not bool(removed.alive):
 			by_id.erase(int(removed.id))
 			blocks.remove_at(i)
 		i -= 1
 
 
-## 波次调度：爆发一波，留出清场时间，再爆发下一波
-func _schedule_waves(delta: float) -> void:
-	if next_wave_in > 0.0:
-		next_wave_in = maxf(0.0, next_wave_in - delta)
-	if next_wave_in <= 0.0:
-		wave += 1
-		_spawn_wave()
-		next_wave_in = _calm_for_wave(wave)
+func _walk(b: Dictionary, delta: float) -> void:
+	var route: Array = b.route
+	if route.is_empty():
+		return
+	var step := int(b.step)
+	var start_step := step
+	var center: Vector2 = b.center
+	var prev := center
+	var remaining := WALK_SPEED * float(b.get("speed_scale", 1.0)) * delta
+	var blocker: Node = null
+
+	while remaining > 0.0 and step < route.size():
+		var target: Vector2 = BattleMap.tile_center(route[step])
+		var dist := center.distance_to(target)
+		if dist > remaining:
+			center = center.move_toward(target, remaining)
+			remaining = 0.0
+		else:
+			center = target
+			remaining = maxf(0.0, remaining - dist)
+			step += 1
+		blocker = game.get_blocking_building(_rect_at(center)) if game != null else null
+		if blocker != null:
+			break
+
+	if blocker != null:
+		# 停在建筑前：位置回退到这一步开始前，但把阻挡者记下来继续啃
+		b.center = prev
+		b.rect = _rect_at(prev)
+		b.step = start_step
+		b.blocked_by = blocker
+		b.attack_flash = 1.0
+		return
+
+	b.center = center
+	b.rect = _rect_at(center)
+	b.step = step
+	if step >= route.size():
+		_reach_core(b)
 
 
-## 同一波的行错峰出场，敌人因此是"涌出来"而不是整面墙同时刷新
-func _spawn_pending_rows(delta: float) -> void:
-	var i := _pending_rows.size() - 1
-	while i >= 0:
-		var entry: Dictionary = _pending_rows[i]
-		entry.delay = float(entry.delay) - delta
-		if float(entry.delay) <= 0.0:
-			_pending_rows.remove_at(i)
-			_spawn_row(int(entry.count))
-		i -= 1
+func _reach_core(b: Dictionary) -> void:
+	b.alive = false
+	if game != null:
+		game.on_enemy_leaked(b)
+
+
+func _rect_at(center: Vector2) -> Rect2:
+	return Rect2(center - CELL_SIZE * 0.5, CELL_SIZE)
 
 
 func _update_block_attack(b: Dictionary, delta: float) -> bool:
@@ -211,20 +179,6 @@ func _update_block_attack(b: Dictionary, delta: float) -> bool:
 	blocker.take_damage(_attack_dps(String(b.kind)) * delta)
 	b.attack_flash = 1.0
 	return true
-
-
-func _try_block(b: Dictionary) -> void:
-	if game == null:
-		return
-	var blocker = game.get_blocking_building(b.rect)
-	if blocker == null:
-		return
-	var rect: Rect2 = b.rect
-	var block_rect: Rect2 = blocker.get_block_rect()
-	rect.position.y = minf(rect.position.y, block_rect.position.y - rect.size.y - 2.0)
-	b.rect = rect
-	b.blocked_by = blocker
-	b.attack_flash = 1.0
 
 
 func _attack_dps(kind: String) -> float:
@@ -243,10 +197,6 @@ func _process(delta: float) -> void:
 		if GameSettings.animate_monsters:
 			_animation_time += delta
 		queue_redraw()
-	for i in _gate_flash.size():
-		if _gate_flash[i] > 0.0:
-			_gate_flash[i] = maxf(0.0, _gate_flash[i] - delta * 3.0)
-			queue_redraw()
 	var any_attack := false
 	for b in blocks:
 		if float(b.get("attack_flash", 0.0)) > 0.0:
@@ -281,13 +231,10 @@ func get_nearest_target(origin: Vector2, max_range: float, range_cells: Array = 
 	for b in blocks:
 		if not bool(b.alive):
 			continue
-		# 还在缺口里没钻出来的敌人不作为目标
-		if float(b.get("emerge", 1.0)) < 1.0:
+		# 刚出场还没淡入完的敌人不作为目标
+		if float(b.get("spawn", 1.0)) < 1.0:
 			continue
-		var rect: Rect2 = b.rect
-		var center := rect.get_center()
-		if center.y < PLAY_TOP:
-			continue
+		var center: Vector2 = b.center
 		if not range_cells.is_empty() and not _cell_in_range(center, range_cells):
 			continue
 		var dist := center.distance_squared_to(origin)
@@ -303,33 +250,6 @@ func _cell_in_range(point: Vector2, range_cells: Array) -> bool:
 		if cell.distance_to(allowed) < 0.5:
 			return true
 	return false
-
-
-## 底部主炮塔的目标：优先选择最靠近底部、且还在炮塔上方的方块。
-## 同一行里选离炮塔最近的一块，方便炮塔左右扫射。
-func get_auto_target(origin: Vector2) -> Dictionary:
-	var best: Dictionary = {}
-	var best_y := -INF
-	var best_dx := INF
-	var max_y := origin.y - 12.0
-	for b in blocks:
-		if not bool(b.alive):
-			continue
-		if float(b.get("emerge", 1.0)) < 1.0:
-			continue
-		var rect: Rect2 = b.rect
-		var c := rect.get_center()
-		if c.y < PLAY_TOP or c.y > max_y:
-			continue
-		var dx := absf(c.x - origin.x)
-		if c.y > best_y + 0.5:
-			best = b
-			best_y = c.y
-			best_dx = dx
-		elif absf(c.y - best_y) <= 0.5 and dx < best_dx:
-			best = b
-			best_dx = dx
-	return best
 
 
 func damage(id: int, amount: int) -> Dictionary:
@@ -371,11 +291,11 @@ func _base_health_for_wave(wave_number: int) -> int:
 	return int(round(3.0 * pow(HEALTH_GROWTH, maxi(wave_number, 1) - 1)))
 
 
-## 每一行铺几只：开场 3 只，之后逐波逼近满行。
+## 每一行的规模：开场 3 只，之后逐波逼近满行。
 func _enemy_count_for_wave(wave_number: int) -> int:
 	if wave_number <= 1:
 		return 3
-	return clampi(8 + wave_number, 8, COLS)
+	return clampi(8 + wave_number, 8, BattleMap.COLS - 1)
 
 
 ## 一波铺几行：第 2 波 3 行（30 只），第 4 波 4 行，第 6 波起 5 行。
@@ -395,37 +315,68 @@ func _calm_for_wave(wave_number: int) -> float:
 
 
 func _spawn_wave() -> void:
-	var rows := _rows_for_wave(wave)
-	var count := _enemy_count_for_wave(wave)
-	# 行与行错峰出场，间隔按行距折算，出场后行间距和同时刷新时一致
-	var gap := WAVE_ROW_SPACING / maxf(scroll_speed, 1.0)
-	for i in rows:
-		_pending_rows.append({"count": count, "delay": float(i) * gap})
+	var total := _rows_for_wave(wave) * _enemy_count_for_wave(wave)
+	for i in total:
+		_pending.append({"delay": float(i) * SPAWN_INTERVAL, "gate": i % 2})
 
 
-## 缺口中心：列中心 + 固定高度，绘制和出怪共用同一份坐标。
-func gate_center(index: int) -> Vector2:
-	return Vector2(column_center_x(int(GATE_COLUMNS[index])), GATE_Y)
+func _spawn_pending(delta: float) -> void:
+	var i := _pending.size() - 1
+	while i >= 0:
+		var entry: Dictionary = _pending[i]
+		entry.delay = float(entry.delay) - delta
+		if float(entry.delay) <= 0.0:
+			_pending.remove_at(i)
+			_spawn_enemy(int(entry.gate))
+		i -= 1
 
 
-func column_center_x(column: int) -> float:
-	return GRID_ORIGIN_X + float(column) * (CELL_SIZE.x + CELL_GAP_X) + CELL_SIZE.x * 0.5
+func _schedule_waves(delta: float) -> void:
+	if next_wave_in > 0.0:
+		next_wave_in = maxf(0.0, next_wave_in - delta)
+	if next_wave_in <= 0.0:
+		wave += 1
+		_spawn_wave()
+		next_wave_in = _calm_for_wave(wave)
 
 
-## 每只敌人用离自己最近的那个缺口出场，横向最多挪一列。
-func gate_index_for_column(column: int) -> int:
-	var best := 0
-	for i in GATE_COLUMNS.size():
-		if absi(int(GATE_COLUMNS[i]) - column) < absi(int(GATE_COLUMNS[best]) - column):
-			best = i
-	return best
+func _spawn_enemy(gate_index: int) -> void:
+	var route: Array = BattleMap.route_for_gate(gate_index)
+	var kind := _pick_kind(wave)
+	var hp := _health_for_kind(kind, _base_health_for_wave(wave))
+	var color := Palette.block_color(int(spawned / 2) % 6 + 1)
+	match kind:
+		KIND_SWIFT:
+			color = Palette.CYAN
+		KIND_ARMORED:
+			color = Palette.METAL.lightened(0.20)
+		KIND_ELITE:
+			color = Palette.PINK
 
-
-func _flash_gate(index: int) -> void:
-	if index < 0 or index >= _gate_flash.size():
-		return
-	_gate_flash[index] = 1.0
-	queue_redraw()
+	var center: Vector2 = BattleMap.tile_center(route[0])
+	var id := _next_id
+	_next_id += 1
+	var block := {
+		"id": id,
+		"kind": kind,
+		"route": route,
+		"step": 1,
+		"center": center,
+		"rect": _rect_at(center),
+		"hp": hp,
+		"max_hp": hp,
+		"speed_scale": _speed_for_kind(kind),
+		"color": color,
+		"flash": 0.0,
+		"hp_bar_time": 0.0,
+		"alive": true,
+		"blocked_by": null,
+		"attack_flash": 0.0,
+		"spawn": 0.0,
+	}
+	blocks.append(block)
+	by_id[id] = block
+	spawned += 1
 
 
 func _pick_kind(wave_number: int) -> String:
@@ -461,70 +412,6 @@ func _speed_for_kind(kind: String) -> float:
 	return 1.0
 
 
-func _spawn_row(count: int) -> void:
-	var row := spawned_rows
-	spawned_rows += 1
-
-	var current_wave := wave
-	var color_index := int(row / 2) % 6 + 1
-	var hp_base := _base_health_for_wave(current_wave)
-
-	var target_count := mini(COLS, count)
-	var present: Array[bool] = []
-	present.resize(COLS)
-	present.fill(false)
-	var filled := 0
-	while filled < target_count:
-		var c := _rng.randi_range(0, COLS - 1)
-		if not present[c]:
-			present[c] = true
-			filled += 1
-
-	# 同一个缺口里的敌人依次钻出来，不要叠在一起同时弹出
-	var per_gate := {}
-	for c in COLS:
-		if not present[c]:
-			continue
-		var kind := _pick_kind(current_wave)
-		var hp := _health_for_kind(kind, hp_base)
-		var color := Palette.block_color(color_index)
-		match kind:
-			KIND_SWIFT:
-				color = Palette.CYAN
-			KIND_ARMORED:
-				color = Palette.METAL.lightened(0.20)
-			KIND_ELITE:
-				color = Palette.PINK
-		var gate := gate_index_for_column(c)
-		var order := int(per_gate.get(gate, 0))
-		per_gate[gate] = order + 1
-		var rect := Rect2(
-			Vector2(column_center_x(c) - CELL_SIZE.x * 0.5, SPAWN_Y),
-			CELL_SIZE
-		)
-		var id := _next_id
-		_next_id += 1
-		var block := {
-			"id": id,
-			"kind": kind,
-			"rect": rect,
-			"hp": hp,
-			"max_hp": hp,
-			"speed_scale": _speed_for_kind(kind),
-			"color": color,
-			"flash": 0.0,
-			"hp_bar_time": 0.0,
-			"alive": true,
-			"blocked_by": null,
-			"attack_flash": 0.0,
-			"gate": gate,
-			"emerge_from": gate_center(gate),
-			"emerge": -float(order) * EMERGE_STAGGER,
-		}
-		blocks.append(block)
-		by_id[id] = block
-
-
 func _draw_kind(inner: Rect2, kind: String, col: Color, alpha := 1.0) -> void:
 	var c := inner.get_center() + Vector2(0.0, -2.0)
 	match kind:
@@ -558,72 +445,22 @@ func _draw_health_bar(inner: Rect2, hp: int, max_hp: int, alpha := 1.0) -> void:
 	draw_rect(back, Color(1.0, 1.0, 1.0, 0.25 * alpha), false, 1.0)
 
 
-func _draw_gate(index: int) -> void:
-	var center := gate_center(index)
-	var rect := Rect2(center - GATE_SIZE * 0.5, GATE_SIZE)
-	var pulse := 0.5 + 0.5 * sin(_animation_time * 2.2 + float(index) * 1.7)
-	var flash := float(_gate_flash[index])
-
-	# 出怪瞬间的扩散光圈
-	if flash > 0.0:
-		_gate_ring.border_color = Color(Palette.DANGER, 0.45 * flash)
-		draw_style_box(_gate_ring, rect.grow(4.0 + 7.0 * (1.0 - flash)))
-
-	# 凹进去的地板缺口 + 内部红光
-	_gate_halo.bg_color = Color(Palette.DANGER, 0.06 + 0.04 * pulse + 0.08 * flash)
-	draw_style_box(_gate_halo, rect.grow(5.0))
-	draw_style_box(_gate_socket, rect)
-	_gate_glow.bg_color = Color(Palette.DANGER, 0.24 + 0.10 * pulse + 0.24 * flash)
-	draw_style_box(_gate_glow, rect.grow(-4.0))
-	_gate_core.bg_color = Color(Palette.ACCENT, 0.16 + 0.10 * pulse + 0.24 * flash)
-	draw_style_box(_gate_core, rect.grow(-11.0))
-
-	# 下沿露出的金属栅格，缺口像被撬开的地板
-	for i in 4:
-		var x := rect.position.x + rect.size.x * (0.18 + 0.213 * float(i))
-		draw_line(Vector2(x, rect.end.y - 4.0), Vector2(x, rect.end.y + 5.0), Color(Palette.INK, 0.70), 2.0)
-
-	# 四角短角标，和战场边框的角标同一套语言
-	var corner := Color(Palette.ACCENT, 0.55 + 0.25 * pulse)
-	var arm := 7.0
-	for c in [
-		[rect.position, Vector2(arm, 0.0), Vector2(0.0, arm)],
-		[Vector2(rect.end.x, rect.position.y), Vector2(-arm, 0.0), Vector2(0.0, arm)],
-		[Vector2(rect.position.x, rect.end.y), Vector2(arm, 0.0), Vector2(0.0, -arm)],
-		[rect.end, Vector2(-arm, 0.0), Vector2(0.0, -arm)],
-	]:
-		draw_line(c[0], c[0] + c[1], corner, 2.0)
-		draw_line(c[0], c[0] + c[2], corner, 2.0)
-
-
 func _draw() -> void:
-	for i in GATE_COLUMNS.size():
-		_draw_gate(i)
-
 	for b in blocks:
 		if not bool(b.alive):
 			continue
 		var rect: Rect2 = b.rect
+		var center: Vector2 = b.center
 		var max_hp: int = int(b.max_hp)
 		var hp: int = int(b.hp)
 		var col: Color = b.color
 		var kind := String(b.get("kind", KIND_NORMAL))
-		# 还在缺口里排队
-		var emerge := float(b.get("emerge", 1.0))
-		if emerge <= 0.0:
-			continue
-		# 靠近底边时整体淡出，敌人不会在画面中间被裁掉
-		var alpha := clampf((PLAY_BOTTOM - EXIT_MARGIN - rect.get_center().y) / EXIT_FADE, 0.0, 1.0)
-		# 正在钻出缺口：位置从缺口滑向自己的格子，同时由小变大、由透明变实
-		var center := rect.get_center()
-		var scale := 1.0
-		if emerge < 1.0:
-			var t := smoothstep(0.0, 1.0, emerge)
-			center = Vector2(b.get("emerge_from", center)).lerp(center, t)
-			scale = lerpf(0.35, 1.0, t)
-			alpha *= t
+		# 出场淡入
+		var alpha := clampf(float(b.get("spawn", 1.0)), 0.0, 1.0)
+		var scale := lerpf(0.45, 1.0, alpha)
 		if alpha <= 0.0:
 			continue
+		alpha = smoothstep(0.0, 1.0, alpha)
 
 		var inner := rect.grow(-2.0)
 		var body := Rect2(center - CELL_SIZE * 0.5 * scale, CELL_SIZE * scale)
@@ -678,7 +515,7 @@ func _draw() -> void:
 		# 正在啃食阵地建筑时，在方块底部画出抓挠痕迹
 		var attack_flash := float(b.get("attack_flash", 0.0))
 		if attack_flash > 0.0 and b.get("blocked_by", null) != null:
-			var claw := rect.get_center() + Vector2(0.0, rect.size.y * 0.42)
+			var claw := center + Vector2(0.0, rect.size.y * 0.42)
 			for k in 3:
 				var x := claw.x - 8.0 + k * 8.0
 				draw_line(Vector2(x, claw.y), Vector2(x - 3.0, claw.y + 9.0), Color(0.95, 0.32, 0.28, 0.8 * attack_flash * alpha), 2.0)

@@ -4,6 +4,7 @@
   "hud.wave": "WAVE %d",
   "hud.wave_next": "WAVE %d · NEXT %ds",
   "hud.destroyed": "DESTROYED %d",
+  "hud.core": "CORE %d · KILLS %d",
   "hud.coins": "COINS %d",
   "hud.energy": "POWER %d/%d",
   "hud.energy_offline": "POWER %d/%d · %d OFF",
@@ -80,5 +81,9 @@
   "settings.saved": "INSTANTLY APPLIED / AUTO-SAVED",
   "settings.resume": "RESUME OPERATION",
   "settings.restart": "RESTART",
-  "settings.main_menu": "MAIN MENU"
+  "settings.main_menu": "MAIN MENU",
+  "over.title": "CORE LOST",
+  "over.stats": "REACHED WAVE %d · %d KILLS",
+  "over.restart": "RETRY",
+  "over.menu": "MAIN MENU"
 }

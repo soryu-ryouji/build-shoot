@@ -5,6 +5,7 @@ extends Node
 ##   Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path . res://tools/smoke_test.tscn
 
 const ItemDefs = preload("res://scripts/item_defs.gd")
+const BattleMap = preload("res://scripts/battle_map.gd")
 
 var main: Node
 var failures: Array[String] = []
@@ -319,12 +320,13 @@ func _run() -> void:
 		var atlas: Texture2D = main.blocks.MONSTER_ANIMATIONS[kind]
 		_check(atlas.get_width() == 1024 and atlas.get_height() == 256, "%s animation atlas has four frames" % kind)
 	var first: Dictionary = main.blocks.blocks[0]
-	var first_rect: Rect2 = first.rect
-	_check(absf(first_rect.position.y - float(main.blocks.SPAWN_Y)) < 0.5, "first blocks emerge at a spawn gate")
-	_check(first_rect.get_center().distance_to(main.blocks.gate_center(int(first.get("gate", 0)))) < 90.0, "spawn point sits on a gate")
-	_check(float(first.get("emerge", 1.0)) < 1.0, "first blocks start emerging")
+	_check(Vector2(first.center).distance_to(BattleMap.tile_center(first.route[0])) < 30.0, "enemies start at a gate tile")
+	_check(BattleMap.is_gate(first.route[0]), "route starts on a gate")
+	_check(first.route.size() > 5, "enemies follow a route to the core")
+	_check(float(first.get("spawn", 1.0)) <= 1.0, "enemies fade in at the gate")
 	_check(int(first.max_hp) == 3, "first wave enemies have low health")
-	_check(main.blocks.blocks.size() >= 3 and main.blocks.blocks.size() <= 4, "first wave has low enemy density")
+	_check(main.blocks.blocks.size() >= 1 and main.blocks.blocks.size() <= 3, "first wave trickles in")
+	_check(main.blocks._pending.size() > 0, "rest of the wave is queued")
 	_check(String(first.kind) == "normal", "first row uses normal enemies")
 	_check(main.blocks._enemy_count_for_wave(1) == 3, "wave one spawns three enemies")
 	_check(main.blocks._rows_for_wave(1) == 1, "wave one is a single row")
@@ -336,7 +338,7 @@ func _run() -> void:
 	_check(main.blocks._calm_for_wave(2) >= 24.0, "calm window leaves room to clear")
 	_check(main.blocks._calm_for_wave(6) > main.blocks._calm_for_wave(2), "bigger waves get more breathing room")
 	_check(main.blocks._enemy_count_for_wave(4) > main.blocks._enemy_count_for_wave(1), "later waves increase enemy count")
-	_check(main.blocks._enemy_count_for_wave(9) == main.blocks.COLS, "enemy count eventually fills a row")
+	_check(main.blocks._enemy_count_for_wave(9) == BattleMap.COLS - 1, "enemy count eventually fills a lane")
 	_check(main.blocks._base_health_for_wave(5) > main.blocks._base_health_for_wave(1) * 2, "enemy health climbs quickly")
 	_check(main.blocks._base_health_for_wave(10) > main.blocks._base_health_for_wave(5) * 2, "health growth accelerates")
 	_check(main.blocks._health_for_kind("swift", 6) < main.blocks._health_for_kind("normal", 6), "swift enemies have lighter health")
@@ -357,15 +359,15 @@ func _run() -> void:
 	main.blocks._process(float(main.blocks.HEALTH_BAR_DURATION) + 0.1)
 	_check(float(first.hp_bar_time) == 0.0, "health bar disappears after the timer runs out")
 
-	var tracked: Dictionary = _lowest_block()
+	var tracked: Dictionary = _lead_block()
 	var tracked_id := int(tracked.id)
-	var tracked_y := float(tracked.rect.position.y)
+	var tracked_pos: Vector2 = tracked.center
 	await _frames(90)
 	var tracked_now = main.blocks.by_id.get(tracked_id)
 	_check(tracked_now != null, "tracked block still on screen")
 	if tracked_now != null:
-		_check(float(tracked_now.rect.position.y) > tracked_y + 5.0, "blocks scroll downward")
-	var target_block := _lowest_block()
+		_check(Vector2(tracked_now.center).distance_to(tracked_pos) > 5.0, "enemies advance along their route")
+	var target_block := _lead_block()
 	var before_destroyed := int(main.blocks.destroyed)
 	var before_coins := int(main.coins)
 	var reward := int(target_block.max_hp)
@@ -384,14 +386,14 @@ func _run() -> void:
 			ball._vanish()
 	_clear_buildings()
 	main.coins = 2000
-	_place("fusion_tower", Vector2(120, 740))
-	_place("fusion_tower", Vector2(600, 740))
-	_place("solar", Vector2(360, 740))
-	var row_turret: Node = _place("turret", Vector2(180, 620))
-	var off_turret: Node = _place("turret", Vector2(180, 700))
-	var heavy: Node = _place("heavy_turret", Vector2(400, 700))
-	var compression: Node = _place("compression_tower", Vector2(300, 620), PI)
-	var sandbag: Node = _place("sandbag", Vector2(480, 620))
+	_place_at(1, 12, "fusion_tower")
+	_place_at(11, 12, "fusion_tower")
+	_place_at(6, 12, "solar")
+	var row_turret: Node = _place_at(2, 10, "turret")
+	var off_turret: Node = _place_at(2, 12, "turret")
+	var heavy: Node = _place_at(7, 11, "heavy_turret")
+	var compression: Node = _place_at(4, 10, "compression_tower", PI)
+	var sandbag: Node = _place_at(8, 10, "sandbag")
 	main.refresh_power()
 	_check(main.power_supply == 10, "controlled field has ten power")
 	_check(main.power_demand == 7, "controlled field demand is seven")
@@ -428,7 +430,11 @@ func _run() -> void:
 	# ---------------------------------------------------------------- 沙袋拦截
 	main.blocks.blocks.clear()
 	main.blocks.by_id.clear()
-	var attacker := _add_test_block(Vector2(480, 550), 30)
+	var attacker := _add_test_block(
+		BattleMap.tile_center(Vector2i(8, 9)),
+		30,
+		[Vector2i(8, 9), Vector2i(8, 10), Vector2i(8, 11)],
+	)
 	attacker.speed_scale = 1.0
 	for i in 18:
 		main.blocks._physics_process(0.1)
@@ -475,7 +481,7 @@ func _run() -> void:
 	_check(int(heavy.get_refund()) == 120, "offline building can be dismantled for full refund")
 
 	# 新布置的建筑在缺电时直接离线，但既有建筑继续工作
-	var new_turret: Node = _place("turret", Vector2(600, 700))
+	var new_turret: Node = _place_at(11, 11, "turret")
 	_check(not new_turret.powered, "new building is offline when power is short")
 	_check(new_turret.modulate != Color.WHITE, "new offline building icon is grayed out")
 	_check(row_turret.powered, "existing turret keeps running after a new building is placed")
@@ -488,9 +494,9 @@ func _run() -> void:
 	new_turret._process(0.2)
 	_check(int(new_turret.shots) == shots_during_deficit, "offline new turret cannot fire")
 
-	var restored_a: Node = _place("solar", Vector2(600, 740))
-	var restored_b: Node = _place("solar", Vector2(540, 700))
-	var restored_c: Node = _place("solar", Vector2(600, 600))
+	var restored_a: Node = _place_at(11, 13, "solar")
+	var restored_b: Node = _place_at(9, 12, "solar")
+	var restored_c: Node = _place_at(11, 10, "solar")
 	main.refresh_power()
 	_check(
 		int(restored_a.energy_output) == 2 and int(restored_b.energy_output) == 2 and int(restored_c.energy_output) == 2,
@@ -549,6 +555,32 @@ func _run() -> void:
 	_check(float(main.blocks.next_wave_in) > 0.0, "next wave countdown restarts")
 	_check(main.blocks.blocks.size() > 0, "new wave spawns a batch")
 
+	# ---------------------------------------------------------------- 核心血量与失败
+	main.blocks.blocks.clear()
+	main.blocks.by_id.clear()
+	main.blocks.next_wave_in = 999.0
+	main.blocks._spawn_enemy(0)
+	var runner: Dictionary = main.blocks.blocks[0]
+	runner.step = runner.route.size() - 1
+	runner.center = BattleMap.tile_center(runner.route[runner.route.size() - 2])
+	var base_before := int(main.base_hp)
+	for i in 20:
+		main.blocks._physics_process(0.1)
+	_check(int(main.base_hp) == base_before - 1, "enemy reaching the core costs one base hp")
+	_check(main.blocks.by_id.get(int(runner.id)) == null, "leaked enemy leaves the field")
+
+	main.base_hp = 1
+	main.damage_base(1)
+	_check(main.game_over, "core at zero hp ends the run")
+	_check(main.game_over_panel.visible, "game over panel shows")
+	_check(get_tree().paused, "game over pauses gameplay")
+	main.game_over = false
+	main.base_hp = main.base_max_hp
+	main.game_over_panel.visible = false
+	get_tree().paused = false
+	main.hud._process(0.0)
+	_check(str(main.base_max_hp) in main.hud.destroyed_label.text, "HUD shows the core hp")
+
 	# ---------------------------------------------------------------- 设置与主菜单
 	main.open_settings()
 	_check(main.settings_panel.visible, "in-game settings panel opens")
@@ -605,12 +637,15 @@ func _place(item_id: String, target: Vector2, facing := -PI / 2.0) -> Node:
 	return main._place_building(item, main.snap_to_grid(target), facing)
 
 
-func _add_test_block(center: Vector2, hp: int) -> Dictionary:
+func _add_test_block(center: Vector2, hp: int, route: Array = []) -> Dictionary:
 	var id := int(main.blocks._next_id)
 	main.blocks._next_id += 1
 	var block := {
 		"id": id,
 		"kind": "normal",
+		"route": route,
+		"step": 1,
+		"center": center,
 		"rect": Rect2(center - Vector2(24.0, 15.0), Vector2(48.0, 30.0)),
 		"hp": hp,
 		"max_hp": hp,
@@ -621,23 +656,29 @@ func _add_test_block(center: Vector2, hp: int) -> Dictionary:
 		"attack_flash": 0.0,
 		"blocked_by": null,
 		"alive": true,
+		"spawn": 1.0,
 	}
 	main.blocks.blocks.append(block)
 	main.blocks.by_id[id] = block
 	return block
 
 
-func _lowest_block() -> Dictionary:
-	var lowest: Dictionary = {}
-	var best := -INF
+## 用瓦片坐标摆建筑，避免 48px 吸附下两个建筑落到同一格
+func _place_at(col: int, row: int, item_id: String, facing := -PI / 2.0) -> Node:
+	return _place(item_id, BattleMap.tile_center(Vector2i(col, row)), facing)
+
+
+func _lead_block() -> Dictionary:
+	var lead: Dictionary = {}
+	var best := -1
 	for b in main.blocks.blocks:
 		if not bool(b.alive):
 			continue
-		var rect: Rect2 = b.rect
-		if rect.position.y > best:
-			best = rect.position.y
-			lowest = b
-	return lowest
+		var step := int(b.get("step", 0))
+		if step > best:
+			best = step
+			lead = b
+	return lead
 
 
 func _check(condition: bool, message: String) -> void:

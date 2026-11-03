@@ -1,11 +1,12 @@
 extends Node2D
 
-## 游戏主体：滚动方块、金币经济、三类建筑布置、能源结算与界面联动。
+## 游戏主体：路线地图、金币经济、三类建筑布置、能源结算与界面联动。
 
 const DEPLOY_TIME_SCALE := 0.28
 
 const Palette = preload("res://scripts/palette.gd")
 const Arena = preload("res://scripts/arena.gd")
+const BattleMap = preload("res://scripts/battle_map.gd")
 const Blocks = preload("res://scripts/blocks.gd")
 const Ball = preload("res://scripts/ball.gd")
 const Hud = preload("res://scripts/hud.gd")
@@ -13,13 +14,14 @@ const HitEffects = preload("res://scripts/hit_effects.gd")
 const ItemDefs = preload("res://scripts/item_defs.gd")
 const ShopBar = preload("res://scripts/shop_bar.gd")
 const FocusPanel = preload("res://scripts/focus_panel.gd")
+const GameOverPanel = preload("res://scripts/game_over_panel.gd")
 const PlacedBuilding = preload("res://scripts/placed_building.gd")
 const PlacementGhost = preload("res://scripts/placement_ghost.gd")
 const SettingsPanel = preload("res://scripts/settings_panel.gd")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
 
 const PREP_TIME := 5.0
-const PLACE_GRID := 64.0
+const BASE_HP := 12
 
 var arena: Node2D
 var blocks: Node2D
@@ -32,6 +34,7 @@ var hud: Control
 var shop_bar: Control
 var focus_panel: Control
 var settings_panel: Control
+var game_over_panel: Control
 var world_camera: Camera2D
 var dim_rect: ColorRect
 
@@ -49,6 +52,11 @@ var orient_dragging := false
 var preparing := true
 var prep_timer := PREP_TIME
 var coins := 50
+
+## 核心血量：敌人走到核心扣 1 点，扣完判负
+var base_hp := BASE_HP
+var base_max_hp := BASE_HP
+var game_over := false
 
 ## 全局能源：按建筑布置顺序供电，既有建筑优先；产能不足时只有排在后面的建筑离线。
 var power_supply := 0
@@ -77,25 +85,55 @@ func _end_prep() -> void:
 	blocks.reset_stream()
 
 
+## ---------------------------------------------------------------- 核心与失败
+
+func on_enemy_leaked(_enemy: Dictionary) -> void:
+	if game_over:
+		return
+	if effects != null:
+		effects.emit_hit(BattleMap.core_center(), Palette.DANGER, true)
+	damage_base(1)
+
+
+func damage_base(amount: int) -> void:
+	if game_over:
+		return
+	base_hp = maxi(0, base_hp - amount)
+	if arena != null:
+		arena.set_core_ratio(float(base_hp) / float(maxi(base_max_hp, 1)))
+		arena.flash_core()
+	if base_hp <= 0:
+		_trigger_game_over()
+
+
+func _trigger_game_over() -> void:
+	if game_over:
+		return
+	game_over = true
+	blocks.active = false
+	cancel_placement()
+	clear_selection()
+	game_over_panel.show_result(int(blocks.wave), int(blocks.destroyed))
+	get_tree().paused = true
+
+
 func _setup_nodes() -> void:
 	arena = Arena.new()
 	arena.name = "Arena"
 	add_child(arena)
 
-	var play_rect: Rect2 = arena.get_play_rect()
-
-	# 用 Control 裁剪方块，滚动时从顶部边缘平滑进入
+	# 用 Control 裁剪敌人层，避免贴图溢出到地图边框外
 	blocks_clip = Control.new()
 	blocks_clip.name = "BlocksClip"
-	blocks_clip.position = play_rect.position
-	blocks_clip.size = play_rect.size
+	blocks_clip.position = Arena.FRAME_RECT.position
+	blocks_clip.size = Arena.FRAME_RECT.size
 	blocks_clip.clip_contents = true
 	blocks_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(blocks_clip)
 
 	blocks = Blocks.new()
 	blocks.name = "Blocks"
-	blocks.position = -play_rect.position
+	blocks.position = -Arena.FRAME_RECT.position
 	blocks.game = self
 	blocks_clip.add_child(blocks)
 
@@ -177,6 +215,13 @@ void fragment() {
 	settings_panel.closed.connect(_on_settings_closed)
 	settings_panel.restart_requested.connect(_on_settings_restart)
 	settings_panel.menu_requested.connect(_on_settings_menu)
+
+	game_over_panel = GameOverPanel.new()
+	game_over_panel.name = "GameOverPanel"
+	ui_layer.add_child(game_over_panel)
+	game_over_panel.restart_requested.connect(_on_settings_restart)
+	game_over_panel.menu_requested.connect(_on_settings_menu)
+
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 
@@ -459,27 +504,11 @@ func _confirm_orientation() -> void:
 
 
 func snap_to_grid(pos: Vector2) -> Vector2:
-	var rect: Rect2 = get_play_rect()
-	var x0 := rect.position.x + 32.0
-	var y0 := rect.position.y + 32.0
-	var x1 := rect.end.x - 32.0
-	var y1 := rect.end.y - 32.0
-
-	# 用 64px 的单元铺满四边，最外侧格子中心距边缘 32px，底座刚好放得下
-	var steps_x := maxi(1, int(floorf((x1 - x0) / PLACE_GRID)))
-	var steps_y := maxi(1, int(floorf((y1 - y0) / PLACE_GRID)))
-	var step_x := (x1 - x0) / float(steps_x)
-	var step_y := (y1 - y0) / float(steps_y)
-
-	var gx := x0 + roundf((pos.x - x0) / step_x) * step_x
-	var gy := y0 + roundf((pos.y - y0) / step_y) * step_y
-
-	# 在场地及边框附近拖动时，把最外侧的格子夹到可用范围内，避免边缘一直判红
-	if rect.grow(16.0).has_point(pos):
-		gx = clampf(gx, x0, x1)
-		gy = clampf(gy, y0, y1)
-
-	return Vector2(gx, gy)
+	# 拖到场地边缘附近时吸附并夹到最外圈；拖到场地外很远则保留界外格子，由 is_valid_placement 判红
+	var tile: Vector2i = BattleMap.tile_at(pos)
+	if BattleMap.field_rect().grow(24.0).has_point(pos):
+		tile = BattleMap.clamp_tile(tile)
+	return BattleMap.tile_center(tile)
 
 
 func get_range_cells(center: Vector2, radius: float) -> Array:
@@ -493,37 +522,25 @@ func get_range_cells(center: Vector2, radius: float) -> Array:
 func get_line_cells(center: Vector2, direction: Vector2) -> Array:
 	var cells: Array = []
 	for cell in _grid_centers():
-		if absf((cell - center).cross(direction)) <= 34.0:
+		if absf((cell - center).cross(direction)) <= BattleMap.TILE * 0.7:
 			cells.append(cell)
 	return cells
 
 
 func _grid_centers() -> Array:
-	var rect: Rect2 = get_play_rect()
-	var x0 := rect.position.x + 32.0
-	var y0 := rect.position.y + 32.0
-	var x1 := rect.end.x - 32.0
-	var y1 := rect.end.y - 32.0
-	var steps_x := maxi(1, int(floorf((x1 - x0) / PLACE_GRID)))
-	var steps_y := maxi(1, int(floorf((y1 - y0) / PLACE_GRID)))
-	var step_x := (x1 - x0) / float(steps_x)
-	var step_y := (y1 - y0) / float(steps_y)
 	var result: Array = []
-	for ix in steps_x + 1:
-		for iy in steps_y + 1:
-			result.append(Vector2(x0 + step_x * ix, y0 + step_y * iy))
+	for c in BattleMap.COLS:
+		for r in BattleMap.ROWS:
+			result.append(BattleMap.tile_center(Vector2i(c, r)))
 	return result
 
 
 func is_valid_placement(pos: Vector2) -> bool:
-	var rect: Rect2 = get_play_rect()
-	var margin := 32.0
-	if pos.x < rect.position.x + margin or pos.x > rect.end.x - margin:
-		return false
-	if pos.y < rect.position.y + margin or pos.y > rect.end.y - margin:
+	var tile: Vector2i = BattleMap.tile_at(pos)
+	if not BattleMap.is_buildable(tile):
 		return false
 	for t in placed_buildings:
-		if is_instance_valid(t) and pos.distance_to(t.global_position) < 62.0:
+		if is_instance_valid(t) and pos.distance_to(t.global_position) < BattleMap.TILE * 1.05:
 			return false
 	return true
 

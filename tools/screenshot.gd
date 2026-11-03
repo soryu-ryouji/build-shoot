@@ -11,6 +11,7 @@ extends Node
 ##   -- --place                 截取拖拽中的圆形射程格子预览
 
 const ItemDefs = preload("res://scripts/item_defs.gd")
+const BattleMap = preload("res://scripts/battle_map.gd")
 
 const DEFAULT_SIZE := Vector2i(1080, 2400)
 const SHOT_PATH := "res://image.png"
@@ -41,50 +42,54 @@ func _ready() -> void:
 
 	# 第二阶段：摆出三类建筑，正常速度跑一小段，拍到开火、增益和能源线
 	main.coins = 1000
-	_place("fusion_tower", Vector2(120, 740))
-	_place("fusion_tower", Vector2(600, 740))
-	_place("solar", Vector2(360, 740))
+	_place("fusion_tower", _tile(1, 12))
+	_place("fusion_tower", _tile(11, 12))
+	_place("solar", _tile(6, 12))
 
-	var turret_a: Node = _place("turret", Vector2(180, 700))
-	_place("heavy_turret", Vector2(380, 700))
-	_place("laser_tower", Vector2(560, 700))
+	var turret_a: Node = _place("turret", _tile(2, 10))
+	_place("heavy_turret", _tile(7, 11))
+	_place("laser_tower", _tile(10, 9))
 
-	_place("compression_tower", Vector2(300, 620), PI)
-	_place("sandbag", Vector2(480, 620))
-	_place("turret", Vector2(180, 620))
+	_place("compression_tower", _tile(4, 10), PI)
+	_place("sandbag", _tile(8, 10))
+	_place("turret", _tile(2, 8))
 	main.refresh_power()
 	main.coins = 118
 
 	var show_power := "--power" in OS.get_cmdline_user_args()
 	if show_power:
 		# 产能刚好覆盖既有建筑，再追加两座炮塔，让新建筑离线
-		_place("turret", Vector2(620, 560))
-		_place("turret", Vector2(620, 620))
+		_place("turret", _tile(9, 11))
+		_place("turret", _tile(9, 12))
 		main.refresh_power()
 
 	var show_orientation := "--orient" in OS.get_cmdline_user_args()
 	if show_orientation:
 		main.coins = maxi(int(main.coins), 100)
 		main.begin_placement("compression_tower")
-		main.finish_placement("compression_tower", Vector2(500, 520))
-		main._update_orientation(Vector2(700, 520))
+		main.finish_placement("compression_tower", _tile(6, 7))
+		main._update_orientation(_tile(9, 7))
 
 	var show_place := "--place" in OS.get_cmdline_user_args()
 	if show_place:
 		main.coins = maxi(int(main.coins), 100)
 		main.begin_placement("turret")
-		main.update_placement(Vector2(400, 500))
+		main.update_placement(_tile(6, 5))
 
 	await get_tree().create_timer(5.0, true, false, true).timeout
 	var show_settings := "--settings" in OS.get_cmdline_user_args()
 	var show_focus := "--focus" in OS.get_cmdline_user_args()
+	var show_over := "--over" in OS.get_cmdline_user_args()
 	if show_settings:
 		main.open_settings()
 	elif show_focus:
 		main.select_building(turret_a)
+	elif show_over:
+		main.damage_base(999)
+		main.hud._process(0.0)
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
-	var suffix := "_settings" if show_settings else ("_focus" if show_focus else ("_power" if show_power else ("_orient" if show_orientation else ("_place" if show_place else ""))))
+	var suffix := "_settings" if show_settings else ("_focus" if show_focus else ("_power" if show_power else ("_orient" if show_orientation else ("_place" if show_place else ("_over" if show_over else "")))))
 	var path := ""
 	if _has_size_arg():
 		path = "res://image_%dx%d%s.png" % [target_size.x, target_size.y, suffix]
@@ -98,6 +103,8 @@ func _ready() -> void:
 		path = "res://orientation_preview.png"
 	elif show_place:
 		path = "res://range_preview.png"
+	elif show_over:
+		path = "res://game_over_preview.png"
 	else:
 		path = SHOT_PATH
 	img.save_png(ProjectSettings.globalize_path(path))
@@ -133,3 +140,7 @@ func _place(item_id: String, target: Vector2, facing := -PI / 2.0) -> Node:
 	if item.is_empty():
 		return null
 	return main._place_building(item, main.snap_to_grid(target), facing)
+
+
+func _tile(col: int, row: int) -> Vector2:
+	return BattleMap.tile_center(Vector2i(col, row))

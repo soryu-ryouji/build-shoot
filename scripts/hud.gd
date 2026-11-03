@@ -167,7 +167,9 @@ func _process(delta: float) -> void:
 	else:
 		coins_label.scale = Vector2.ONE
 
-	destroyed_label.text = I18n.t("hud.destroyed", [int(game.blocks.destroyed)])
+	var core := int(game.base_hp)
+	destroyed_label.text = I18n.t("hud.core", [core, int(game.blocks.destroyed)])
+	destroyed_label.add_theme_color_override("font_color", Palette.DANGER if core <= 3 else Palette.INK_MUTED)
 	var demand := int(game.power_demand)
 	var supply := int(game.power_supply)
 	var offline := int(game.power_offline)
