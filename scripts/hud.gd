@@ -1,12 +1,14 @@
 extends Control
 
-## 响应式 HUD：顶部信息容器、底部状态容器和居中战斗反馈。
+## 响应式 HUD：顶部信息面板、底部球数状态和中居战斗提示。
+## 尺寸按 400×800 移动端基线取，按钮不低于 52 逻辑像素。
 
 signal settings_requested
 
 const Palette = preload("res://scripts/palette.gd")
 const NumberFont = preload("res://theme/number_font.tres")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
+const UiMetrics = preload("res://scripts/ui_metrics.gd")
 
 var game: Node
 var top_panel: PanelContainer
@@ -24,6 +26,8 @@ var settings_button: Button
 var _toast_time := 0.0
 var _coin_pop := 0.0
 var _message_style: StyleBoxFlat
+var _status_style: StyleBoxFlat
+var _status_strip := Rect2()
 
 
 func _ready() -> void:
@@ -38,76 +42,90 @@ func _ready() -> void:
 
 func _build() -> void:
 	_message_style = _style(Color(Palette.PAPER, 0.96), Palette.ACCENT, false)
+	_status_style = _style(Color(Palette.PAPER, 0.92), Palette.ACCENT, true)
 
 	top_panel = PanelContainer.new()
 	top_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	top_panel.custom_minimum_size.y = 76
+	top_panel.custom_minimum_size.y = UiMetrics.HUD_HEIGHT
 	top_panel.add_theme_stylebox_override("panel", _style(Color(Palette.PAPER, 0.94), Palette.ACCENT, true))
 	add_child(top_panel)
 
 	var top_margin := MarginContainer.new()
 	top_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	top_margin.add_theme_constant_override("margin_left", 14)
-	top_margin.add_theme_constant_override("margin_top", 7)
+	top_margin.add_theme_constant_override("margin_left", 12)
+	top_margin.add_theme_constant_override("margin_top", 9)
 	top_margin.add_theme_constant_override("margin_right", 10)
-	top_margin.add_theme_constant_override("margin_bottom", 7)
+	top_margin.add_theme_constant_override("margin_bottom", 9)
 	top_panel.add_child(top_margin)
+
+	var column := VBoxContainer.new()
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_theme_constant_override("separation", 4)
+	top_margin.add_child(column)
 
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", 14)
-	top_margin.add_child(row)
+	row.add_theme_constant_override("separation", UiMetrics.GAP)
+	column.add_child(row)
 
 	var mode_box := VBoxContainer.new()
 	mode_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mode_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mode_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	mode_box.add_theme_constant_override("separation", 0)
 	row.add_child(mode_box)
-	mode_label = _make_label(mode_box, "", 25, Palette.INK)
-	tag_label = _make_label(mode_box, "", 10, Palette.INK_MUTED)
+	mode_label = _make_label(mode_box, "", UiMetrics.FONT_TITLE, Palette.INK)
 
 	var coin_panel := PanelContainer.new()
 	coin_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	coin_panel.custom_minimum_size.x = 148
+	coin_panel.custom_minimum_size.x = 104
+	coin_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var coin_style := _style(Color(1.0, 1.0, 0.98, 0.36), Palette.ACCENT, false)
 	coin_style.border_width_bottom = 3
 	coin_panel.add_theme_stylebox_override("panel", coin_style)
 	row.add_child(coin_panel)
 	var coin_box := VBoxContainer.new()
 	coin_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	coin_box.add_theme_constant_override("separation", -2)
+	coin_box.add_theme_constant_override("separation", -3)
 	coin_panel.add_child(coin_box)
-	coins_title_label = _make_label(coin_box, "", 9, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-	coins_label = _make_label(coin_box, "", 27, Palette.ACCENT, HORIZONTAL_ALIGNMENT_CENTER)
+	coins_title_label = _make_label(coin_box, "", UiMetrics.FONT_MICRO, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+	coins_label = _make_label(coin_box, "", 30, Palette.ACCENT, HORIZONTAL_ALIGNMENT_CENTER)
 	coins_label.add_theme_font_override("font", NumberFont)
-	coins_label.pivot_offset = Vector2(60, 16)
-
-	destroyed_label = _make_label(row, "", 12, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
-	destroyed_label.custom_minimum_size.x = 100
-	destroyed_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	coins_label.pivot_offset = Vector2(52, 20)
 
 	settings_button = Button.new()
 	settings_button.text = "≡"
 	settings_button.flat = true
 	settings_button.focus_mode = Control.FOCUS_NONE
 	settings_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	settings_button.custom_minimum_size = Vector2(42, 42)
+	settings_button.custom_minimum_size = Vector2(UiMetrics.TOUCH, UiMetrics.TOUCH)
 	settings_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	settings_button.add_theme_font_size_override("font_size", 22)
+	settings_button.add_theme_font_size_override("font_size", 27)
 	settings_button.add_theme_color_override("font_color", Palette.INK)
 	settings_button.add_theme_color_override("font_hover_color", Palette.ACCENT)
+	settings_button.add_theme_stylebox_override("normal", _button_style(Color(Palette.INK, 0.06)))
+	settings_button.add_theme_stylebox_override("hover", _button_style(Color(Palette.ACCENT, 0.16)))
+	settings_button.add_theme_stylebox_override("pressed", _button_style(Color(Palette.ACCENT, 0.28)))
 	settings_button.pressed.connect(func() -> void: settings_requested.emit())
 	row.add_child(settings_button)
 
+	var info := HBoxContainer.new()
+	info.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info.add_theme_constant_override("separation", UiMetrics.GAP)
+	column.add_child(info)
+	tag_label = _make_label(info, "", UiMetrics.FONT_MICRO, Palette.INK_MUTED)
+	tag_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	destroyed_label = _make_label(info, "", UiMetrics.FONT_SMALL, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
+
 	status_row = HBoxContainer.new()
 	status_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	status_row.custom_minimum_size.y = 24
+	status_row.custom_minimum_size.y = UiMetrics.STATUS_HEIGHT
 	add_child(status_row)
-	balls_label = _make_label(status_row, "", 13, Palette.INK)
+	balls_label = _make_label(status_row, "", UiMetrics.FONT_BODY, Palette.INK)
 	balls_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bounce_label = _make_label(status_row, "", 11, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
+	bounce_label = _make_label(status_row, "", UiMetrics.FONT_SMALL, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
 
-	toast_label = _make_label(self, "", 25, Palette.ACCENT, HORIZONTAL_ALIGNMENT_CENTER)
+	toast_label = _make_label(self, "", 21, Palette.ACCENT, HORIZONTAL_ALIGNMENT_CENTER)
 	toast_label.add_theme_constant_override("outline_size", 4)
 	toast_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.55))
 	toast_label.modulate.a = 0.0
@@ -137,21 +155,29 @@ func _style(fill: Color, border: Color, accent: bool) -> StyleBoxFlat:
 	return style
 
 
+func _button_style(fill: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.set_corner_radius_all(2)
+	return style
+
+
 func _layout() -> void:
 	var view := ResponsiveLayout.viewport_size(self)
 	var safe := ResponsiveLayout.safe_rect(self)
 	var margin := ResponsiveLayout.margin(self)
 
 	top_panel.position = safe.position + Vector2(margin, margin)
-	top_panel.size = Vector2(safe.size.x - margin * 2.0, 76)
+	top_panel.size = Vector2(safe.size.x - margin * 2.0, UiMetrics.HUD_HEIGHT)
 
 	var status_width := safe.size.x - margin * 2.0
-	status_row.position = Vector2(safe.position.x + margin, safe.end.y - 146.0)
-	status_row.size = Vector2(maxf(160.0, status_width), 24)
+	_status_strip = Rect2(safe.position.x + margin, safe.end.y - margin - UiMetrics.SHOP_HEIGHT - 4.0 - UiMetrics.STATUS_HEIGHT, status_width, UiMetrics.STATUS_HEIGHT + 4.0)
+	status_row.position = Vector2(_status_strip.position.x + 8.0, _status_strip.position.y)
+	status_row.size = Vector2(maxf(160.0, status_width - 16.0), UiMetrics.STATUS_HEIGHT)
 
-	var message_width := minf(420.0, view.x - 32.0)
-	toast_label.size = Vector2(message_width, 54)
-	toast_label.position = Vector2((view.x - message_width) * 0.5, view.y * 0.45 - 20.0)
+	var message_width := minf(360.0, view.x - 32.0)
+	toast_label.size = Vector2(message_width, UiMetrics.TOAST_HEIGHT)
+	toast_label.position = Vector2((view.x - message_width) * 0.5, view.y * 0.42 - 20.0)
 	queue_redraw()
 
 
@@ -207,12 +233,10 @@ func toast(text: String, color: Color) -> void:
 
 
 func _draw() -> void:
-	if status_row != null:
-		var y := status_row.position.y - 7.0
-		draw_line(Vector2(status_row.position.x, y), Vector2(status_row.position.x + status_row.size.x, y), Color(0.10, 0.12, 0.13, 0.20), 1.0)
-		draw_rect(Rect2(status_row.position.x - 12, status_row.position.y + 7, 8, 8), Palette.ACCENT)
+	if _status_strip.size.y > 0.0:
+		draw_style_box(_status_style, _status_strip)
 
-	if toast_label.modulate.a > 0.0:
+	if toast_label != null and toast_label.modulate.a > 0.0:
 		_message_style.bg_color.a = 0.96 * toast_label.modulate.a
 		_message_style.border_color.a = 0.75 * toast_label.modulate.a
-		draw_style_box(_message_style, Rect2(toast_label.position + Vector2(50, 4), Vector2(toast_label.size.x - 100, 46)))
+		draw_style_box(_message_style, Rect2(toast_label.position, toast_label.size))

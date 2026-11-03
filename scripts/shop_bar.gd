@@ -1,11 +1,13 @@
 extends Control
 
 ## 纯竖屏商店：底部横排并随安全区域调整宽度。
+## 卡片占据底部整条区域，手机上整块都能按到。
 
 const ItemDefs = preload("res://scripts/item_defs.gd")
 const ItemCard = preload("res://scripts/item_card.gd")
 const Palette = preload("res://scripts/palette.gd")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
+const UiMetrics = preload("res://scripts/ui_metrics.gd")
 
 signal drag_started(item_id: String)
 signal drag_moved(pos: Vector2)
@@ -32,12 +34,12 @@ func _ready() -> void:
 
 	card_row = HBoxContainer.new()
 	card_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card_row.add_theme_constant_override("separation", 14)
+	card_row.add_theme_constant_override("separation", UiMetrics.GAP)
 	card_row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	card_row.offset_left = 12
-	card_row.offset_top = 6
-	card_row.offset_right = -12
-	card_row.offset_bottom = -6
+	card_row.offset_left = 10
+	card_row.offset_top = 10
+	card_row.offset_right = -10
+	card_row.offset_bottom = -10
 	add_child(card_row)
 	_build_cards()
 	get_viewport().size_changed.connect(_layout)
@@ -54,7 +56,7 @@ func _build_cards() -> void:
 		var card = ItemCard.new()
 		card.game = game
 		card.item = item
-		card.custom_minimum_size = Vector2(180, 72)
+		card.custom_minimum_size = Vector2(120, 92)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		card.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		card.drag_started.connect(_on_card_drag_started)
@@ -65,7 +67,7 @@ func _build_cards() -> void:
 func _layout() -> void:
 	var safe := ResponsiveLayout.safe_rect(self)
 	var margin := ResponsiveLayout.margin(self)
-	size = Vector2(safe.size.x - margin * 2.0, 90)
+	size = Vector2(safe.size.x - margin * 2.0, UiMetrics.SHOP_HEIGHT)
 	position = Vector2(safe.position.x + margin, safe.end.y - size.y - margin)
 	queue_redraw()
 
@@ -102,4 +104,3 @@ func cancel_drag() -> void:
 
 func _draw() -> void:
 	draw_style_box(_panel_style, Rect2(Vector2.ZERO, size))
-	draw_line(Vector2(16, 0), Vector2(128, 0), Palette.ACCENT, 3.0)

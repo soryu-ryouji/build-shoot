@@ -11,7 +11,7 @@ static func viewport_size(item: CanvasItem) -> Vector2:
 
 static func margin(item: CanvasItem) -> float:
 	var size := viewport_size(item)
-	return clampf(minf(size.x, size.y) * 0.025, 12.0, 24.0)
+	return clampf(minf(size.x, size.y) * 0.028, 14.0, 22.0)
 
 
 static func safe_rect(item: CanvasItem) -> Rect2:

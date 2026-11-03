@@ -22,8 +22,10 @@ GameSettings="*res://scripts/game_settings.gd"
 
 [display]
 
-window/size/viewport_width=1000
-window/size/viewport_height=2000
+window/size/viewport_width=400
+window/size/viewport_height=800
+window/size/window_width_override=480
+window/size/window_height_override=960
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
