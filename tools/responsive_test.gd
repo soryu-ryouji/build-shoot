@@ -47,8 +47,7 @@ func _run() -> void:
 		main._on_shop_drag_started("turret")
 		main._on_shop_drag_moved(main.world_to_screen(world))
 		main._on_shop_drag_released("turret", main.world_to_screen(world))
-		_check(main.orienting, "directional placement awaits confirmation %s" % target)
-		main._confirm_orientation()
+		_check(not main.orienting, "turret places without orientation %s" % target)
 		_check(main.placed_buildings.size() == 1, "touch drag placement %s" % target)
 		if main.placed_buildings.size() == 1:
 			main.select_building(main.placed_buildings[0])

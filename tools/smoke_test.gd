@@ -110,23 +110,37 @@ func _run() -> void:
 	_check(main.placed_buildings.is_empty(), "sandbag removed after refund check")
 	_check(int(main.coins) == 50, "full refund restores the starting coins")
 
+	# 只有压缩塔需要二次确认，部署时显示施法绿格；确认后隐藏
+	main.coins = 100
+	main.begin_placement("compression_tower")
+	main.finish_placement("compression_tower", Vector2(400, 500))
+	_check(main.orienting, "compression tower enters orientation step")
+	_check(main.placement_ghost.range_cells.size() > 0, "compression shows green cast cells")
+	main._update_orientation(Vector2(500, 500))
+	_check(is_equal_approx(main.orient_facing, 0.0), "compression drag sets the cast direction")
+	main._confirm_orientation()
+	_check(main.placement_ghost.range_cells.is_empty(), "compression cast cells hide after confirmation")
+	_check(main.placed_buildings.size() == 1, "compression tower placed after confirmation")
+	_check(int(main.coins) == 40, "compression tower costs 60")
+	var preview_compression: Node = main.placed_buildings[0]
+	_check(is_equal_approx(preview_compression.facing_angle, 0.0), "compression facing is stored")
+	main.select_building(preview_compression)
+	main.dismantle_selected()
+	_check(int(main.coins) == 100, "no-firepower compression refund is full")
+	main.coins = 50
+
 	main.begin_placement("turret")
 	_check(main.placing, "placement begins")
 	main.update_placement(Vector2(400, 400))
 	main.finish_placement("turret", Vector2(400, 400))
-	_check(main.orienting, "directional building enters orientation step")
-	_check(not main.placing, "placement drag ends before orientation")
-	_check(int(main.coins) == 50, "direction confirmation happens before payment")
-	_check(is_equal_approx(main.orient_facing, -PI / 2.0), "default facing points up")
-	main._update_orientation(main.orient_pos + Vector2(100, 0))
-	_check(is_equal_approx(main.orient_facing, 0.0), "dragging sets the facing")
-	main._confirm_orientation()
+	_check(main.placement_ghost.range_cells.is_empty(), "turret range cells hide after placement")
+	_check(not main.orienting, "turret has no attack direction and places immediately")
 	_check(main.placed_buildings.size() == 1, "basic turret placed")
 	_check(int(main.coins) == 20, "basic turret costs 30")
 	var turret: Node = main.placed_buildings[0]
 	_check(turret.category == ItemDefs.CATEGORY_FIREPOWER, "turret is firepower")
 	_check(turret.global_position == main.snap_to_grid(Vector2(400, 400)), "placement snaps to grid")
-	_check(is_equal_approx(turret.facing_angle, 0.0), "chosen facing is stored on the building")
+	_check(is_equal_approx(turret.facing_angle, -PI / 2.0), "turret keeps the default facing")
 	_check(int(turret.damage) == 1, "basic turret base damage")
 	_check(int(turret.attack_range) == 300, "basic turret short range")
 	_check(absf(float(turret.interval) - 0.3) < 0.001, "basic turret interval")
@@ -194,8 +208,7 @@ func _run() -> void:
 	var coins_before := int(main.coins)
 	main.begin_placement("heavy_turret")
 	main.finish_placement("heavy_turret", Vector2(380, 700))
-	_check(main.orienting, "heavy turret also asks for a facing")
-	main._confirm_orientation()
+	_check(not main.orienting, "heavy turret has no attack direction and places immediately")
 	_check(main.placed_buildings.size() == 3, "heavy turret placed as its own item")
 	_check(int(main.coins) == coins_before - 120, "heavy turret costs 120")
 	var heavy_build: Node = main.placed_buildings[2]
@@ -222,8 +235,7 @@ func _run() -> void:
 	# ---------------------------------------------------------------- 激光塔
 	main.begin_placement("laser_tower")
 	main.finish_placement("laser_tower", Vector2(560, 560))
-	_check(main.orienting, "laser tower enters orientation step")
-	main._confirm_orientation()
+	_check(not main.orienting, "laser tower has no attack direction and places immediately")
 	_check(int(main.coins) == coins_before - 330, "laser tower costs 150 after heavy and fusion")
 	var laser: Node = main.placed_buildings[4]
 	_check(laser.item_id == "laser_tower", "laser tower placed directly")

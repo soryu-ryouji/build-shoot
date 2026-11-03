@@ -316,6 +316,8 @@ func update_placement(pos: Vector2) -> void:
 	var item: Dictionary = ItemDefs.get_item(placing_id)
 	if String(item.get("category", "")) == ItemDefs.CATEGORY_FIREPOWER:
 		placement_ghost.set_range_cells(get_range_cells(snapped, float(item.get("range", 0.0))))
+	elif _needs_direction(item):
+		placement_ghost.set_range_cells(get_line_cells(snapped, Vector2.from_angle(-PI / 2.0)))
 	else:
 		placement_ghost.set_range_cells([])
 
@@ -375,7 +377,8 @@ func _set_deploy_focus(active: bool) -> void:
 
 
 func _needs_direction(item: Dictionary) -> bool:
-	return String(item.get("attack_style", "none")) != "none" or int(item.get("buff_multiplier", 1)) > 1
+	# 只有覆盖范围随朝向变化的建筑需要二次确认；炮塔/电力塔/沙袋直接放置。
+	return int(item.get("buff_multiplier", 1)) > 1
 
 
 func _begin_orientation(item: Dictionary, pos: Vector2) -> void:
@@ -387,6 +390,8 @@ func _begin_orientation(item: Dictionary, pos: Vector2) -> void:
 	placement_ghost.begin_orientation(pos, item, orient_facing, get_play_rect())
 	if String(item.get("category", "")) == ItemDefs.CATEGORY_FIREPOWER:
 		placement_ghost.set_range_cells(get_range_cells(pos, float(item.get("range", 0.0))))
+	elif _needs_direction(item):
+		placement_ghost.set_range_cells(get_line_cells(pos, Vector2.from_angle(orient_facing)))
 	else:
 		placement_ghost.set_range_cells([])
 
@@ -422,6 +427,8 @@ func _update_orientation(world_pos: Vector2) -> void:
 	var angle := offset.angle()
 	orient_facing = roundf(angle / (PI / 4.0)) * (PI / 4.0)
 	placement_ghost.set_facing(orient_facing)
+	if _needs_direction(orient_item):
+		placement_ghost.set_range_cells(get_line_cells(orient_pos, Vector2.from_angle(orient_facing)))
 
 
 func _confirm_orientation() -> void:
@@ -472,6 +479,14 @@ func get_range_cells(center: Vector2, radius: float) -> Array:
 	var cells: Array = []
 	for cell in _grid_centers():
 		if cell.distance_to(center) <= radius:
+			cells.append(cell)
+	return cells
+
+
+func get_line_cells(center: Vector2, direction: Vector2) -> Array:
+	var cells: Array = []
+	for cell in _grid_centers():
+		if absf((cell - center).cross(direction)) <= 34.0:
 			cells.append(cell)
 	return cells
 
