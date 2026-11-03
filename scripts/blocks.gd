@@ -200,6 +200,7 @@ func _attack_dps(kind: String) -> float:
 
 
 func _process(delta: float) -> void:
+	_sync_3d()
 	if active:
 		if GameSettings.animate_monsters:
 			_animation_time += delta
@@ -420,6 +421,22 @@ func _speed_for_kind(kind: String) -> float:
 
 
 
+## 把敌人同步到 3D 战场：Sprite3D 立牌随方块移动，2D 层只留血条
+func _sync_3d() -> void:
+	if game == null or game.battle_world == null:
+		return
+	var alive_ids: Array = []
+	for b in blocks:
+		var id := int(b.id)
+		alive_ids.append(id)
+		game.battle_world.spawn_enemy(id)
+		var kind := String(b.get("kind", KIND_NORMAL))
+		var texture: Texture2D = MONSTER_SPRITES.get(kind, MONSTER_SPRITES[KIND_NORMAL])
+		var alpha := clampf(float(b.get("spawn", 1.0)), 0.0, 1.0)
+		game.battle_world.update_enemy(id, b.center, texture, alpha)
+	game.battle_world.prune_enemies(alive_ids)
+
+
 func _draw_kind(inner: Rect2, kind: String, col: Color, alpha := 1.0) -> void:
 	var c := inner.get_center() + Vector2(0.0, -2.0)
 	match kind:
@@ -493,8 +510,11 @@ func _draw() -> void:
 			art_size = Vector2(50, 46)
 		var art_rect := Rect2(center - art_size * 0.5 * scale + Vector2(0.0, -3.0 * scale), art_size * scale)
 
+		var use_3d: bool = game != null and game.battle_world != null
 		var sprite: Texture2D = MONSTER_SPRITES.get(kind, null)
-		if sprite != null:
+		if use_3d:
+			pass
+		elif sprite != null:
 			# 2.5D 贴片：轻微上下浮动代替逐帧动画
 			var bob := sin((_animation_time + phase) * 7.0) * 1.6 * scale
 			draw_circle(center + Vector2(0, 4), 20.0 * scale, Color(0.0, 0.0, 0.0, 0.34 * alpha))

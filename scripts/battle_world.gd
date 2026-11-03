@@ -166,6 +166,40 @@ func _build_map() -> void:
 	_build_rim()
 	_build_gates()
 	_build_core()
+	_build_props()
+
+
+## 场地外的低模装饰：货箱、管线、通风机，按格子坐标固定散开
+func _build_props() -> void:
+	for row in range(-3, BattleMap.ROWS + 3):
+		for col in range(-3, BattleMap.COLS + 3):
+			if col >= -1 and col <= BattleMap.COLS and row >= -1 and row <= BattleMap.ROWS:
+				continue
+			if absi(col * 31 + row * 17 + col * row * 5) % 100 >= 24:
+				continue
+			var p := tile_position(Vector2i(col, row))
+			match absi(col * 13 + row * 29) % 3:
+				0:
+					_crate(_root, p + Vector3(-6.0, 6.0, -4.0), Vector3(16.0, 12.0, 14.0), _materials["deck"])
+					_crate(_root, p + Vector3(8.0, 5.0, 3.0), Vector3(13.0, 10.0, 12.0), _materials["deck_alt"])
+					_crate(_root, p + Vector3(-5.0, 12.5, -4.0), Vector3(12.0, 1.0, 10.0), _materials["cream"])
+				1:
+					for i in 2:
+						var pipe := CylinderMesh.new()
+						pipe.top_radius = 4.0
+						pipe.bottom_radius = 4.0
+						pipe.height = 30.0
+						pipe.radial_segments = 12
+						var node := MeshInstance3D.new()
+						node.mesh = pipe
+						node.material_override = _materials["steel"]
+						node.position = p + Vector3(0.0, 6.0, -5.0 + i * 9.0)
+						node.rotation_degrees = Vector3(0.0, 0.0, 90.0)
+						_root.add_child(node)
+				2:
+					_crate(_root, p + Vector3(0.0, 5.0, 0.0), Vector3(24.0, 10.0, 18.0), _materials["deck"])
+					for i in 3:
+						_crate(_root, p + Vector3(-8.0 + i * 8.0, 11.0, 0.0), Vector3(4.0, 2.0, 12.0), _materials["steel"])
 
 
 func _build_road() -> void:
@@ -349,3 +383,53 @@ func _build_fusion(root: Node3D) -> void:
 	cap_node.material_override = _materials["steel"]
 	cap_node.position = Vector3(0.0, 34.0, 0.0)
 	root.add_child(cap_node)
+
+
+## 敌人：Sprite3D 立牌 + 地面阴影，由 blocks 每帧同步位置
+var _enemies: Dictionary = {}
+
+
+func spawn_enemy(id: int) -> void:
+	if _enemies.has(id):
+		return
+	var sprite := Sprite3D.new()
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.pixel_size = 1.0
+	sprite.shaded = false
+	sprite.position = Vector3(0.0, 26.0, 0.0)
+	_root.add_child(sprite)
+	var shadow := MeshInstance3D.new()
+	var quad := QuadMesh.new()
+	quad.size = Vector2(40.0, 28.0)
+	shadow.mesh = quad
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.02, 0.03, 0.04, 0.42)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	shadow.material_override = mat
+	shadow.rotation_degrees = Vector3(-90.0, 0.0, 0.0)
+	_root.add_child(shadow)
+	_enemies[id] = {"sprite": sprite, "shadow": shadow}
+
+
+func update_enemy(id: int, screen_pos: Vector2, texture: Texture2D, alpha: float) -> void:
+	if not _enemies.has(id):
+		return
+	var entry: Dictionary = _enemies[id]
+	var sprite: Sprite3D = entry["sprite"]
+	var shadow: MeshInstance3D = entry["shadow"]
+	var p := _world_from_screen(screen_pos)
+	sprite.texture = texture
+	sprite.position = Vector3(p.x, 26.0, p.z)
+	sprite.modulate = Color(1.0, 1.0, 1.0, alpha)
+	shadow.position = Vector3(p.x, TILE_TOP + 0.7, p.z)
+	shadow.visible = alpha > 0.15
+
+
+func prune_enemies(alive_ids: Array) -> void:
+	for id in _enemies.keys():
+		if not alive_ids.has(id):
+			var entry: Dictionary = _enemies[id]
+			(entry["sprite"] as Node).queue_free()
+			(entry["shadow"] as Node).queue_free()
+			_enemies.erase(id)
