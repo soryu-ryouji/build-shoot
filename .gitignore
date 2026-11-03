@@ -5,5 +5,8 @@
 # Web export artifacts
 /build/
 
+# 字体源文件：重建子集时按需下载
+/assets/ui/font/source/
+
 # Python
 __pycache__/

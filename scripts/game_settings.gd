@@ -11,12 +11,23 @@ var fullscreen := false
 var animate_monsters := true
 var show_grid := true
 var show_aim := true
+## 主界面选中的地图序号，游戏开始时由 BattleMap.use() 应用
+var map_index := 0
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	if DisplayServer.get_name() != "headless":
 		_load_settings()
+
+
+func set_map_index(value: int) -> void:
+	value = maxi(0, value)
+	if map_index == value:
+		return
+	map_index = value
+	changed.emit()
+	save_settings()
 
 
 func set_option(option: String, value: bool) -> void:
@@ -34,6 +45,7 @@ func save_settings() -> void:
 		return
 	var config := ConfigFile.new()
 	config.set_value("general", "locale", I18n.locale)
+	config.set_value("general", "map", map_index)
 	for option in BOOLEAN_OPTIONS:
 		config.set_value("options", option, get(option))
 	config.save(CONFIG_PATH)
@@ -45,6 +57,7 @@ func _load_settings() -> void:
 		return
 	var saved_locale := String(config.get_value("general", "locale", I18n.DEFAULT_LOCALE))
 	I18n.set_locale(saved_locale)
+	map_index = maxi(0, int(config.get_value("general", "map", 0)))
 	for option in BOOLEAN_OPTIONS:
 		set(option, bool(config.get_value("options", option, get(option))))
 	_apply_fullscreen()

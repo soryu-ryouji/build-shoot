@@ -71,6 +71,14 @@ func _ready() -> void:
 	_setup_nodes()
 
 
+## 地图序号：主界面选中的地图，命令行 --map=N 可覆盖（截图与测试用）
+func _requested_map_index() -> int:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--map="):
+			return maxi(0, int(arg.trim_prefix("--map=")))
+	return maxi(0, int(GameSettings.map_index))
+
+
 func _process(delta: float) -> void:
 	if not preparing:
 		return
@@ -83,6 +91,7 @@ func _end_prep() -> void:
 	preparing = false
 	prep_timer = 0.0
 	blocks.reset_stream()
+	hud.toast(I18n.t(BattleMap.map_name_key()), Palette.CYAN)
 
 
 ## ---------------------------------------------------------------- 核心与失败
@@ -118,6 +127,8 @@ func _trigger_game_over() -> void:
 
 
 func _setup_nodes() -> void:
+	BattleMap.use(_requested_map_index())
+
 	arena = Arena.new()
 	arena.name = "Arena"
 	add_child(arena)
@@ -362,10 +373,10 @@ func begin_placement(item_id: String) -> void:
 func update_placement(pos: Vector2) -> void:
 	if not placing:
 		return
-	var snapped := snap_to_grid(pos)
-	var valid := is_valid_placement(snapped) and coins >= placing_cost
-	placement_ghost.update_preview(snapped, valid)
 	var item: Dictionary = ItemDefs.get_item(placing_id)
+	var snapped := snap_to_grid(pos)
+	var valid := is_valid_placement(snapped, String(item.get("category", ""))) and coins >= placing_cost
+	placement_ghost.update_preview(snapped, valid)
 	if String(item.get("category", "")) == ItemDefs.CATEGORY_FIREPOWER:
 		placement_ghost.set_range_cells(get_range_cells(snapped, float(item.get("range", 0.0))))
 	elif _needs_direction(item):
@@ -381,7 +392,7 @@ func finish_placement(item_id: String, pos: Vector2) -> void:
 
 	var item: Dictionary = ItemDefs.get_item(placing_id)
 	var snapped := snap_to_grid(pos)
-	var valid := is_valid_placement(snapped) and coins >= int(item.cost)
+	var valid := is_valid_placement(snapped, String(item.get("category", ""))) and coins >= int(item.cost)
 	placing = false
 	placing_id = ""
 	placing_cost = 0
@@ -394,6 +405,8 @@ func finish_placement(item_id: String, pos: Vector2) -> void:
 		_place_building(item, snapped)
 	elif coins < int(item.cost):
 		hud.toast(I18n.t("shop.not_enough"), Palette.DANGER)
+	elif BattleMap.is_path(BattleMap.tile_at(snapped)) and String(item.get("category", "")) != BattleMap.CATEGORY_FORTIFICATION:
+		hud.toast(I18n.t("shop.need_fortification"), Palette.DANGER)
 	elif _inside_arena(snapped):
 		hud.toast(I18n.t("shop.invalid"), Palette.DANGER)
 
@@ -535,9 +548,10 @@ func _grid_centers() -> Array:
 	return result
 
 
-func is_valid_placement(pos: Vector2) -> bool:
+func is_valid_placement(pos: Vector2, category := "") -> bool:
 	var tile: Vector2i = BattleMap.tile_at(pos)
-	if not BattleMap.is_buildable(tile):
+	# 缺口和核心不能建；通路只放阵地建筑，火力和能源必须放在路外
+	if not BattleMap.is_buildable(tile, category):
 		return false
 	for t in placed_buildings:
 		if is_instance_valid(t) and pos.distance_to(t.global_position) < BattleMap.TILE * 1.05:

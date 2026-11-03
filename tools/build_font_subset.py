@@ -66,6 +66,36 @@ def json_loads(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+## 统一竖排度量：Noto Sans SC 的 1.2em 行高。不同来源（VF / CJK OTF）的 hhea
+## 差异会让标签行高跳动，进而改变 HUD 高度，所以子集后强制写回这组数值。
+METRICS_PER_EM = {
+    "hhea_ascent": 1000,
+    "hhea_descent": -200,
+    "typo_ascender": 880,
+    "typo_descender": -120,
+    "win_ascent": 1160,
+    "win_descent": 288,
+}
+
+
+def normalize_metrics(font) -> None:
+    scale = font["head"].unitsPerEm / 1000.0
+
+    def px(value: int) -> int:
+        return round(value * scale)
+
+    hhea = font["hhea"]
+    hhea.ascent = px(METRICS_PER_EM["hhea_ascent"])
+    hhea.descent = px(METRICS_PER_EM["hhea_descent"])
+    hhea.lineGap = 0
+    os2 = font["OS/2"]
+    os2.sTypoAscender = px(METRICS_PER_EM["typo_ascender"])
+    os2.sTypoDescender = px(METRICS_PER_EM["typo_descender"])
+    os2.sTypoLineGap = 0
+    os2.usWinAscent = px(METRICS_PER_EM["win_ascent"])
+    os2.usWinDescent = px(METRICS_PER_EM["win_descent"])
+
+
 def subset_font(source: Path, out: Path, chars: set[str]) -> None:
     unicodes = sorted({ord(ch) for ch in chars if ch.strip() or ch == " "})
     options = subset.Options()
@@ -77,6 +107,7 @@ def subset_font(source: Path, out: Path, chars: set[str]) -> None:
     subsetter = subset.Subsetter(options)
     subsetter.populate(unicodes=unicodes)
     subsetter.subset(font)
+    normalize_metrics(font)
     font.save(str(out))
     print(f"subset {len(unicodes)} unicodes -> {out} ({out.stat().st_size} bytes)")
 

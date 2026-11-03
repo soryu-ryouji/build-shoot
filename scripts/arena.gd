@@ -24,6 +24,10 @@ var _gate_style: StyleBoxFlat
 var _gate_glow: StyleBoxFlat
 var _core_style: StyleBoxFlat
 var _core_glow: StyleBoxFlat
+## 当前地图的地板、缺口与核心贴图；素材缺失时回退到代码绘制
+var _floor_texture: Texture2D
+var _gate_texture: Texture2D
+var _core_texture: Texture2D
 
 
 func get_play_rect() -> Rect2:
@@ -32,10 +36,19 @@ func get_play_rect() -> Rect2:
 
 func _ready() -> void:
 	GameSettings.changed.connect(queue_redraw)
+	_floor_texture = _load_texture(BattleMap.art_path())
+	_gate_texture = _load_texture("res://assets/ui/gate.png")
+	_core_texture = _load_texture("res://assets/ui/core.png")
 	_gate_style = _style(Color(Palette.INK, 0.92), Color(Palette.DANGER.darkened(0.2), 0.9), 8, 2)
 	_gate_glow = _style(Color(Palette.DANGER, 0.22), Color(0, 0, 0, 0), 6, 0)
 	_core_style = _style(Color(Palette.INK, 0.94), Color(Palette.CYAN, 0.9), 10, 2)
 	_core_glow = _style(Color(Palette.CYAN, 0.14), Color(0, 0, 0, 0), 8, 0)
+
+
+func _load_texture(path: String) -> Texture2D:
+	if not ResourceLoader.exists(path):
+		return null
+	return load(path) as Texture2D
 
 
 func _style(fill: Color, border: Color, radius: int, border_width: int) -> StyleBoxFlat:
@@ -75,9 +88,12 @@ func _draw() -> void:
 	_draw_frame()
 
 
-## 瓦片地面：统一明度 + 极淡的格子缝，让通路和核心像画在同一张地图上
+## 瓦片地面：该地图的地板贴图铺满瓦片区；缺贴图时回退到浅色底 + 格子缝
 func _draw_floor() -> void:
 	var field := BattleMap.field_rect()
+	if _floor_texture != null:
+		draw_texture_rect(_floor_texture, field, false)
+		return
 	draw_rect(field, Color(Palette.PAPER, 0.20))
 	if GameSettings.show_grid:
 		var seam := Color(Palette.INK, 0.055)
@@ -91,9 +107,10 @@ func _draw_floor() -> void:
 
 ## 敌人通路：路线带 + 内圈亮线 + 沿途的方向箭头
 func _draw_road() -> void:
+	var routes: Array = BattleMap.active_map().routes
 	for segment in BattleMap.segments():
 		draw_line(segment[0], segment[1], ROAD_COLOR, ROAD_WIDTH)
-	for route in [BattleMap.ROUTE_A, BattleMap.ROUTE_B]:
+	for route in routes:
 		for i in route.size() - 1:
 			var a: Vector2 = BattleMap.tile_center(route[i])
 			var b: Vector2 = BattleMap.tile_center(route[i + 1])
@@ -101,12 +118,12 @@ func _draw_road() -> void:
 
 	# 转角处补一块方形，避免直角出现缺口（不用圆，圆会让整条路看起来像一串珠子）
 	var joint := Vector2(ROAD_WIDTH, ROAD_WIDTH)
-	for route in [BattleMap.ROUTE_A, BattleMap.ROUTE_B]:
+	for route in routes:
 		for tile in route:
 			draw_rect(Rect2(BattleMap.tile_center(tile) - joint * 0.5, joint), ROAD_COLOR)
 
 	# 方向箭头：每三格一个，指向核心方向
-	for route in [BattleMap.ROUTE_A, BattleMap.ROUTE_B]:
+	for route in routes:
 		var i := 0
 		while i < route.size() - 1:
 			var a: Vector2 = BattleMap.tile_center(route[i])
@@ -123,13 +140,26 @@ func _draw_road() -> void:
 
 
 func _draw_gates() -> void:
-	for index in 2:
+	for index in BattleMap.gates().size():
 		var tile: Vector2i = BattleMap.gate_tile(index)
-		var rect := BattleMap.tile_rect(tile).grow(-4.0)
-		draw_style_box(_gate_glow, rect.grow(4.0))
-		draw_style_box(_gate_style, rect)
+		var rect := BattleMap.tile_rect(tile)
+		if _gate_texture != null:
+			# 门洞按路线离开缺口的方向旋转，让开口朝着敌人要走的通路
+			var route: Array = BattleMap.route_for_gate(index)
+			var direction := Vector2.DOWN
+			if route.size() > 1:
+				direction = (BattleMap.tile_center(route[1]) - BattleMap.tile_center(route[0])).normalized()
+			var size := Vector2(46.0, 68.0)
+			var pivot := rect.get_center() + direction * 6.0
+			draw_set_transform(pivot, direction.angle() - PI * 0.5, Vector2.ONE)
+			draw_texture_rect(_gate_texture, Rect2(-size * 0.5, size), false)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			continue
+		var inner := rect.grow(-4.0)
+		draw_style_box(_gate_glow, inner.grow(4.0))
+		draw_style_box(_gate_style, inner)
 		# 门口朝下的箭头，和通路方向一致
-		var center := rect.get_center()
+		var center := inner.get_center()
 		draw_polyline(PackedVector2Array([
 			center + Vector2(-11.0, -7.0),
 			center + Vector2(0.0, 4.0),
@@ -138,8 +168,8 @@ func _draw_gates() -> void:
 
 
 func _draw_core() -> void:
-	var left := BattleMap.tile_rect(BattleMap.CORE_LEFT)
-	var right := BattleMap.tile_rect(BattleMap.CORE_RIGHT)
+	var left := BattleMap.tile_rect(BattleMap.core_tiles()[0])
+	var right := BattleMap.tile_rect(BattleMap.core_tiles()[1])
 	var rect := Rect2(left.position, Vector2(right.end.x - left.position.x, left.size.y)).grow(-3.0)
 	var flash := core_flash
 	_core_glow.bg_color = Color(Palette.CYAN, 0.10 + 0.10 * core_ratio + 0.25 * flash)
@@ -147,11 +177,16 @@ func _draw_core() -> void:
 	_core_style.border_color = Color(Palette.DANGER if flash > 0.2 else Palette.CYAN, 0.9)
 	draw_style_box(_core_style, rect)
 
-	# 核心徽记：同心环 + 中心光点
 	var center := rect.get_center()
-	draw_arc(center, 17.0, 0.0, TAU, 32, Color(Palette.CYAN, 0.55 + 0.35 * flash), 2.0, true)
-	draw_arc(center, 11.0, -PI * 0.5, PI * 1.5, 24, Color(Palette.PAPER, 0.75), 1.5, true)
-	draw_circle(center, 4.0 + 1.5 * flash, Color(Palette.CYAN, 0.9))
+	if _core_texture != null:
+		# 核心贴图按 1.4 格绘制，压住基座两侧
+		var art := BattleMap.TILE * 1.4
+		draw_texture_rect(_core_texture, Rect2(center - Vector2(art, art) * 0.5, Vector2(art, art)), false)
+	else:
+		# 回退：同心环 + 中心光点
+		draw_arc(center, 17.0, 0.0, TAU, 32, Color(Palette.CYAN, 0.55 + 0.35 * flash), 2.0, true)
+		draw_arc(center, 11.0, -PI * 0.5, PI * 1.5, 24, Color(Palette.PAPER, 0.75), 1.5, true)
+		draw_circle(center, 4.0 + 1.5 * flash, Color(Palette.CYAN, 0.9))
 
 	# 核心血量条压在结构上沿
 	var bar := Rect2(rect.position + Vector2(6.0, -8.0), Vector2(rect.size.x - 12.0, 5.0))

@@ -44,7 +44,7 @@ func _ready() -> void:
 	main.coins = 1000
 	_place("fusion_tower", _tile(1, 12))
 	_place("fusion_tower", _tile(11, 12))
-	_place("solar", _tile(6, 12))
+	_place("solar", _tile(5, 12))
 
 	var turret_a: Node = _place("turret", _tile(2, 10))
 	_place("heavy_turret", _tile(7, 11))

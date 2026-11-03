@@ -204,6 +204,33 @@ func _run() -> void:
 	_check(main.placed_buildings.size() == 2, "invalid placement rejected")
 	_check(int(main.coins) == 500, "invalid placement costs nothing")
 
+	# ---------------------------------------------------------------- 多地图与部署规则
+	for i in BattleMap.map_count():
+		var problems: Array = BattleMap.validate(i)
+		_check(problems.is_empty(), "map %d data is valid: %s" % [i, str(problems)])
+	BattleMap.use(0)
+	var road_tile := Vector2i(8, 9)
+	_check(BattleMap.is_path(road_tile), "road tile is part of the route")
+	_check(BattleMap.is_buildable(road_tile, "fortification"), "fortification may block the road")
+	_check(not BattleMap.is_buildable(road_tile, "firepower"), "firepower stays off the road")
+	_check(not BattleMap.is_buildable(road_tile, "energy"), "energy stays off the road")
+	_check(not BattleMap.is_buildable(BattleMap.gate_tile(0), "fortification"), "gates are not buildable")
+	_check(not BattleMap.is_buildable(BattleMap.core_tiles()[0], "fortification"), "core is not buildable")
+
+	var road_pos := BattleMap.tile_center(road_tile)
+	var count_before: int = int(main.placed_buildings.size())
+	main.begin_placement("turret")
+	main.finish_placement("turret", road_pos)
+	_check(main.placed_buildings.size() == count_before, "turret on the road is rejected")
+	main.begin_placement("sandbag")
+	main.finish_placement("sandbag", road_pos)
+	_check(main.placed_buildings.size() == count_before + 1, "sandbag is accepted on the road")
+	if main.placed_buildings.size() == count_before + 1:
+		main.select_building(main.placed_buildings[count_before])
+		main.dismantle_selected()
+	_check(main.placed_buildings.size() == count_before, "road sandbag dismantled again")
+	main.coins = 500
+
 	# ---------------------------------------------------------------- 直接建造高级道具
 	main.select_building(turret)
 	_check(main.focus_panel.visible, "focus panel opens")
@@ -212,7 +239,7 @@ func _run() -> void:
 
 	var coins_before := int(main.coins)
 	main.begin_placement("heavy_turret")
-	main.finish_placement("heavy_turret", Vector2(380, 700))
+	main.finish_placement("heavy_turret", BattleMap.tile_center(Vector2i(7, 11)))
 	_check(not main.orienting, "heavy turret has no attack direction and places immediately")
 	_check(main.placed_buildings.size() == 3, "heavy turret placed as its own item")
 	_check(int(main.coins) == coins_before - 120, "heavy turret costs 120")
@@ -388,7 +415,7 @@ func _run() -> void:
 	main.coins = 2000
 	_place_at(1, 12, "fusion_tower")
 	_place_at(11, 12, "fusion_tower")
-	_place_at(6, 12, "solar")
+	_place_at(5, 12, "solar")
 	var row_turret: Node = _place_at(2, 10, "turret")
 	var off_turret: Node = _place_at(2, 12, "turret")
 	var heavy: Node = _place_at(7, 11, "heavy_turret")
@@ -596,6 +623,12 @@ func _run() -> void:
 	var menu := menu_scene.instantiate()
 	add_child(menu)
 	_check(menu.start_button != null and menu.settings_button != null, "main menu builds actions")
+	_check(menu.map_buttons.size() == BattleMap.map_count(), "main menu lists every map")
+	menu._on_map_pressed(1)
+	_check(int(GameSettings.map_index) == 1, "map selection is stored")
+	_check(menu.map_buttons[1].button_pressed, "selected map button stays pressed")
+	menu._on_map_pressed(0)
+	_check(int(GameSettings.map_index) == 0, "map selection can switch back")
 	menu.open_settings()
 	_check(menu.settings_panel.visible, "main menu settings open")
 	_check(not menu.settings_panel.in_game, "main menu hides in-game actions")

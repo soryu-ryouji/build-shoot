@@ -3,6 +3,7 @@ extends Control
 ## 自适应主界面：背景等比覆盖，标题在左上，操作按钮落在底部拇指区。
 
 const Palette = preload("res://scripts/palette.gd")
+const BattleMap = preload("res://scripts/battle_map.gd")
 const SettingsPanel = preload("res://scripts/settings_panel.gd")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
 const UiMetrics = preload("res://scripts/ui_metrics.gd")
@@ -15,6 +16,8 @@ var start_button: Button
 var settings_button: Button
 var quit_button: Button
 var settings_panel: Control
+var map_group: ButtonGroup
+var map_buttons: Array = []
 var title_label: Label
 var subtitle_label: Label
 var mode_label: Label
@@ -33,6 +36,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build()
 	I18n.locale_changed.connect(_refresh_texts)
+	GameSettings.changed.connect(_refresh_texts)
 	get_viewport().size_changed.connect(_layout)
 	_refresh_texts()
 	_layout()
@@ -68,8 +72,25 @@ func _build() -> void:
 	actions_box.add_theme_constant_override("separation", 10)
 	add_child(actions_box)
 	mode_label = _make_label(actions_box, UiMetrics.FONT_SMALL, Palette.INK)
+
+	# 地图选择：三张一体式地图，点一下切换，选择写进设置
+	var map_row := HBoxContainer.new()
+	map_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	map_row.add_theme_constant_override("separation", 6)
+	actions_box.add_child(map_row)
+	map_group = ButtonGroup.new()
+	for index in BattleMap.map_count():
+		var map_button := _make_button(map_row, UiMetrics.FONT_SMALL, false)
+		map_button.toggle_mode = true
+		map_button.button_group = map_group
+		map_button.custom_minimum_size.y = 50
+		map_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		map_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		map_button.pressed.connect(_on_map_pressed.bind(index))
+		map_buttons.append(map_button)
+
 	start_button = _make_button(actions_box, 21, true)
-	start_button.custom_minimum_size.y = 66
+	start_button.custom_minimum_size.y = 62
 	start_button.pressed.connect(start_game)
 
 	var secondary := HBoxContainer.new()
@@ -187,6 +208,16 @@ func _refresh_texts() -> void:
 	start_button.text = I18n.t("menu.start")
 	settings_button.text = I18n.t("menu.settings")
 	quit_button.text = I18n.t("menu.quit")
+	var selected := clampi(int(GameSettings.map_index), 0, maxi(map_buttons.size() - 1, 0))
+	for index in map_buttons.size():
+		var button: Button = map_buttons[index]
+		button.text = I18n.t(String(BattleMap.MAPS[index].name_key))
+		button.set_pressed_no_signal(index == selected)
+
+
+func _on_map_pressed(index: int) -> void:
+	GameSettings.set_map_index(index)
+	_refresh_texts()
 
 
 func start_game() -> void:
