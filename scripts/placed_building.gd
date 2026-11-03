@@ -18,6 +18,8 @@ const LOCK_TOLERANCE := 0.08
 const OFFLINE_MODULATE := Color(0.52, 0.54, 0.57, 1.0)
 
 var game: Node
+## 3D 实体（有它就不再画 2D 贴图）
+var visual3d: Node3D = null
 var item_id := ""
 var name_key := ""
 var desc_key := ""
@@ -290,6 +292,8 @@ func _process(delta: float) -> void:
 	_recoil = maxf(0.0, _recoil - delta * 6.0)
 	hurt_flash = maxf(0.0, hurt_flash - delta * 4.0)
 	_beam_hold = maxf(0.0, _beam_hold - delta)
+	if visual3d != null and is_instance_valid(visual3d) and is_firepower():
+		visual3d.rotation.y = -(aim_angle + PI / 2.0)
 
 	if not alive:
 		return
@@ -374,8 +378,10 @@ func _draw() -> void:
 	if selected:
 		_draw_selection()
 
-	if BuildingArt.available(item_id):
-		_draw_sprite_25d()
+	if visual3d != null:
+		# 3D 实体由 battle_world 渲染，这里只画瞄准线、激光和状态圈
+		if category == ItemDefs.CATEGORY_FIREPOWER:
+			_draw_firepower_overlay()
 	else:
 		match category:
 			ItemDefs.CATEGORY_FIREPOWER:
@@ -389,6 +395,22 @@ func _draw() -> void:
 		draw_circle(Vector2.ZERO, base_radius + 4.0, Color(0.95, 0.30, 0.26, 0.20 * hurt_flash))
 
 	_draw_health_bar()
+
+
+## 3D 实体上方的瞄准线、激光束与增益提示
+func _draw_firepower_overlay() -> void:
+	if _has_target and GameSettings.show_aim:
+		var aim_dir := Vector2.from_angle(aim_angle)
+		var local_origin := aim_dir * barrel_length
+		var global_origin := global_position + local_origin
+		var hit_global := TurretVisuals.predict(game.blocks, game.get_play_rect(), global_origin, aim_dir)
+		TurretVisuals.draw_aim(self, local_origin, aim_dir, hit_global - global_position)
+		TurretVisuals.draw_lock(self, _target_pos - global_position, _time)
+	if attack_style == "laser" and _beam_hold > 0.0:
+		_draw_laser_beam()
+	if game.get_buff_multiplier(global_position) > 1:
+		var pulse := 0.5 + 0.5 * sin(_time * 7.0)
+		draw_arc(Vector2.ZERO, base_radius + 6.0, 0.0, TAU, 36, Color(0.55, 0.92, 1.0, 0.35 + pulse * 0.3), 1.5)
 
 
 ## 2.5D 贴图：地面阴影 + 按朝向选一张渲染图，激光和索敌提示仍用代码画

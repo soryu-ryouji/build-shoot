@@ -19,6 +19,7 @@ const PlacedBuilding = preload("res://scripts/placed_building.gd")
 const PlacementGhost = preload("res://scripts/placement_ghost.gd")
 const SettingsPanel = preload("res://scripts/settings_panel.gd")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
+const BattleWorld = preload("res://scripts/battle_world.gd")
 
 const PREP_TIME := 5.0
 const BASE_HP := 12
@@ -27,6 +28,8 @@ var arena: Node2D
 var blocks: Node2D
 var blocks_clip: Control
 var balls_layer: Node2D
+var battle_world: SubViewport
+var world_sprite: Sprite2D
 var items_layer: Node2D
 var effects: Node2D
 var placement_ghost: Node2D
@@ -128,6 +131,20 @@ func _trigger_game_over() -> void:
 
 func _setup_nodes() -> void:
 	BattleMap.use(_requested_map_index())
+
+	# 3D 战场：视口渲染，再用一张贴图铺回 2D 世界层
+	battle_world = BattleWorld.new()
+	battle_world.name = "BattleWorld"
+	add_child(battle_world)
+
+	world_sprite = Sprite2D.new()
+	world_sprite.name = "WorldView"
+	world_sprite.texture = battle_world.get_texture()
+	world_sprite.centered = true
+	world_sprite.position = BattleMap.field_rect().get_center()
+	world_sprite.z_index = 0
+	add_child(world_sprite)
+
 
 	arena = Arena.new()
 	arena.name = "Arena"
@@ -572,6 +589,8 @@ func _place_building(item: Dictionary, pos: Vector2, facing := -PI / 2.0) -> Nod
 	building.position = pos
 	items_layer.add_child(building)
 	placed_buildings.append(building)
+	if battle_world != null:
+		building.visual3d = battle_world.create_building(String(item.id), pos)
 	refresh_power()
 	return building
 

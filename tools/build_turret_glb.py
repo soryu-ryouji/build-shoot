@@ -81,11 +81,11 @@ def cylinder(name, center, radius, depth, mat, vertices=24, rotation=(0.0, 0.0, 
 def make_materials() -> dict:
     return {
         "dark": material("MAT-dark", (0.10, 0.11, 0.12), roughness=0.4, metallic=0.6),
-        "steel": material("MAT-steel", (0.42, 0.44, 0.45), roughness=0.3, metallic=0.9),
-        "grey": material("MAT-grey", (0.26, 0.28, 0.30), roughness=0.42, metallic=0.5),
-        "cream": material("MAT-cream", (0.78, 0.77, 0.72), roughness=0.42, metallic=0.2),
+        "steel": material("MAT-steel", (0.34, 0.36, 0.37), roughness=0.32, metallic=0.9),
+        "grey": material("MAT-grey", (0.21, 0.23, 0.25), roughness=0.45, metallic=0.55),
+        "cream": material("MAT-cream", (0.60, 0.59, 0.55), roughness=0.5, metallic=0.2),
         "amber": material("MAT-amber", (0.88, 0.55, 0.14), roughness=0.35,
-                          emission=(0.88, 0.55, 0.14), strength=0.5),
+                          emission=(0.88, 0.55, 0.14), strength=0.25),
     }
 
 
@@ -97,21 +97,19 @@ def build_turret(mats: dict):
     # 宽裙边：八边形台座 + 八块米白裙板 + 三条琥珀条
     parts.append(cone("GEO-skirt", (0.0, 0.0, 6.0), 30.0, 24.0, 12.0, mats["dark"], vertices=8))
     parts.append(cone("GEO-skirt-top", (0.0, 0.0, 14.0), 24.0, 20.0, 4.0, mats["grey"], vertices=8))
-    for i in range(8):
-        angle = math.tau * i / 8.0
-        x = math.cos(angle) * 23.0
-        y = math.sin(angle) * 23.0
-        plate = box("GEO-skirt-plate", (x, y, 9.0), (13.0, 3.0, 14.0), mats["cream"], bevel=0.8)
-        plate.rotation_euler = (math.radians(-12.0), 0.0, angle + math.pi / 2.0)
-        parts.append(plate)
-        if i % 3 == 0:
-            stripe = box("GEO-skirt-stripe", (x * 1.02, y * 1.02, 4.6), (7.0, 1.2, 3.0), mats["amber"], bevel=0.2)
-            stripe.rotation_euler = (0.0, 0.0, angle + math.pi / 2.0)
-            parts.append(stripe)
+    # 裙边的米白护板：一整圈锥面，比八块拼板干净
+    parts.append(cone("GEO-skirt-band", (0.0, 0.0, 9.0), 27.0, 23.0, 14.0, mats["cream"], vertices=8))
+    for i in range(4):
+        angle = math.tau * i / 4.0
+        stripe = box("GEO-skirt-stripe", (math.cos(angle) * 25.5, math.sin(angle) * 25.5, 4.0),
+                     (10.0, 2.0, 2.4), mats["amber"], bevel=0.2)
+        stripe.rotation_euler = (0.0, 0.0, angle + math.pi / 2.0)
+        parts.append(stripe)
+
 
     # 腰部转盘
     parts.append(cylinder("GEO-waist", (0.0, 0.0, 18.0), 12.0, 8.0, mats["dark"], vertices=24))
-    parts.append(cylinder("GEO-waist-ring", (0.0, 0.0, 22.0), 13.5, 2.0, mats["amber"], vertices=24))
+    parts.append(cylinder("GEO-waist-ring", (0.0, 0.0, 22.0), 12.5, 1.4, mats["steel"], vertices=24))
 
     # 炮塔头：斜切的主装甲 + 两侧肩甲
     head = bpy.data.objects.new("Head", None)
@@ -119,22 +117,22 @@ def build_turret(mats: dict):
     head.parent = root
 
     head_parts = []
-    head_parts.append(box("GEO-head", (0.0, 0.0, 32.0), (24.0, 22.0, 16.0), mats["grey"], bevel=2.0))
+    head_parts.append(box("GEO-head", (0.0, 0.0, 33.0), (30.0, 26.0, 20.0), mats["grey"], bevel=2.2))
     for side in (-1.0, 1.0):
-        shoulder = box("GEO-shoulder", (side * 13.0, -2.0, 32.0), (8.0, 18.0, 14.0), mats["dark"],
+        shoulder = box("GEO-shoulder", (side * 16.0, -2.0, 33.0), (9.0, 20.0, 16.0), mats["dark"],
                        bevel=1.6, rotation=(0.0, math.radians(18.0 * side), 0.0))
         head_parts.append(shoulder)
-    head_parts.append(box("GEO-head-cream", (0.0, -6.0, 38.0), (20.0, 12.0, 6.0), mats["cream"], bevel=0.8))
-    head_parts.append(box("GEO-head-stripe", (0.0, -11.0, 30.0), (16.0, 2.0, 3.0), mats["amber"], bevel=0.2))
+    head_parts.append(box("GEO-head-cream", (0.0, -7.0, 41.0), (24.0, 14.0, 7.0), mats["cream"], bevel=0.8))
+    head_parts.append(box("GEO-head-stripe", (0.0, -12.5, 30.0), (18.0, 2.0, 3.0), mats["amber"], bevel=0.2))
 
     # 炮管：绕 +Y 指向，带后坐动画
     barrel = bpy.data.objects.new("Barrel", None)
     bpy.context.scene.collection.objects.link(barrel)
     barrel.parent = head
     barrel_parts = [
-        cylinder("GEO-barrel", (0.0, 14.0, 32.0), 3.4, 38.0, mats["steel"], vertices=20,
+        cylinder("GEO-barrel", (0.0, 18.0, 32.0), 4.2, 46.0, mats["steel"], vertices=20,
                  rotation=(math.pi / 2.0, 0.0, 0.0)),
-        cylinder("GEO-muzzle", (0.0, 33.0, 32.0), 4.6, 6.0, mats["dark"], vertices=20,
+        cylinder("GEO-muzzle", (0.0, 41.0, 32.0), 5.4, 7.0, mats["dark"], vertices=20,
                  rotation=(math.pi / 2.0, 0.0, 0.0)),
         box("GEO-brace", (0.0, 6.0, 32.0), (8.0, 6.0, 6.0), mats["grey"], bevel=0.8),
     ]
