@@ -320,7 +320,9 @@ func _run() -> void:
 		_check(atlas.get_width() == 1024 and atlas.get_height() == 256, "%s animation atlas has four frames" % kind)
 	var first: Dictionary = main.blocks.blocks[0]
 	var first_rect: Rect2 = first.rect
-	_check(first_rect.position.y < 112.0, "first blocks start above the visible area")
+	_check(absf(first_rect.position.y - float(main.blocks.SPAWN_Y)) < 0.5, "first blocks emerge at a spawn gate")
+	_check(first_rect.get_center().distance_to(main.blocks.gate_center(int(first.get("gate", 0)))) < 90.0, "spawn point sits on a gate")
+	_check(float(first.get("emerge", 1.0)) < 1.0, "first blocks start emerging")
 	_check(int(first.max_hp) == 3, "first wave enemies have low health")
 	_check(main.blocks.blocks.size() >= 3 and main.blocks.blocks.size() <= 4, "first wave has low enemy density")
 	_check(String(first.kind) == "normal", "first row uses normal enemies")
@@ -358,7 +360,7 @@ func _run() -> void:
 	var tracked: Dictionary = _lowest_block()
 	var tracked_id := int(tracked.id)
 	var tracked_y := float(tracked.rect.position.y)
-	await _frames(30)
+	await _frames(90)
 	var tracked_now = main.blocks.by_id.get(tracked_id)
 	_check(tracked_now != null, "tracked block still on screen")
 	if tracked_now != null:
