@@ -182,10 +182,17 @@ void fragment() {
 
 
 func _layout() -> void:
-	var view := ResponsiveLayout.viewport_size(self)
-	# 纯竖屏按宽度适配，左右各保留 8 逻辑像素；高度不反向压缩战场。
-	var zoom := (view.x - 16.0) / 624.0
+	var field := ResponsiveLayout.field_rect(self)
+	# 战场按 HUD 与商店之间的可用区缩放：先满足宽度，高度不够时再收紧，整张地图不会被上下栏遮住。
+	var fit_width := (field.size.x - 16.0) / Arena.FRAME_RECT.size.x
+	var fit_height := field.size.y / Arena.FRAME_RECT.size.y
+	var zoom := maxf(minf(fit_width, fit_height), 0.1)
 	world_camera.zoom = Vector2.ONE * zoom
+
+	# 相机对准可用区中心，而不是屏幕中心，上下留白因此对称。
+	var view := ResponsiveLayout.viewport_size(self)
+	var offset := field.get_center() - view * 0.5
+	world_camera.position = Arena.FRAME_RECT.get_center() - offset / zoom
 
 
 func screen_to_world(pos: Vector2) -> Vector2:

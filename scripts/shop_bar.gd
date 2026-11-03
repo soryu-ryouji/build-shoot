@@ -48,23 +48,23 @@ func _ready() -> void:
 
 	var column := VBoxContainer.new()
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_theme_constant_override("separation", 6)
+	column.add_theme_constant_override("separation", 5)
 	column.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	column.offset_left = 8
-	column.offset_top = 8
-	column.offset_right = -8
-	column.offset_bottom = -8
+	column.offset_left = 6
+	column.offset_top = 6
+	column.offset_right = -6
+	column.offset_bottom = -6
 	add_child(column)
 
 	item_row = HBoxContainer.new()
 	item_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	item_row.custom_minimum_size.y = 46
-	item_row.add_theme_constant_override("separation", 6)
+	item_row.custom_minimum_size.y = UiMetrics.SHOP_ITEM_ROW
+	item_row.add_theme_constant_override("separation", 5)
 	column.add_child(item_row)
 
 	card_row = HBoxContainer.new()
 	card_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card_row.add_theme_constant_override("separation", 6)
+	card_row.add_theme_constant_override("separation", 5)
 	card_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(card_row)
 
@@ -83,7 +83,7 @@ func _build_cards() -> void:
 		card.game = game
 		card.category = String(category)
 		card.item = item
-		card.custom_minimum_size = Vector2(96, 92)
+		card.custom_minimum_size = Vector2(96, UiMetrics.SHOP_CARD_HEIGHT)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		card.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		card.pressed.connect(_on_category_pressed)
@@ -102,7 +102,7 @@ func _refresh_items() -> void:
 		chip.game = game
 		chip.item = item
 		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		chip.custom_minimum_size = Vector2(72, 46)
+		chip.custom_minimum_size = Vector2(72, UiMetrics.SHOP_ITEM_ROW)
 		chip.active = String(selected[active_category]) == String(item.id)
 		chip.pressed.connect(_on_item_chip_pressed)
 		item_row.add_child(chip)
@@ -179,10 +179,9 @@ func cancel_drag() -> void:
 
 
 func _layout() -> void:
-	var safe := ResponsiveLayout.safe_rect(self)
-	var margin := ResponsiveLayout.margin(self)
-	size = Vector2(safe.size.x - margin * 2.0, UiMetrics.SHOP_HEIGHT)
-	position = Vector2(safe.position.x + margin, safe.end.y - size.y - margin)
+	var rect := ResponsiveLayout.shop_rect(self)
+	position = rect.position
+	size = rect.size
 	queue_redraw()
 
 

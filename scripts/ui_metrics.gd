@@ -19,6 +19,10 @@ const FONT_LABEL := 17
 const FONT_TITLE := 23
 const FONT_DISPLAY := 42
 
-const HUD_HEIGHT := 94.0
-const SHOP_HEIGHT := 164.0
+## 顶部 HUD 压到一行标题加一行统计，底部商店按「道具行 + 类别卡」的紧凑排版取。
+## 两者合计不到屏幕高度的 28%，其余全部留给战场。
+const HUD_HEIGHT := 74.0
+const SHOP_HEIGHT := 146.0
+const SHOP_ITEM_ROW := 44.0
+const SHOP_CARD_HEIGHT := 84.0
 const TOAST_HEIGHT := 52.0

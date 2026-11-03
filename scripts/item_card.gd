@@ -84,19 +84,18 @@ func _layout() -> void:
 	if name_label == null:
 		return
 	var width := size.x - 8.0
-	category_label.position = Vector2(4.0, 1.0)
+	category_label.position = Vector2(4.0, 0.0)
 	category_label.size = Vector2(width, 13.0)
-	var icon := _icon_rect()
-	name_label.position = Vector2(4.0, 47.0)
-	name_label.size = Vector2(width, 21.0)
-	cost_label.position = Vector2(4.0, 69.0)
-	cost_label.size = Vector2(width, 18.0)
+	name_label.position = Vector2(4.0, 45.0)
+	name_label.size = Vector2(width, 20.0)
+	cost_label.position = Vector2(4.0, 65.0)
+	cost_label.size = Vector2(width, 17.0)
 	queue_redraw()
 
 
 func _icon_rect() -> Rect2:
-	var side := minf(30.0, size.x - 24.0)
-	return Rect2(Vector2((size.x - side) * 0.5, 16.0), Vector2(side, side))
+	var side := minf(28.0, size.x - 24.0)
+	return Rect2(Vector2((size.x - side) * 0.5, 14.0), Vector2(side, side))
 
 
 func _refresh_texts() -> void:
@@ -163,7 +162,7 @@ func _draw() -> void:
 	_style.border_color = Color(accent.r, accent.g, accent.b, border_alpha) if _can_buy else Palette.DANGER.darkened(0.30)
 	_style.set_border_width_all(2 if active else 1)
 	draw_style_box(_style, Rect2(Vector2.ZERO, size))
-	draw_rect(Rect2(0, 10, 3, size.y - 20), Color(accent.r, accent.g, accent.b, 0.95 if active or _can_buy else 0.25))
+	draw_rect(Rect2(0, 8, 3, size.y - 16), Color(accent.r, accent.g, accent.b, 0.95 if active or _can_buy else 0.25))
 
 	var icon := _icon_rect()
 	var center := icon.get_center()

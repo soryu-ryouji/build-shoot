@@ -57,15 +57,15 @@ func _layout() -> void:
 	if name_label == null:
 		return
 	var icon := _icon_rect()
-	name_label.position = Vector2(icon.end.x + 6.0, 3.0)
+	name_label.position = Vector2(icon.end.x + 6.0, 2.0)
 	name_label.size = Vector2(maxf(20.0, size.x - name_label.position.x - 6.0), 18.0)
-	cost_label.position = Vector2(icon.end.x + 6.0, 21.0)
+	cost_label.position = Vector2(icon.end.x + 6.0, 20.0)
 	cost_label.size = Vector2(maxf(20.0, size.x - cost_label.position.x - 6.0), 16.0)
 	queue_redraw()
 
 
 func _icon_rect() -> Rect2:
-	var side := minf(26.0, size.y - 10.0)
+	var side := minf(26.0, size.y - 8.0)
 	return Rect2(Vector2(6.0, (size.y - side) * 0.5), Vector2(side, side))
 
 

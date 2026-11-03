@@ -134,12 +134,10 @@ func _button_style(fill: Color) -> StyleBoxFlat:
 
 func _layout() -> void:
 	var view := ResponsiveLayout.viewport_size(self)
-	var safe := ResponsiveLayout.safe_rect(self)
-	var margin := ResponsiveLayout.margin(self)
-	var hud_margin := minf(margin, 10.0)
+	var rect := ResponsiveLayout.hud_rect(self)
 
-	top_panel.position = safe.position + Vector2(hud_margin, hud_margin)
-	top_panel.size = Vector2(safe.size.x - hud_margin * 2.0, UiMetrics.HUD_HEIGHT)
+	top_panel.position = rect.position
+	top_panel.size = rect.size
 
 	var message_width := minf(360.0, view.x - 32.0)
 	toast_label.size = Vector2(message_width, UiMetrics.TOAST_HEIGHT)
