@@ -12,7 +12,7 @@ const TILE_ART := "res://assets/ui/tiles/"
 const SPRITE := 64.0
 const SPRITE_HALF := 32.0
 ## 场地外压暗后的色调
-const OUTSIDE_TINT := Color(0.52, 0.55, 0.58)
+const OUTSIDE_TINT := Color(0.40, 0.43, 0.46)
 ## 相机取景范围：8×13 瓦片区（384×442）四周各留 24 像素
 const FRAME_RECT := Rect2(48.0, 96.0, 432.0, 490.0)
 
@@ -105,13 +105,23 @@ func _inside_field(tile: Vector2i) -> bool:
 	return tile.x >= -1 and tile.x <= BattleMap.COLS and tile.y >= -1 and tile.y <= BattleMap.ROWS
 
 
-## 地板：铺满可视区域；场地外压暗，屏幕上不会露出空白
+## 地板：场地内正常铺；场地外只铺边框外三格并压暗，再往外交给暗背景，视线集中在战场上
 func _draw_ground(bounds: Dictionary) -> void:
 	for row in range(int(bounds.r0), int(bounds.r1) + 1):
 		for col in range(int(bounds.c0), int(bounds.c1) + 1):
 			var tile := Vector2i(col, row)
-			var tint := Color(1.0, 1.0, 1.0) if _inside_field(tile) else OUTSIDE_TINT
-			_draw_tile(_floor_for(tile), BattleMap.tile_center(tile), tint)
+			if _inside_field(tile):
+				_draw_tile(_floor_for(tile), BattleMap.tile_center(tile))
+			elif _near_field(tile, 3):
+				_draw_tile(_floor_for(tile), BattleMap.tile_center(tile), OUTSIDE_TINT)
+
+
+## 场地外 distance 格以内（用于铺暗掉的过渡地坪）
+func _near_field(tile: Vector2i, distance: int) -> bool:
+	return (
+		tile.x >= -1 - distance and tile.x <= BattleMap.COLS + distance
+		and tile.y >= -1 - distance and tile.y <= BattleMap.ROWS + distance
+	)
 
 
 ## 四种地板变体按格子坐标固定散开，同一张图每次布局一致
@@ -134,7 +144,7 @@ func _draw_props() -> void:
 		return
 	for row in range(-6, BattleMap.ROWS + 6):
 		for col in range(-6, BattleMap.COLS + 6):
-			if col >= -1 and col <= BattleMap.COLS and row >= -1 and row <= BattleMap.ROWS:
+			if not _near_field(Vector2i(col, row), 3) or _inside_field(Vector2i(col, row)):
 				continue
 			if absi(col * 31 + row * 17 + col * row * 5) % 100 >= 20:
 				continue
