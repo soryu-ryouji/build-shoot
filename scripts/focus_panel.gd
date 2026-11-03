@@ -1,13 +1,19 @@
 extends Control
 
-## 点击已放置炮塔后弹出的聚焦面板：属性、射程、发射数、拆除按钮。
+## 点击已放置炮塔后弹出的聚焦面板：属性、射程、发射数、升级与拆除。
+## 移动端改为贴底的宽面板，按钮落在拇指区，字号和点击区域都按手机取值。
 
 const Palette = preload("res://scripts/palette.gd")
+const NumberFont = preload("res://theme/number_font.tres")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
+const UiMetrics = preload("res://scripts/ui_metrics.gd")
+
+const STAT_KEYS := ["focus.damage", "focus.interval", "focus.range", "focus.pierce", "focus.bounce", "focus.shots"]
 
 var game: Node
 var turret: Node = null
 
+var panel: PanelContainer
 var title_label: Label
 var desc_label: Label
 var close_button: Button
@@ -21,86 +27,137 @@ var _panel_style: StyleBoxFlat
 
 
 func _ready() -> void:
-	position = Vector2(426, 208)
-	size = Vector2(264, 408)
-	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
+	mouse_filter = Control.MOUSE_FILTER_STOP
 
 	_panel_style = StyleBoxFlat.new()
-	_panel_style.bg_color = Color(Palette.PAPER, 0.98)
+	_panel_style.bg_color = Color(Palette.PAPER, 0.985)
 	_panel_style.border_color = _accent
 	_panel_style.set_border_width_all(1)
-	_panel_style.set_corner_radius_all(2)
-	_panel_style.shadow_color = Color(0.0, 0.0, 0.0, 0.50)
-	_panel_style.shadow_size = 8
-	_panel_style.shadow_offset = Vector2(0, 4)
+	_panel_style.border_width_top = 3
+	_panel_style.set_corner_radius_all(3)
+	_panel_style.shadow_color = Color(0.0, 0.0, 0.0, 0.45)
+	_panel_style.shadow_size = 10
+	_panel_style.shadow_offset = Vector2(0, 5)
 
-	title_label = _make_label(Vector2(18, 14), Vector2(202, 28), 21, Palette.INK)
-	desc_label = _make_label(Vector2(18, 48), Vector2(228, 40), 11, Palette.INK_MUTED)
+	panel = PanelContainer.new()
+	panel.name = "Sheet"
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	panel.add_theme_stylebox_override("panel", _panel_style)
+	add_child(panel)
+
+	var margin := MarginContainer.new()
+	for side in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
+		margin.add_theme_constant_override(side, 16)
+	panel.add_child(margin)
+
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", UiMetrics.GAP - 2)
+	margin.add_child(column)
+
+	var rule := ColorRect.new()
+	rule.custom_minimum_size = Vector2(64, 3)
+	rule.color = Palette.ACCENT
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(rule)
+
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", UiMetrics.GAP)
+	column.add_child(header)
+	var titles := VBoxContainer.new()
+	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	titles.add_theme_constant_override("separation", 2)
+	header.add_child(titles)
+	title_label = _make_label(titles, 21, Palette.INK)
+	desc_label = _make_label(titles, UiMetrics.FONT_SMALL, Palette.INK_MUTED)
 	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc_label.max_lines_visible = 2
+	desc_label.custom_minimum_size.y = 30
 
 	close_button = Button.new()
 	close_button.text = "×"
-	close_button.position = Vector2(226, 12)
-	close_button.size = Vector2(26, 26)
-	close_button.flat = true
 	close_button.focus_mode = Control.FOCUS_NONE
-	close_button.add_theme_font_size_override("font_size", 16)
+	close_button.custom_minimum_size = Vector2(48, 48)
+	close_button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	close_button.add_theme_font_size_override("font_size", 22)
 	close_button.add_theme_color_override("font_color", Palette.INK_MUTED)
 	close_button.add_theme_color_override("font_hover_color", Palette.INK)
+	close_button.add_theme_stylebox_override("normal", _button_style(Color(Palette.PAPER, 0.98), Color(Palette.INK, 0.22)))
+	close_button.add_theme_stylebox_override("hover", _button_style(Color(Palette.ACCENT, 0.16), Palette.ACCENT))
+	close_button.add_theme_stylebox_override("pressed", _button_style(Color(Palette.ACCENT, 0.28), Palette.ACCENT))
 	close_button.pressed.connect(_on_close)
-	add_child(close_button)
+	header.add_child(close_button)
 
-	var keys := ["focus.damage", "focus.interval", "focus.range", "focus.pierce", "focus.bounce", "focus.shots"]
-	for i in keys.size():
-		var y := 112.0 + i * 28.0
-		stat_names.append(_make_label(Vector2(18, y), Vector2(108, 24), 12, Palette.INK_MUTED))
-		stat_values.append(_make_label(Vector2(126, y), Vector2(120, 24), 14, Palette.INK, HORIZONTAL_ALIGNMENT_RIGHT))
+	column.add_child(_separator())
+
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	column.add_child(grid)
+	for i in STAT_KEYS.size():
+		var cell := VBoxContainer.new()
+		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cell.add_theme_constant_override("separation", 0)
+		grid.add_child(cell)
+		stat_names.append(_make_label(cell, UiMetrics.FONT_MICRO, Palette.INK_MUTED))
+		stat_values.append(_make_label(cell, 19, Palette.INK))
+		stat_values[i].add_theme_font_override("font", NumberFont)
+
+	column.add_child(_separator())
 
 	upgrade_button = Button.new()
-	upgrade_button.position = Vector2(18, 292)
-	upgrade_button.size = Vector2(228, 44)
 	upgrade_button.focus_mode = Control.FOCUS_NONE
-	upgrade_button.add_theme_font_size_override("font_size", 12)
+	upgrade_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	upgrade_button.custom_minimum_size.y = UiMetrics.TOUCH_LARGE
+	upgrade_button.add_theme_font_size_override("font_size", UiMetrics.FONT_LABEL)
 	upgrade_button.add_theme_color_override("font_color", Palette.INK)
 	upgrade_button.add_theme_color_override("font_hover_color", Palette.INK)
+	upgrade_button.add_theme_color_override("font_disabled_color", Palette.INK_MUTED)
 	upgrade_button.add_theme_stylebox_override("normal", _button_style(Palette.ACCENT, Palette.ACCENT))
 	upgrade_button.add_theme_stylebox_override("hover", _button_style(Palette.ACCENT.lightened(0.18), Palette.ACCENT))
 	upgrade_button.add_theme_stylebox_override("pressed", _button_style(Palette.ACCENT.darkened(0.15), Palette.ACCENT))
 	upgrade_button.add_theme_stylebox_override("disabled", _button_style(Color(0.72, 0.74, 0.72, 0.65), Color(0.30, 0.33, 0.34, 0.25)))
-	upgrade_button.add_theme_color_override("font_disabled_color", Palette.INK_MUTED)
 	upgrade_button.pressed.connect(_on_upgrade)
-	add_child(upgrade_button)
+	column.add_child(upgrade_button)
 
 	dismantle_button = Button.new()
-	dismantle_button.position = Vector2(18, 346)
-	dismantle_button.size = Vector2(228, 44)
 	dismantle_button.focus_mode = Control.FOCUS_NONE
-	dismantle_button.add_theme_font_size_override("font_size", 12)
+	dismantle_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	dismantle_button.custom_minimum_size.y = 50
+	dismantle_button.add_theme_font_size_override("font_size", UiMetrics.FONT_BODY)
 	dismantle_button.add_theme_color_override("font_color", Palette.DANGER)
 	dismantle_button.add_theme_color_override("font_hover_color", Color.WHITE)
 	dismantle_button.add_theme_stylebox_override("normal", _button_style(Color(Palette.PAPER, 0.98), Palette.DANGER.darkened(0.1)))
 	dismantle_button.add_theme_stylebox_override("hover", _button_style(Palette.DANGER.lightened(0.65), Palette.DANGER))
 	dismantle_button.add_theme_stylebox_override("pressed", _button_style(Color(0.18, 0.05, 0.07, 1.0), Palette.DANGER))
 	dismantle_button.pressed.connect(_on_dismantle)
-	add_child(dismantle_button)
+	column.add_child(dismantle_button)
 
 	I18n.locale_changed.connect(_on_locale_changed)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 
 
-func _make_label(pos: Vector2, label_size: Vector2, font_size: int, color: Color, align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
+func _make_label(parent: Node, font_size: int, color: Color, align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
 	var label := Label.new()
-	label.position = pos
-	label.size = label_size
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
 	label.horizontal_alignment = align
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(label)
+	parent.add_child(label)
 	return label
+
+
+func _separator() -> ColorRect:
+	var line := ColorRect.new()
+	line.custom_minimum_size.y = 1
+	line.color = Color(0.10, 0.12, 0.13, 0.14)
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return line
 
 
 func _button_style(fill: Color, border: Color) -> StyleBoxFlat:
@@ -108,28 +165,37 @@ func _button_style(fill: Color, border: Color) -> StyleBoxFlat:
 	style.bg_color = fill
 	style.border_color = border
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(1)
+	style.set_corner_radius_all(2)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
 	return style
 
 
 func show_turret(t: Node) -> void:
 	turret = t
 	_accent = Palette.ACCENT
+	_panel_style.border_color = _accent
 	visible = true
-	_layout()
 	_refresh_texts()
+	_layout()
 	queue_redraw()
 
 
 func _layout() -> void:
-	var view := ResponsiveLayout.viewport_size(self)
+	if panel == null:
+		return
+	var safe := ResponsiveLayout.safe_rect(self)
 	var margin := ResponsiveLayout.margin(self)
-	position.y = clampf((view.y - size.y) * 0.5, 92.0, maxf(92.0, view.y - size.y - 24.0))
-	if turret != null and is_instance_valid(turret):
-		var screen_x: float = game.world_to_screen(turret.global_position).x
-		position.x = margin if screen_x > view.x * 0.5 else view.x - size.x - margin
-	else:
-		position.x = view.x - size.x - margin
+	var width := safe.size.x - margin * 2.0
+	# 先按目标宽度排版，让说明文字在正确宽度下换行，再收紧高度
+	size = Vector2(width, size.y)
+	var height := minf(panel.get_combined_minimum_size().y, safe.size.y - margin * 2.0 - 8.0)
+	size = Vector2(width, height)
+	position = Vector2(
+		safe.position.x + (safe.size.x - width) * 0.5,
+		safe.end.y - margin - height,
+	)
+	queue_redraw()
 
 
 func hide_panel() -> void:
@@ -152,13 +218,8 @@ func _refresh_texts() -> void:
 	title_label.text = turret.get_display_name()
 	title_label.add_theme_color_override("font_color", Palette.INK)
 	desc_label.text = turret.get_display_desc()
-	stat_names[0].text = I18n.t("focus.damage")
-	stat_names[1].text = I18n.t("focus.interval")
-	stat_names[2].text = I18n.t("focus.range")
-	stat_names[3].text = I18n.t("focus.pierce")
-	stat_names[4].text = I18n.t("focus.bounce")
-	stat_names[5].text = I18n.t("focus.shots")
-	dismantle_button.text = I18n.t("focus.dismantle", [turret.get_refund()])
+	for i in STAT_KEYS.size():
+		stat_names[i].text = I18n.t(STAT_KEYS[i])
 	_update_values()
 
 
@@ -180,6 +241,7 @@ func _update_values() -> void:
 func _on_locale_changed(_locale: String) -> void:
 	if visible:
 		_refresh_texts()
+		_layout()
 		queue_redraw()
 
 
@@ -193,14 +255,3 @@ func _on_upgrade() -> void:
 
 func _on_dismantle() -> void:
 	game.dismantle_selected()
-
-
-func _draw() -> void:
-	_panel_style.border_color = Color(_accent.r, _accent.g, _accent.b, 0.62)
-	draw_style_box(_panel_style, Rect2(Vector2.ZERO, size))
-	draw_rect(Rect2(12, 0, 104, 4), _accent)
-	draw_rect(Rect2(0, 14, 4, 58), _accent)
-	draw_line(Vector2(18, 100), Vector2(size.x - 18, 100), Color(0.10, 0.12, 0.13, 0.16), 1.0)
-	for i in 5:
-		var y := 140.0 + i * 28.0
-		draw_line(Vector2(18, y), Vector2(size.x - 18, y), Color(0.10, 0.12, 0.13, 0.07), 1.0)

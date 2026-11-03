@@ -364,10 +364,19 @@ func _handle_world_click(pos: Vector2) -> void:
 		return
 	if focus_panel != null and focus_panel.visible and focus_panel.get_global_rect().has_point(pos):
 		return
+	# 手机上炮塔贴图只有 40dp 左右，判定半径放宽到 46 世界单位并取最近的一座
+	var best: Node = null
+	var best_distance := 46.0
 	for t in placed_turrets:
-		if is_instance_valid(t) and pos.distance_to(t.global_position) <= 34.0:
-			select_turret(t)
-			return
+		if not is_instance_valid(t):
+			continue
+		var distance := pos.distance_to(t.global_position)
+		if distance <= best_distance:
+			best = t
+			best_distance = distance
+	if best != null:
+		select_turret(best)
+		return
 	clear_selection()
 
 
