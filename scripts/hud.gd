@@ -204,6 +204,10 @@ func _process(delta: float) -> void:
 		coins_label.scale = Vector2.ONE
 
 	destroyed_label.text = I18n.t("hud.destroyed", [int(game.blocks.destroyed)])
+	var wave := int(game.blocks.wave)
+	if wave > 0:
+		var next_wave := int(ceil(float(game.blocks.next_wave_in)))
+		tag_label.text = I18n.t("hud.wave_next", [wave, next_wave]) if next_wave > 0 else I18n.t("hud.wave", [wave])
 	var ball_count: int = game.active_balls.size()
 	var ball_key := "hud.ball_one" if ball_count == 1 else "hud.ball_many"
 	balls_label.text = I18n.t(ball_key, [ball_count])

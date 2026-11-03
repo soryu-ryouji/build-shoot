@@ -410,7 +410,7 @@ func dismantle_selected() -> void:
 	hud.pop_coins()
 
 
-func upgrade_selected_damage() -> void:
+func upgrade_selected() -> void:
 	var t = selected_turret
 	if t == null or not is_instance_valid(t):
 		return
@@ -419,7 +419,7 @@ func upgrade_selected_damage() -> void:
 		hud.toast(I18n.t("shop.not_enough"), Palette.DANGER)
 		return
 	coins -= cost
-	t.apply_damage_upgrade(cost)
+	t.apply_upgrade(cost)
 
 
 func fire_item_ball(source: Node, pos: Vector2, dir: Vector2, dmg: int, pierce: int, bounces: int, speed: float, radius: float) -> void:

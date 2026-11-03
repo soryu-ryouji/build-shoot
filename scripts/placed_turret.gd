@@ -14,6 +14,9 @@ var name_key := ""
 var desc_key := ""
 var cost := 0
 var damage := 1
+## 每级强化增加的伤害与攻击速度（每秒多发几发）
+var upgrade_damage := 1
+var upgrade_rate := 0.2
 var interval := 1.0
 var attack_range := 360.0
 var bounces := 0
@@ -44,6 +47,8 @@ func setup(g: Node, item: Dictionary) -> void:
 	desc_key = String(item.desc_key)
 	cost = int(item.cost)
 	damage = int(item.damage)
+	upgrade_damage = int(item.upgrade_damage)
+	upgrade_rate = float(item.upgrade_rate)
 	interval = float(item.interval)
 	attack_range = float(item.range)
 	bounces = int(item.bounces)
@@ -72,7 +77,7 @@ func get_upgrade_cost() -> int:
 	return int(cost * 0.5) + upgrade_level * int(cost * 0.25)
 
 
-func apply_damage_upgrade(paid: int) -> void:
+func apply_upgrade(paid: int) -> void:
 	upgrade_level += 1
 	upgrade_spent += paid
 	queue_redraw()
@@ -83,7 +88,16 @@ func has_target() -> bool:
 
 
 func get_effective_damage() -> int:
-	return damage + upgrade_level
+	return damage + upgrade_level * upgrade_damage
+
+
+## 每秒发射次数：每次强化 +upgrade_rate 发/秒。
+func get_effective_rate() -> float:
+	return 1.0 / interval + upgrade_level * upgrade_rate
+
+
+func get_effective_interval() -> float:
+	return 1.0 / maxf(get_effective_rate(), 0.01)
 
 
 func get_muzzle() -> Vector2:
@@ -116,7 +130,7 @@ func _process(delta: float) -> void:
 
 
 func _fire() -> void:
-	_cooldown = interval
+	_cooldown = get_effective_interval()
 	_recoil = 1.0
 	shots += 1
 	var dir := Vector2.from_angle(aim_angle)

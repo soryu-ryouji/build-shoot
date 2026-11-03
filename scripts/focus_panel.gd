@@ -8,7 +8,7 @@ const NumberFont = preload("res://theme/number_font.tres")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
 const UiMetrics = preload("res://scripts/ui_metrics.gd")
 
-const STAT_KEYS := ["focus.damage", "focus.interval", "focus.range", "focus.pierce", "focus.bounce", "focus.shots"]
+const STAT_KEYS := ["focus.damage", "focus.rate", "focus.range", "focus.pierce", "focus.bounce", "focus.shots"]
 
 var game: Node
 var turret: Node = null
@@ -19,6 +19,7 @@ var desc_label: Label
 var close_button: Button
 var upgrade_button: Button
 var dismantle_button: Button
+var upgrade_hint: Label
 var stat_names: Array[Label] = []
 var stat_values: Array[Label] = []
 
@@ -107,6 +108,8 @@ func _ready() -> void:
 		stat_values[i].add_theme_font_override("font", NumberFont)
 
 	column.add_child(_separator())
+
+	upgrade_hint = _make_label(column, UiMetrics.FONT_MICRO, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
 
 	upgrade_button = Button.new()
 	upgrade_button.focus_mode = Control.FOCUS_NONE
@@ -227,12 +230,13 @@ func _update_values() -> void:
 	if turret == null or not is_instance_valid(turret):
 		return
 	stat_values[0].text = str(int(turret.get_effective_damage()))
-	stat_values[1].text = I18n.t("focus.interval_value", [String.num(float(turret.interval), 2)])
+	stat_values[1].text = I18n.t("focus.rate_value", [String.num(float(turret.get_effective_rate()), 2)])
 	stat_values[2].text = str(int(turret.attack_range))
 	stat_values[3].text = "∞" if int(turret.pierce) < 0 else str(int(turret.pierce))
 	stat_values[4].text = str(int(turret.bounces))
 	stat_values[5].text = str(int(turret.shots))
 	var cost := int(turret.get_upgrade_cost())
+	upgrade_hint.text = I18n.t("focus.upgrade_hint", [int(turret.upgrade_damage), String.num(float(turret.upgrade_rate), 1)])
 	upgrade_button.text = I18n.t("focus.upgrade", [cost])
 	upgrade_button.disabled = int(game.coins) < cost
 	dismantle_button.text = I18n.t("focus.dismantle", [turret.get_refund()])
@@ -250,7 +254,7 @@ func _on_close() -> void:
 
 
 func _on_upgrade() -> void:
-	game.upgrade_selected_damage()
+	game.upgrade_selected()
 
 
 func _on_dismantle() -> void:

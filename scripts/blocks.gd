@@ -22,9 +22,18 @@ const COLS := 11
 const CELL_SIZE := Vector2(48.0, 30.0)
 const CELL_GAP_X := 4.0
 const GRID_ORIGIN_X := 76.0
-const ROW_PITCH := 48.0
 const SPAWN_Y := PLAY_TOP - CELL_SIZE.y - 6.0
-const ROWS_PER_WAVE := 5
+
+## 波次节奏：开场只有一小撮，约 12 秒后第一波爆发，之后每波之间留出清场时间。
+const OPENING_CALM := 12.0
+## 两波之间的基础间隔；行数越多留的时间越长，避免波次叠在一起
+const WAVE_CALM_BASE := 18.0
+const WAVE_CALM_PER_ROW := 3.0
+## 同一波内行与行的间距，比常规行距更紧，进门时像一堵墙压下来
+const WAVE_ROW_SPACING := 36.0
+const WAVE_MAX_ROWS := 5
+## 每波血量按该系数复利增长，逼玩家把金币投进强化
+const HEALTH_GROWTH := 1.28
 
 const KIND_NORMAL := "normal"
 const KIND_SWIFT := "swift"
@@ -42,8 +51,12 @@ var spawned_rows := 0
 var scroll_speed := 20.0
 var active := false
 
+## 当前波次；0 表示还没开始（准备阶段）
+var wave := 0
+## 距离下一波还有几秒，HUD 用它显示倒计时
+var next_wave_in := 0.0
+
 var _next_id := 1
-var _spawn_timer := 0.0
 var _rng := RandomNumberGenerator.new()
 var _flashing := false
 var _animation_time := 0.0
@@ -60,13 +73,13 @@ func reset_stream() -> void:
 	_next_id = 1
 	destroyed = 0
 	spawned_rows = 0
-	# 开局只给两行，留出发育时间；之后按固定节奏往下补
-	_spawn_timer = 3.5
 	_flashing = false
 	_animation_time = 0.0
 
-	# 只在顶部视野外预置一行，倒计时结束后从边缘逐渐滚入
-	_spawn_row(SPAWN_Y)
+	# 开场只放一小撮，给玩家布置和强化的时间；12 秒后第二波爆发
+	wave = 1
+	next_wave_in = OPENING_CALM
+	_spawn_wave()
 	queue_redraw()
 
 
@@ -88,10 +101,13 @@ func _physics_process(delta: float) -> void:
 			blocks.remove_at(i)
 		i -= 1
 
-	_spawn_timer -= delta
-	if _spawn_timer <= 0.0:
-		_spawn_timer += ROW_PITCH / scroll_speed
-		_spawn_row(SPAWN_Y)
+	# 波次调度：爆发一波，留出清场时间，再爆发下一波
+	if next_wave_in > 0.0:
+		next_wave_in = maxf(0.0, next_wave_in - delta)
+	if next_wave_in <= 0.0:
+		wave += 1
+		_spawn_wave()
+		next_wave_in = _calm_for_wave(wave)
 
 	if not blocks.is_empty():
 		queue_redraw()
@@ -200,25 +216,47 @@ func damage(id: int, amount: int) -> Dictionary:
 	}
 
 
-func _wave_for_row(row: int) -> int:
-	return int(row / ROWS_PER_WAVE) + 1
+func _base_health_for_wave(wave_number: int) -> int:
+	return int(round(3.0 * pow(HEALTH_GROWTH, maxi(wave_number, 1) - 1)))
 
 
-func _base_health_for_wave(wave: int) -> int:
-	return 2 + maxi(wave, 1)
+## 每一行铺几只：开场 3 只，之后逐波逼近满行。
+func _enemy_count_for_wave(wave_number: int) -> int:
+	if wave_number <= 1:
+		return 3
+	return clampi(8 + wave_number, 8, COLS)
 
 
-func _enemy_count_for_wave(wave: int) -> int:
-	return clampi(2 + maxi(wave, 1), 3, COLS)
+## 一波铺几行：第 2 波 3 行（30 只），第 4 波 4 行，第 6 波起 5 行。
+func _rows_for_wave(wave_number: int) -> int:
+	if wave_number <= 1:
+		return 1
+	if wave_number <= 3:
+		return 3
+	if wave_number <= 5:
+		return 4
+	return WAVE_MAX_ROWS
 
 
-func _pick_kind(wave: int) -> String:
+## 一波打完后留给玩家清场与强化的时间。
+func _calm_for_wave(wave_number: int) -> float:
+	return WAVE_CALM_BASE + _rows_for_wave(wave_number) * WAVE_CALM_PER_ROW
+
+
+func _spawn_wave() -> void:
+	var rows := _rows_for_wave(wave)
+	var count := _enemy_count_for_wave(wave)
+	for i in rows:
+		_spawn_row(SPAWN_Y - i * WAVE_ROW_SPACING, count)
+
+
+func _pick_kind(wave_number: int) -> String:
 	var roll := _rng.randf()
-	if wave >= 4 and roll < 0.10:
+	if wave_number >= 4 and roll < 0.10:
 		return KIND_ELITE
-	if wave >= 3 and roll < 0.28:
+	if wave_number >= 3 and roll < 0.28:
 		return KIND_ARMORED
-	if wave >= 2 and roll < 0.55:
+	if wave_number >= 2 and roll < 0.55:
 		return KIND_SWIFT
 	return KIND_NORMAL
 
@@ -245,16 +283,15 @@ func _speed_for_kind(kind: String) -> float:
 	return 1.0
 
 
-func _spawn_row(y: float) -> void:
+func _spawn_row(y: float, count: int) -> void:
 	var row := spawned_rows
 	spawned_rows += 1
 
-	var wave := _wave_for_row(row)
+	var current_wave := wave
 	var color_index := int(row / 2) % 6 + 1
-	var hp_base := _base_health_for_wave(wave)
+	var hp_base := _base_health_for_wave(current_wave)
 
-	# 每 5 行组成一波：第一波每行 3~4 只，之后每波约增加 1 只
-	var target_count := mini(COLS, _enemy_count_for_wave(wave) + _rng.randi_range(0, 1))
+	var target_count := mini(COLS, count)
 	var present: Array[bool] = []
 	present.resize(COLS)
 	present.fill(false)
@@ -268,7 +305,7 @@ func _spawn_row(y: float) -> void:
 	for c in COLS:
 		if not present[c]:
 			continue
-		var kind := _pick_kind(wave)
+		var kind := _pick_kind(current_wave)
 		var hp := _health_for_kind(kind, hp_base)
 		var color := Palette.block_color(color_index)
 		match kind:
