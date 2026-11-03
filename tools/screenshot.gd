@@ -11,7 +11,7 @@ const ItemDefs = preload("res://scripts/item_defs.gd")
 
 const DEFAULT_SIZE := Vector2i(1080, 2400)
 const SHOT_PATH := "res://image.png"
-const FILL_SECONDS := 32.0
+const FILL_SECONDS := 20.0
 const FILL_SPEED := 6.0
 
 var main: Node
@@ -43,8 +43,8 @@ func _ready() -> void:
 	_place("turret", Vector2(560, 692))
 	_place("turret", Vector2(470, 520))
 	_place("heavy_turret", Vector2(250, 584))
-	main.placed_turrets[1].apply_damage_upgrade(15)
-	main.placed_turrets[1].apply_damage_upgrade(22)
+	main.placed_turrets[1].apply_upgrade(15)
+	main.placed_turrets[1].apply_upgrade(22)
 	main.coins = 118
 
 	await get_tree().create_timer(5.0).timeout

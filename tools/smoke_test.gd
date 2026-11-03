@@ -61,12 +61,19 @@ func _process(_delta: float) -> void:
 		_check(int(first.max_hp) == 3, "first wave enemies have low health")
 		_check(main.blocks.blocks.size() >= 3 and main.blocks.blocks.size() <= 4, "first wave has low enemy density")
 		_check(String(first.kind) == "normal", "first row uses normal enemies")
-		_check(main.blocks._wave_for_row(0) == 1 and main.blocks._wave_for_row(4) == 1, "first five rows form wave one")
-		_check(main.blocks._wave_for_row(5) == 2, "row five starts wave two")
-		_check(main.blocks._enemy_count_for_wave(1) == 3, "wave one starts with three enemies per row")
+		_check(main.blocks._enemy_count_for_wave(1) == 3, "wave one spawns three enemies")
+		_check(main.blocks._rows_for_wave(1) == 1, "wave one is a single row")
+		_check(int(main.blocks.wave) == 1, "opening wave is wave one")
+		_check(float(main.blocks.next_wave_in) > 10.0, "opening phase has a long calm window")
+		_check(main.blocks._rows_for_wave(2) == 3, "wave two floods three rows")
+		_check(main.blocks._rows_for_wave(2) * main.blocks._enemy_count_for_wave(2) >= 30, "wave two brings at least thirty enemies")
+		_check(main.blocks._rows_for_wave(6) > main.blocks._rows_for_wave(2), "later waves add rows")
+		_check(main.blocks._calm_for_wave(2) >= 24.0, "calm window leaves room to clear")
+		_check(main.blocks._calm_for_wave(6) > main.blocks._calm_for_wave(2), "bigger waves get more breathing room")
 		_check(main.blocks._enemy_count_for_wave(4) > main.blocks._enemy_count_for_wave(1), "later waves increase enemy count")
 		_check(main.blocks._enemy_count_for_wave(9) == main.blocks.COLS, "enemy count eventually fills a row")
-		_check(main.blocks._base_health_for_wave(4) > main.blocks._base_health_for_wave(1), "later waves increase base health")
+		_check(main.blocks._base_health_for_wave(5) > main.blocks._base_health_for_wave(1) * 2, "enemy health climbs quickly")
+		_check(main.blocks._base_health_for_wave(10) > main.blocks._base_health_for_wave(5) * 2, "health growth accelerates")
 		_check(main.blocks._health_for_kind("swift", 6) < main.blocks._health_for_kind("normal", 6), "swift enemies have lighter health")
 		_check(main.blocks._health_for_kind("armored", 6) > main.blocks._health_for_kind("normal", 6), "armored enemies have heavier health")
 		_check(main.blocks._health_for_kind("elite", 6) > main.blocks._health_for_kind("armored", 6), "elite enemies have the thickest health")
@@ -109,6 +116,7 @@ func _process(_delta: float) -> void:
 		var basic: Node = main.placed_turrets[0]
 		_check(basic.global_position == main.snap_to_grid(Vector2(400, 400)), "placement snaps to grid")
 		_check(int(basic.damage) == 1, "basic turret base damage")
+		_check(int(basic.upgrade_damage) == 2 and absf(float(basic.upgrade_rate) - 0.2) < 0.001, "basic turret upgrades +2 damage and +0.2 rate")
 		_check(int(basic.attack_range) == 300, "basic turret short range")
 		var left: Vector2 = main.snap_to_grid(Vector2(65, 400))
 		var right: Vector2 = main.snap_to_grid(Vector2(655, 400))
@@ -150,6 +158,7 @@ func _process(_delta: float) -> void:
 		_check(int(main.coins) == 300, "heavy turret costs 200")
 		heavy = main.placed_turrets[0]
 		_check(int(heavy.damage) == 10, "heavy turret base damage")
+		_check(int(heavy.upgrade_damage) == 20, "heavy turret upgrades +20 damage")
 		_check(int(heavy.pierce) == -1, "heavy turret pierces while power remains")
 		_check(absf(float(heavy.interval) - 2.0) < 0.001, "heavy turret fires slowly")
 		_check(int(heavy.attack_range) == 500, "heavy turret long range")
@@ -168,15 +177,17 @@ func _process(_delta: float) -> void:
 			_check(heavy.has_target(), "placed turret acquires target")
 
 	if frame == 140:
-		# 点击特定炮塔后用金币升级攻击力
+		# 点击特定炮塔后用金币升级伤害与攻速
 		if heavy != null:
 			main.select_turret(heavy)
 			var before_coins := int(main.coins)
 			var cost := int(heavy.get_upgrade_cost())
 			var before_damage := int(heavy.get_effective_damage())
-			main.upgrade_selected_damage()
+			var before_rate := float(heavy.get_effective_rate())
+			main.upgrade_selected()
 			_check(int(main.coins) == before_coins - cost, "upgrade costs coins")
-			_check(int(heavy.get_effective_damage()) == before_damage + 1, "upgrade adds damage")
+			_check(int(heavy.get_effective_damage()) == before_damage + 20, "upgrade adds 20 damage")
+			_check(absf(float(heavy.get_effective_rate()) - (before_rate + 0.2)) < 0.001, "upgrade adds 0.2 attack speed")
 			_check(int(heavy.upgrade_level) == 1, "upgrade level recorded")
 			_check(main.focus_panel.visible, "focus panel stays open after upgrade")
 			main.clear_selection()
@@ -233,7 +244,7 @@ func _process(_delta: float) -> void:
 
 	if frame == 220:
 		# 清空所有目标，下一帧检查炮塔不再显示锁定线
-		main.blocks._spawn_timer = 999.0
+		main.blocks.next_wave_in = 999.0
 		for b in main.blocks.blocks:
 			b.alive = false
 
@@ -283,6 +294,16 @@ func _process(_delta: float) -> void:
 		menu.settings_panel.close_panel()
 		_check(not menu.settings_panel.visible, "main menu settings close")
 		menu.queue_free()
+
+	if frame == 240:
+		# 清场倒计时结束后应推进到下一波并批量生成
+		var wave_before := int(main.blocks.wave)
+		var blocks_before: int = main.blocks.blocks.size()
+		main.blocks.next_wave_in = 0.0
+		main.blocks._physics_process(0.016)
+		_check(int(main.blocks.wave) == wave_before + 1, "wave advances when the calm timer ends")
+		_check(float(main.blocks.next_wave_in) > 0.0, "next wave countdown restarts")
+		_check(main.blocks.blocks.size() > blocks_before, "new wave spawns a batch")
 
 	if frame >= 260:
 		if failures.is_empty():
