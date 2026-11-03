@@ -178,15 +178,15 @@ DIRECTIONAL = {"turret", "heavy_turret", "laser_tower"}
 
 def make_materials() -> dict:
     return {
-        "base": material("MAT-base", (0.52, 0.53, 0.52), roughness=0.55, metallic=0.2),
-        "shell": material("MAT-shell", (0.78, 0.77, 0.72), roughness=0.45, metallic=0.1),
-        "trim": material("MAT-trim", (0.34, 0.36, 0.38), roughness=0.35, metallic=0.75),
-        "metal": material("MAT-metal", (0.28, 0.30, 0.32), roughness=0.3, metallic=0.85),
-        "accent": material("MAT-accent", (0.95, 0.64, 0.23), roughness=0.4, emission=(0.95, 0.64, 0.23), strength=0.2),
-        "glow": material("MAT-glow", (0.35, 0.75, 0.8), roughness=0.3, emission=(0.4, 0.86, 0.95), strength=1.4),
-        "lens": material("MAT-lens", (0.6, 0.95, 1.0), roughness=0.15, emission=(0.6, 0.95, 1.0), strength=1.8),
-        "sack": material("MAT-sack", (0.62, 0.53, 0.38), roughness=0.8),
-        "panel": material("MAT-panel", (0.10, 0.20, 0.34), roughness=0.25, metallic=0.4),
+        "base": material("MAT-base", (0.18, 0.20, 0.22), roughness=0.45, metallic=0.55),
+        "shell": material("MAT-shell", (0.30, 0.32, 0.34), roughness=0.38, metallic=0.5),
+        "trim": material("MAT-trim", (0.55, 0.57, 0.58), roughness=0.24, metallic=0.9),
+        "metal": material("MAT-metal", (0.10, 0.11, 0.12), roughness=0.35, metallic=0.7),
+        "accent": material("MAT-accent", (0.92, 0.52, 0.09), roughness=0.35, emission=(0.92, 0.52, 0.09), strength=0.35),
+        "glow": material("MAT-glow", (0.32, 0.88, 0.45), roughness=0.3, emission=(0.32, 0.88, 0.45), strength=1.4),
+        "lens": material("MAT-lens", (0.35, 0.9, 0.95), roughness=0.15, emission=(0.35, 0.9, 0.95), strength=1.8),
+        "sack": material("MAT-sack", (0.55, 0.46, 0.32), roughness=0.8),
+        "panel": material("MAT-panel", (0.06, 0.12, 0.20), roughness=0.25, metallic=0.45),
     }
 
 
@@ -206,7 +206,7 @@ def setup_camera() -> None:
 
 def setup_lights() -> None:
     sun_data = bpy.data.lights.new("LGT-sun", "SUN")
-    sun_data.energy = 3.0
+    sun_data.energy = 3.3
     sun_data.angle = math.radians(3.0)
     sun = bpy.data.objects.new("LGT-sun", sun_data)
     bpy.context.scene.collection.objects.link(sun)

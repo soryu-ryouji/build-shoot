@@ -120,18 +120,32 @@ func _draw_map() -> void:
 		_draw_tile(_rim, BattleMap.tile_center(Vector2i(BattleMap.COLS, row)))
 
 
-## 路面：在地板之上画一条连续的路带（走廊式，2 格宽的一半），再压中心线和方向箭头
+## 路面：深色金属带 + 黄色虚线中心线，参考明日方舟的工业地坪
 func _draw_road() -> void:
-	var half := 17.0
-	var road := Color(0.16, 0.18, 0.20, 0.92)
-	var line := Color(0.72, 0.76, 0.78, 0.55)
+	var half := 14.0
+	var road := Color(0.085, 0.095, 0.11, 0.95)
+	var edge := Color(0.30, 0.32, 0.34, 0.45)
 	for segment in BattleMap.segments():
 		draw_line(segment[0], segment[1], road, half * 2.0)
 	for route in BattleMap.active_map().routes:
 		for tile in route:
 			draw_rect(Rect2(BattleMap.tile_center(tile) - Vector2(half, half), Vector2(half, half) * 2.0), road)
+	# 路缘的浅色描边，把路面和地板分开
 	for segment in BattleMap.segments():
-		draw_line(segment[0], segment[1], line, 2.0)
+		var dir: Vector2 = (segment[1] - segment[0]).normalized()
+		var normal := dir.orthogonal() * half
+		draw_line(segment[0] + normal, segment[1] + normal, edge, 1.0)
+		draw_line(segment[0] - normal, segment[1] - normal, edge, 1.0)
+	# 黄色虚线：沿每个线段等距画短横
+	var yellow := Color(0.85, 0.68, 0.22, 0.85)
+	for segment in BattleMap.segments():
+		var a: Vector2 = segment[0]
+		var dir: Vector2 = (segment[1] - a).normalized()
+		var length: float = a.distance_to(segment[1])
+		var t := 6.0
+		while t < length:
+			draw_line(a + dir * t, a + dir * minf(t + 6.0, length), yellow, 2.0)
+			t += 14.0
 
 
 func _draw_tile(texture: Texture2D, center: Vector2) -> void:
@@ -144,7 +158,7 @@ func _draw_tile(texture: Texture2D, center: Vector2) -> void:
 func _draw_core() -> void:
 	var center := BattleMap.core_center()
 	if _core != null:
-		draw_texture_rect(_core, Rect2(center - Vector2(64.0, 64.0), Vector2(128.0, 128.0)), false)
+		draw_texture_rect(_core, Rect2(center - Vector2(56.0, 56.0), Vector2(112.0, 112.0)), false)
 	if core_flash > 0.0:
 		draw_circle(center, 42.0, Color(Palette.DANGER, 0.28 * core_flash))
 	var bar := Rect2(center + Vector2(-34.0, -46.0), Vector2(68.0, 5.0))

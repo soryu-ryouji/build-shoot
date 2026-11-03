@@ -74,7 +74,7 @@ def build(map_data: dict) -> Image.Image:
             (MARGIN + col * TILE_W + TILE_W // 2, MARGIN + row * TILE_H + TILE_H // 2)
             for col, row in route
         ]
-        draw.line(points, fill=road_color, width=34, joint="curve")
+        draw.line(points, fill=road_color, width=28, joint="curve")
 
     # 再按行从北往南铺高台/缺口，南侧高的地块自然压住北侧
     for row in range(rows):

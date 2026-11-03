@@ -12,6 +12,13 @@ const MONSTER_TEXTURES := {
 	"armored": preload("res://assets/ui/monster_armored.png"),
 	"elite": preload("res://assets/ui/monster_elite.png"),
 }
+## 2.5D 敌人贴片：Blender 正交渲染，64×64，地面中心在画布中心
+const MONSTER_SPRITES := {
+	"normal": preload("res://assets/ui/enemies/normal.png"),
+	"swift": preload("res://assets/ui/enemies/swift.png"),
+	"armored": preload("res://assets/ui/enemies/armored.png"),
+	"elite": preload("res://assets/ui/enemies/elite.png"),
+}
 const MONSTER_ANIMATIONS := {
 	"normal": preload("res://assets/ui/monster_normal_anim.png"),
 	"swift": preload("res://assets/ui/monster_swift_anim.png"),
@@ -485,7 +492,19 @@ func _draw() -> void:
 			art_size = Vector2(50, 46)
 		var art_rect := Rect2(center - art_size * 0.5 * scale + Vector2(0.0, -3.0 * scale), art_size * scale)
 
-		if animation != null or texture != null:
+		var sprite: Texture2D = MONSTER_SPRITES.get(kind, null)
+		if sprite != null:
+			# 2.5D 贴片：轻微上下浮动代替逐帧动画
+			var bob := sin((_animation_time + phase) * 7.0) * 1.6 * scale
+			draw_circle(center + Vector2(0, 4), 19.0 * scale, Color(0.0, 0.0, 0.0, 0.22 * alpha))
+			var side := 64.0 * scale
+			draw_texture_rect(
+				sprite,
+				Rect2(center - Vector2(side, side) * 0.5 + Vector2(0.0, bob - 6.0 * scale), Vector2(side, side)),
+				false,
+				Color(1.0, 1.0, 1.0, alpha)
+			)
+		elif animation != null or texture != null:
 			draw_circle(center + Vector2(0, 5), 19.0 * scale, Color(0.0, 0.0, 0.0, 0.12 * alpha))
 			draw_circle(center, 25.0 * scale, Color(col.r, col.g, col.b, 0.05 * alpha))
 			if animation != null:

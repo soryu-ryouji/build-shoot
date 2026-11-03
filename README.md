@@ -185,12 +185,15 @@ Godot_v4.7.2-stable_win64.exe --path . res://tools/screenshot.tscn
 
 场上的一切现在都是 Blender 渲染的 2.5D 贴片，用同一台固定正交相机（俯角 asin(34/48)≈45.1°、1 世界单位 = 1 像素）：
 
-- 地块：[build_tiles_3d.py](tools/build_tiles_3d.py) 生成 64×64 的贴片，格子地面中心落在图片中心——地板两种、高台、外框墙、四个朝向的缺口、核心，另有三座火力塔各 8 朝向和四种建筑各 1 张（[build_buildings_3d.py](tools/build_buildings_3d.py)）。
-- 拼地图：[arena.gd](scripts/arena.gd) 按 `battle_map.gd` 的 8×13 格子铺地板，可视区域之外也继续铺，屏幕上不会露底；路面按路线画成连续带子，高台整块抬起、比低地高一层，建筑站上去会自动抬同样的投影高度。
+- 地块：[build_tiles_3d.py](tools/build_tiles_3d.py) 生成 64×64 的贴片，格子地面中心落在图片中心——深色工业地坪 + 浅色钢板、四角螺钉、绿色指示灯、高台/外框上的橙色警示条；另有四个朝向的缺口和核心。
+- 拼地图：[arena.gd](scripts/arena.gd) 按 `battle_map.gd` 的 8×13 格子铺地板，可视区域之外也继续铺，屏幕上不会露底；路面是深色金属带 + 黄色虚线，高台整块抬起、比低地高一层，建筑站上去会自动抬同样的投影高度。
+- 敌人：[build_enemies_3d.py](tools/build_enemies_3d.py) 渲染四种敌人（普通/迅捷/重甲/精英），同样是深色机体 + 橙红/青色发光眼，游戏里用轻微上下浮动代替逐帧动画。
+- 建筑：[build_buildings_3d.py](tools/build_buildings_3d.py) 渲染七种场上建筑，深色壳体 + 钢板 + 橙色警示带 + 绿/青色指示灯，三座火力塔各 8 个朝向。
 
 ```bash
 blender -b --factory-startup -P tools/build_tiles_3d.py -- --outdir assets/ui/tiles
 blender -b --factory-startup -P tools/build_buildings_3d.py -- --outdir assets/ui/25d
+blender -b --factory-startup -P tools/build_enemies_3d.py -- --outdir assets/ui/enemies
 python tools/preview_tiles.py junction    # 可选：拼一张检查接缝与路面连接
 ```
 
@@ -256,6 +259,7 @@ theme/game_theme.tres       全局 UI 字体（含 CJK 回退）
 tools/smoke_test.tscn/gd    无头冒烟测试
 tools/responsive_test.tscn/gd 多尺寸竖屏、宽度适配、触摸部署与控件尺寸回归测试
 tools/build_tiles_3d.py     用 Blender 生成 2.5D 地块贴片（地板/高台/外框/缺口/核心）
+tools/build_enemies_3d.py   用 Blender 生成 2.5D 敌人贴片（普通/迅捷/重甲/精英）
 tools/build_buildings_3d.py 用 Blender 生成 2.5D 建筑贴图（8 朝向）
 tools/generate_ui_assets.py 用 ComfyUI 生成主界面、战场、怪物与建筑素材
 tools/screenshot.tscn/gd    游戏、设置面板与聚焦面板截图工具
