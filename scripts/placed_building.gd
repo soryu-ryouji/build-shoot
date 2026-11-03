@@ -62,6 +62,8 @@ var _beam_hold := 0.0
 var _beam_target := Vector2.ZERO
 var _beam_buffed := false
 var _range_cells_cache: Array = []
+var _buffed := false
+var buff_particles: CPUParticles2D
 
 
 func setup(g: Node, def: Dictionary, facing := -PI / 2.0) -> void:
@@ -73,7 +75,55 @@ func setup(g: Node, def: Dictionary, facing := -PI / 2.0) -> void:
 	invested = int(def.get("cost", 0))
 	max_hp = maxi(1, int(def.get("hp", 1)))
 	hp = float(max_hp)
+	_ensure_buff_particles()
 	queue_redraw()
+
+
+func _ensure_buff_particles() -> void:
+	if buff_particles != null or not is_firepower():
+		return
+	var particles := CPUParticles2D.new()
+	particles.name = "BuffParticles"
+	particles.amount = 20
+	particles.lifetime = 1.0
+	particles.preprocess = 0.5
+	particles.emitting = false
+	particles.local_coords = true
+	particles.z_index = 1
+	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+	particles.emission_sphere_radius = base_radius + 12.0
+	particles.direction = Vector2(0.0, -1.0)
+	particles.spread = 70.0
+	particles.gravity = Vector2(0.0, -10.0)
+	particles.initial_velocity_min = 16.0
+	particles.initial_velocity_max = 34.0
+	particles.scale_amount_min = 0.55
+	particles.scale_amount_max = 1.25
+	particles.color = Color(0.32, 0.88, 1.0, 0.92)
+	particles.texture = _make_particle_texture()
+	var material := CanvasItemMaterial.new()
+	material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	particles.material = material
+	add_child(particles)
+	buff_particles = particles
+
+
+func _make_particle_texture() -> Texture2D:
+	var gradient := Gradient.new()
+	gradient.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+	gradient.colors = PackedColorArray([
+		Color(1.0, 1.0, 1.0, 1.0),
+		Color(0.72, 0.94, 1.0, 0.7),
+		Color(0.38, 0.78, 1.0, 0.0),
+	])
+	var texture := GradientTexture2D.new()
+	texture.width = 16
+	texture.height = 16
+	texture.fill = GradientTexture2D.FILL_RADIAL
+	texture.fill_from = Vector2(0.5, 0.5)
+	texture.fill_to = Vector2(1.0, 0.5)
+	texture.gradient = gradient
+	return texture
 
 
 func _apply_def(def: Dictionary) -> void:
@@ -199,6 +249,9 @@ func _process(delta: float) -> void:
 
 	if not alive:
 		return
+	_buffed = is_firepower() and powered and game.get_buff_multiplier(global_position) > 1
+	if buff_particles != null:
+		buff_particles.emitting = _buffed
 	if not is_firepower():
 		if buff_line or is_energy() or hurt_flash > 0.0:
 			queue_redraw()

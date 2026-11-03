@@ -186,8 +186,7 @@ func _draw_line_range() -> void:
 		return
 	var a: Vector2 = span[0] - global_position
 	var b: Vector2 = span[1] - global_position
-	draw_line(a, b, Color(RANGE_FILL.r, RANGE_FILL.g, RANGE_FILL.b, 0.16), 12.0)
-	draw_line(a, b, RANGE_LINE, 3.0)
+	draw_line(a, b, Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.45), 2.0)
 
 
 func _line_rect_span(origin: Vector2, direction: Vector2, rect: Rect2) -> Array:

@@ -340,6 +340,9 @@ func _run() -> void:
 	_check(not compression.covers_point(off_turret.global_position), "compression ignores other rows")
 	_check(main.get_buff_multiplier(row_turret.global_position) == 2, "row turret gets double damage")
 	_check(main.get_buff_multiplier(off_turret.global_position) == 1, "off-row turret stays normal")
+	await _frames(2)
+	_check(row_turret.buff_particles != null and row_turret.buff_particles.emitting, "buffed tower emits particles")
+	_check(off_turret.buff_particles != null and not off_turret.buff_particles.emitting, "unbuffed tower has no particles")
 
 	main.select_building(compression)
 	_check(main.focus_panel.visible, "compression focus panel opens")
@@ -404,6 +407,8 @@ func _run() -> void:
 	_check(heavy.modulate != Color.WHITE, "offline building icon is grayed out")
 	_check(row_turret.modulate == Color.WHITE, "powered building icon keeps its color")
 	_check(main.get_buff_multiplier(row_turret.global_position) == 1, "offline compression stops buffing")
+	await _frames(2)
+	_check(not row_turret.buff_particles.emitting, "offline compression stops the buff particles")
 	_check(int(row_turret.get_refund()) == 15, "powered building keeps the normal dismantle refund")
 	_check(int(heavy.get_refund()) == 120, "offline building can be dismantled for full refund")
 
