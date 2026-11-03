@@ -26,7 +26,6 @@ var active := false
 var orienting := false
 var valid := false
 var color := Palette.CYAN
-var preview_range := 0.0
 var base_radius := 24.0
 var sprite_scale := 1.0
 var item_id := "turret"
@@ -58,7 +57,6 @@ func _ready() -> void:
 func begin(item: Dictionary) -> void:
 	active = true
 	color = item.color
-	preview_range = float(item.get("range", 0.0))
 	base_radius = float(item.get("base", 24.0))
 	sprite_scale = float(item.get("sprite_scale", 1.0))
 	item_id = String(item.id)
@@ -136,9 +134,6 @@ func _draw_placement() -> void:
 	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.08))
 	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.65), false, 1.5)
 
-	if category == ItemDefs.CATEGORY_FIREPOWER:
-		draw_arc(Vector2.ZERO, preview_range, 0.0, TAU, 64, RANGE_LINE, 1.5)
-
 	draw_circle(Vector2.ZERO, base_radius + 6.0, Color(mark.r, mark.g, mark.b, 0.08))
 	draw_circle(Vector2.ZERO, base_radius, Color(mark.r, mark.g, mark.b, 0.16))
 	draw_arc(Vector2.ZERO, base_radius + 2.0, 0.0, TAU, 36, mark, 2.0)
@@ -162,9 +157,7 @@ func _draw_orientation() -> void:
 
 	_draw_body(Color(1.0, 1.0, 1.0, 0.82), facing)
 
-	if category == ItemDefs.CATEGORY_FIREPOWER:
-		draw_arc(Vector2.ZERO, preview_range, 0.0, TAU, 64, RANGE_LINE, 1.5)
-	elif int(ItemDefs.get_item(item_id).get("buff_multiplier", 1)) > 1:
+	if int(ItemDefs.get_item(item_id).get("buff_multiplier", 1)) > 1:
 		_draw_line_range()
 
 	# 朝向箭头

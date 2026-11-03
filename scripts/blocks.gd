@@ -193,10 +193,10 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
-## 场上炮塔的目标：射程内最近的方块。
-func get_nearest_target(origin: Vector2, max_range: float) -> Dictionary:
+## 场上炮塔的目标：射程格子内最近的方块。
+func get_nearest_target(origin: Vector2, max_range: float, range_cells: Array = []) -> Dictionary:
 	var best: Dictionary = {}
-	var best_dist := max_range * max_range
+	var best_dist := INF if not range_cells.is_empty() else max_range * max_range
 	for b in blocks:
 		if not bool(b.alive):
 			continue
@@ -204,11 +204,21 @@ func get_nearest_target(origin: Vector2, max_range: float) -> Dictionary:
 		var center := rect.get_center()
 		if center.y < PLAY_TOP:
 			continue
+		if not range_cells.is_empty() and not _cell_in_range(center, range_cells):
+			continue
 		var dist := center.distance_squared_to(origin)
 		if dist <= best_dist:
 			best_dist = dist
 			best = b
 	return best
+
+
+func _cell_in_range(point: Vector2, range_cells: Array) -> bool:
+	var cell: Vector2 = game.snap_to_grid(point)
+	for allowed in range_cells:
+		if cell.distance_to(allowed) < 0.5:
+			return true
+	return false
 
 
 ## 底部主炮塔的目标：优先选择最靠近底部、且还在炮塔上方的方块。

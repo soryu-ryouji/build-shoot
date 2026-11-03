@@ -78,6 +78,14 @@ func _run() -> void:
 	main.shop_bar._on_item_chip_pressed("turret")
 	main.shop_bar.cancel_drag()
 
+	# 拖拽部署时战场减速并压暗背景
+	main.begin_placement("solar")
+	_check(Engine.time_scale < 0.5, "deploying slows game time")
+	_check(main.dim_rect.visible, "deploying dims the surrounding screen")
+	main.cancel_placement()
+	_check(is_equal_approx(Engine.time_scale, 1.0), "cancelled deploy restores game speed")
+	_check(not main.dim_rect.visible, "cancelled deploy restores brightness")
+
 	# 类别卡按住后移动超过阈值才开始拖拽，纯点击只切换类别
 	main.shop_bar._on_category_pressed("firepower", Vector2(100, 100))
 	_check(main.shop_bar._pending and not main.shop_bar._dragging, "category press waits before dragging")
@@ -142,8 +150,9 @@ func _run() -> void:
 	_check(int(solar.energy_output) == 2, "solar outputs two")
 	_check(int(turret.get_refund()) == 30, "dismantling the last firepower refunds in full")
 	var behind := _add_test_block(Vector2(300, 400), 10)
-	var behind_target: Dictionary = main.blocks.get_nearest_target(turret.global_position, turret.attack_range)
-	_check(int(behind_target.get("id", -1)) == int(behind.id), "turret range is a full circle, not the facing arc")
+	var turret_cells: Array = main.get_range_cells(turret.global_position, turret.attack_range)
+	var behind_target: Dictionary = main.blocks.get_nearest_target(turret.global_position, turret.attack_range, turret_cells)
+	_check(int(behind_target.get("id", -1)) == int(behind.id), "turret range is tile-based and covers behind its facing")
 	main.blocks.blocks.erase(behind)
 	main.blocks.by_id.erase(int(behind.id))
 	main.select_building(solar)

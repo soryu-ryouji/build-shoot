@@ -83,7 +83,7 @@ func _ready() -> void:
 		main.finish_placement("turret", Vector2(400, 500))
 		main._update_orientation(Vector2(400, 300))
 
-	await get_tree().create_timer(5.0).timeout
+	await get_tree().create_timer(5.0, true, false, true).timeout
 	var show_settings := "--settings" in OS.get_cmdline_user_args()
 	var show_focus := "--focus" in OS.get_cmdline_user_args()
 	if show_settings:

@@ -61,6 +61,7 @@ var _target_pos := Vector2.ZERO
 var _beam_hold := 0.0
 var _beam_target := Vector2.ZERO
 var _beam_buffed := false
+var _range_cells_cache: Array = []
 
 
 func setup(g: Node, def: Dictionary, facing := -PI / 2.0) -> void:
@@ -209,7 +210,9 @@ func _process(delta: float) -> void:
 		return
 
 	_cooldown = maxf(0.0, _cooldown - delta)
-	var target: Dictionary = game.blocks.get_nearest_target(global_position, attack_range)
+	if _range_cells_cache.is_empty():
+		_range_cells_cache = game.get_range_cells(global_position, attack_range)
+	var target: Dictionary = game.blocks.get_nearest_target(global_position, attack_range, _range_cells_cache)
 	if target.is_empty():
 		_has_target = false
 		queue_redraw()
@@ -293,8 +296,16 @@ func _draw() -> void:
 
 func _draw_selection() -> void:
 	if is_firepower():
-		draw_arc(Vector2.ZERO, attack_range, 0.0, TAU, 64, Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.22), 1.5)
+		_draw_range_cells()
 	draw_arc(Vector2.ZERO, base_radius + 4.0, 0.0, TAU, 32, Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.60), 1.5)
+
+
+func _draw_range_cells() -> void:
+	for point in game.get_range_cells(global_position, attack_range):
+		var local: Vector2 = point - global_position
+		var cell := Rect2(local - Vector2(30.0, 30.0), Vector2(60.0, 60.0))
+		draw_rect(cell, Color(0.42, 0.86, 0.52, 0.10))
+		draw_rect(cell, Color(0.42, 0.86, 0.52, 0.42), false, 1.0)
 
 
 func _draw_firepower() -> void:

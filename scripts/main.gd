@@ -1,6 +1,8 @@
 extends Node2D
 
-## 游戏主体：滚动方块、金币经济、三类建筑布置、形态升级、能源结算与界面联动。
+## 游戏主体：滚动方块、金币经济、三类建筑布置、能源结算与界面联动。
+
+const DEPLOY_TIME_SCALE := 0.28
 
 const Palette = preload("res://scripts/palette.gd")
 const Arena = preload("res://scripts/arena.gd")
@@ -31,6 +33,7 @@ var shop_bar: Control
 var focus_panel: Control
 var settings_panel: Control
 var world_camera: Camera2D
+var dim_rect: ColorRect
 
 var placed_buildings: Array = []
 var selected_building: Node = null
@@ -56,6 +59,7 @@ var power_ok := true
 
 func _ready() -> void:
 	randomize()
+	Engine.time_scale = 1.0
 	_setup_nodes()
 
 
@@ -121,6 +125,27 @@ func _setup_nodes() -> void:
 	hud_layer.name = "HudLayer"
 	hud_layer.layer = 1
 	add_child(hud_layer)
+
+	dim_rect = ColorRect.new()
+	dim_rect.name = "DeployDim"
+	dim_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim_rect.visible = false
+	var dim_shader := Shader.new()
+	dim_shader.code = """
+shader_type canvas_item;
+uniform float strength = 0.55;
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float d = max(abs(p.x), abs(p.y));
+	float edge = smoothstep(0.42, 1.16, d);
+	COLOR = vec4(0.015, 0.025, 0.035, edge * strength);
+}
+"""
+	var dim_material := ShaderMaterial.new()
+	dim_material.shader = dim_shader
+	dim_rect.material = dim_material
+	hud_layer.add_child(dim_rect)
 
 	hud = Hud.new()
 	hud.name = "Hud"
@@ -274,6 +299,7 @@ func begin_placement(item_id: String) -> void:
 
 	cancel_orientation()
 	clear_selection()
+	_set_deploy_focus(true)
 	placing = true
 	placing_id = item_id
 	placing_cost = int(item.cost)
@@ -317,6 +343,7 @@ func finish_placement(item_id: String, pos: Vector2) -> void:
 	elif _inside_arena(snapped):
 		hud.toast(I18n.t("shop.invalid"), Palette.DANGER)
 
+	_set_deploy_focus(false)
 	placement_ghost.end()
 
 
@@ -324,6 +351,7 @@ func cancel_placement() -> void:
 	placing = false
 	placing_id = ""
 	placing_cost = 0
+	_set_deploy_focus(false)
 	cancel_orientation()
 	if placement_ghost != null:
 		placement_ghost.end()
@@ -338,6 +366,12 @@ func cancel_orientation() -> void:
 	orient_pos = Vector2.ZERO
 	if placement_ghost != null:
 		placement_ghost.end()
+
+
+func _set_deploy_focus(active: bool) -> void:
+	Engine.time_scale = DEPLOY_TIME_SCALE if active else 1.0
+	if dim_rect != null:
+		dim_rect.visible = active
 
 
 func _needs_direction(item: Dictionary) -> bool:
@@ -399,6 +433,7 @@ func _confirm_orientation() -> void:
 	var cost := int(item.get("cost", 0))
 	if coins < cost:
 		hud.toast(I18n.t("shop.not_enough"), Palette.DANGER)
+		_set_deploy_focus(false)
 		cancel_orientation()
 		return
 	coins -= cost
@@ -406,6 +441,7 @@ func _confirm_orientation() -> void:
 	orient_dragging = false
 	orient_item = {}
 	orient_pos = Vector2.ZERO
+	_set_deploy_focus(false)
 	placement_ghost.end()
 	_place_building(item, pos, facing)
 
