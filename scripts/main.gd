@@ -362,8 +362,6 @@ func _place_building(item: Dictionary, pos: Vector2) -> Node:
 	items_layer.add_child(building)
 	placed_buildings.append(building)
 	refresh_power()
-	if not building.powered and hud != null:
-		hud.toast(I18n.t("power.offline_building"), Palette.DANGER)
 	return building
 
 
@@ -441,8 +439,6 @@ func upgrade_selected_to(target_id: String) -> void:
 	coins -= cost
 	t.upgrade_to(target, cost)
 	refresh_power()
-	if not t.powered and hud != null:
-		hud.toast(I18n.t("power.offline_building"), Palette.DANGER)
 	if focus_panel != null and focus_panel.visible:
 		focus_panel.refresh()
 	hud.pop_coins()
@@ -459,7 +455,6 @@ func refresh_power() -> void:
 	var remaining := supply
 	var demand := 0
 	var offline := 0
-	var previous_offline := power_offline
 
 	# 先到先得：按布置顺序分配能源，新建筑排在最后，缺电时由新建筑承担离线。
 	for b in placed_buildings:
@@ -480,12 +475,6 @@ func refresh_power() -> void:
 	power_demand = demand
 	power_offline = offline
 	power_ok = offline == 0
-
-	if offline != previous_offline and hud != null:
-		if offline == 0:
-			hud.toast(I18n.t("power.restored"), Palette.CYAN)
-		else:
-			hud.toast(I18n.t("power.deficit"), Palette.DANGER)
 
 
 ## 压缩塔的直线增益：返回 1 或 2。多个压缩塔不叠加。

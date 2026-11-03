@@ -13,7 +13,7 @@ const FusionTexture = preload("res://assets/ui/fusion_tower_field.png")
 
 const TURN_SPEED := 10.0
 const LOCK_TOLERANCE := 0.08
-const PARALYZE_COLOR := Color(0.06, 0.07, 0.08, 0.58)
+const OFFLINE_MODULATE := Color(0.52, 0.54, 0.57, 1.0)
 
 var game: Node
 var item_id := ""
@@ -159,6 +159,7 @@ func set_powered(value: bool) -> void:
 	if powered == value:
 		return
 	powered = value
+	modulate = Color.WHITE if powered else OFFLINE_MODULATE
 	if powered:
 		_cooldown = 0.0
 	queue_redraw()
@@ -295,8 +296,6 @@ func _draw() -> void:
 		ItemDefs.CATEGORY_ENERGY:
 			_draw_energy()
 
-	if not powered and not is_energy():
-		_draw_paralyzed()
 	if hurt_flash > 0.0:
 		draw_circle(Vector2.ZERO, base_radius + 4.0, Color(0.95, 0.30, 0.26, 0.20 * hurt_flash))
 
@@ -403,22 +402,6 @@ func _draw_energy() -> void:
 func _draw_static_texture(texture: Texture2D) -> void:
 	var side := base_radius * 2.0 * sprite_scale
 	draw_texture_rect(texture, Rect2(Vector2(-side * 0.5, -side * 0.5), Vector2(side, side)), false)
-
-
-func _draw_paralyzed() -> void:
-	draw_circle(Vector2.ZERO, base_radius + 5.0, PARALYZE_COLOR)
-	var bolt := PackedVector2Array([
-		Vector2(3.0, -16.0),
-		Vector2(-6.0, 1.0),
-		Vector2(-1.0, 1.0),
-		Vector2(-4.0, 16.0),
-		Vector2(8.0, -2.0),
-		Vector2(2.0, -2.0),
-	])
-	var outline := bolt.duplicate()
-	outline.append(bolt[0])
-	draw_polyline(outline, Color(Palette.DANGER.r, Palette.DANGER.g, Palette.DANGER.b, 0.85), 2.0)
-	draw_colored_polygon(bolt, Color(Palette.DANGER.r, Palette.DANGER.g, Palette.DANGER.b, 0.22))
 
 
 func _draw_health_bar() -> void:

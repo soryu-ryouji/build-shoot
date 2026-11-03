@@ -1,6 +1,6 @@
 extends Control
 
-## 响应式 HUD：顶部信息面板（金币、能源、波次、击碎数）和中居战斗提示。
+## 响应式 HUD：顶部信息面板（金币、波次、击碎数）和中居战斗提示。
 ## 尺寸按 400×800 移动端基线取，按钮不低于 52 逻辑像素。
 
 signal settings_requested
@@ -15,7 +15,6 @@ var mode_label: Label
 var tag_label: Label
 var coins_label: Label
 var destroyed_label: Label
-var energy_label: Label
 var toast_label: Label
 var settings_button: Button
 
@@ -93,7 +92,6 @@ func _build() -> void:
 
 	coins_label = _make_label(stats, "", 19, Palette.ACCENT, HORIZONTAL_ALIGNMENT_RIGHT)
 	destroyed_label = _make_label(stats, "", UiMetrics.FONT_SMALL, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
-	energy_label = _make_label(stats, "", UiMetrics.FONT_SMALL, Palette.ACCENT, HORIZONTAL_ALIGNMENT_RIGHT)
 
 	toast_label = _make_label(self, "", 21, Palette.ACCENT, HORIZONTAL_ALIGNMENT_CENTER)
 	toast_label.add_theme_constant_override("outline_size", 4)
@@ -170,17 +168,6 @@ func _process(delta: float) -> void:
 		coins_label.scale = Vector2.ONE
 
 	destroyed_label.text = I18n.t("hud.destroyed", [int(game.blocks.destroyed)])
-	var demand := int(game.power_demand)
-	var supply := int(game.power_supply)
-	var offline := int(game.power_offline)
-	if demand <= 0 and supply <= 0:
-		energy_label.text = ""
-	elif offline > 0:
-		energy_label.text = I18n.t("hud.energy_offline", [demand, supply, offline])
-		energy_label.add_theme_color_override("font_color", Palette.DANGER)
-	else:
-		energy_label.text = I18n.t("hud.energy", [demand, supply])
-		energy_label.add_theme_color_override("font_color", Palette.ACCENT)
 	var wave := int(game.blocks.wave)
 	if wave > 0:
 		var next_wave := int(ceil(float(game.blocks.next_wave_in)))
