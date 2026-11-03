@@ -419,6 +419,7 @@ func _speed_for_kind(kind: String) -> float:
 	return 1.0
 
 
+
 func _draw_kind(inner: Rect2, kind: String, col: Color, alpha := 1.0) -> void:
 	var c := inner.get_center() + Vector2(0.0, -2.0)
 	match kind:
