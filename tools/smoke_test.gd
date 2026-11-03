@@ -42,18 +42,18 @@ func _run() -> void:
 	_check(I18n.locale == "zh_CN", "locale toggles back to Chinese")
 
 	# ---------------------------------------------------------------- 定义表
-	var shop: Array = ItemDefs.get_shop_items()
-	_check(shop.size() == 3, "shop only sells three base buildings")
-	var shop_ids: Array = []
-	for item in shop:
-		shop_ids.append(String(item.id))
-	_check(shop_ids == ["turret", "sandbag", "solar"], "shop has firepower, fortification and energy")
-	_check(not ItemDefs.is_shop_item("heavy_turret"), "heavy turret is no longer a shop item")
-	_check(not ItemDefs.is_shop_item("laser_tower"), "laser tower is no longer a shop item")
-	var turret_upgrades: Array = ItemDefs.get_upgrades("turret")
-	_check(turret_upgrades.size() == 2, "turret has two refit branches")
-	_check(String(turret_upgrades[0].id) == "heavy_turret" and String(turret_upgrades[1].id) == "laser_tower", "turret refits into heavy or laser")
+	var fire_items: Array = ItemDefs.get_category_items(ItemDefs.CATEGORY_FIREPOWER)
+	var fort_items: Array = ItemDefs.get_category_items(ItemDefs.CATEGORY_FORTIFICATION)
+	var energy_items: Array = ItemDefs.get_category_items(ItemDefs.CATEGORY_ENERGY)
+	_check(fire_items.size() == 3, "firepower category lists turret, heavy and laser")
+	_check(String(fire_items[0].id) == "turret" and String(fire_items[1].id) == "heavy_turret" and String(fire_items[2].id) == "laser_tower", "firepower item order")
+	_check(fort_items.size() == 2, "fortification category lists sandbag and compression tower")
+	_check(energy_items.size() == 2, "energy category lists solar and fusion tower")
 	_check(int(ItemDefs.get_item("turret").cost) + int(ItemDefs.get_item("solar").cost) == 50, "starting coins cover energy plus turret")
+	_check(int(ItemDefs.get_item("heavy_turret").cost) == 120, "heavy turret is a full-cost item")
+	_check(int(ItemDefs.get_item("laser_tower").cost) == 150, "laser tower is a full-cost item")
+	_check(int(ItemDefs.get_item("compression_tower").cost) == 60, "compression tower is a full-cost item")
+	_check(int(ItemDefs.get_item("fusion_tower").cost) == 60, "fusion tower is a full-cost item")
 	_check(int(ItemDefs.get_item("solar").energy_output) * 2 == int(ItemDefs.get_item("fusion_tower").energy_output), "fusion tower doubles power output")
 	_check(int(ItemDefs.get_item("turret").energy_demand) == 1, "turret drains one power")
 	_check(int(ItemDefs.get_item("heavy_turret").energy_demand) == 2, "heavy turret drains two power")
@@ -61,7 +61,33 @@ func _run() -> void:
 	_check(int(ItemDefs.get_item("sandbag").energy_demand) == 1, "sandbag drains one power")
 	_check(int(ItemDefs.get_item("compression_tower").energy_demand) == 2, "compression tower drains two power")
 	_check(int(ItemDefs.get_item("compression_tower").buff_multiplier) == 2, "compression tower doubles damage")
-	_check(ItemDefs.get_item("compression_tower").desc_key != "", "upgrade forms have descriptions")
+	_check(ItemDefs.get_item("compression_tower").desc_key != "", "all items have descriptions")
+
+	# ---------------------------------------------------------------- 商店类别与道具列表
+	_check(main.shop_bar.cards.size() == 3, "shop has three category cards")
+	_check(main.shop_bar.chips.size() == 3, "firepower starts with three item chips")
+	main.shop_bar._on_category_pressed("fortification", Vector2(100, 100))
+	_check(main.shop_bar.active_category == "fortification", "clicking a category switches the item list")
+	_check(main.shop_bar.chips.size() == 2, "fortification lists two items")
+	main.shop_bar._on_item_chip_pressed("compression_tower")
+	_check(String(main.shop_bar.selected["fortification"]) == "compression_tower", "selecting an item updates the category")
+	main.shop_bar._refresh_cards()
+	_check(String(main.shop_bar.cards[1].item.id) == "compression_tower", "category card adopts the selected item")
+	main.shop_bar.cancel_drag()
+	main.shop_bar._on_category_pressed("firepower", Vector2(100, 100))
+	main.shop_bar._on_item_chip_pressed("turret")
+	main.shop_bar.cancel_drag()
+
+	# 类别卡按住后移动超过阈值才开始拖拽，纯点击只切换类别
+	main.shop_bar._on_category_pressed("firepower", Vector2(100, 100))
+	_check(main.shop_bar._pending and not main.shop_bar._dragging, "category press waits before dragging")
+	var move := InputEventMouseMotion.new()
+	move.position = Vector2(120, 100)
+	main.shop_bar._input(move)
+	_check(main.shop_bar._dragging and main.placing, "moving past the threshold starts item drag")
+	main.shop_bar.cancel_drag()
+	main.cancel_placement()
+	_check(not main.placing, "cancelled shop drag clears placement")
 
 	# ---------------------------------------------------------------- 布置与能源
 	# 场上没有火力时拆除全额返还，保证不会因为花光金币而无法重建
@@ -71,7 +97,7 @@ func _run() -> void:
 	var first_sandbag: Node = main.placed_buildings[0]
 	_check(int(first_sandbag.get_refund()) == 15, "no-firepower dismantle refunds in full")
 	main.select_building(first_sandbag)
-	_check(main.focus_panel.upgrade_buttons.size() == 1, "sandbag offers a compression refit")
+	_check(main.focus_panel.visible, "static building opens the focus panel")
 	main.dismantle_selected()
 	_check(main.placed_buildings.is_empty(), "sandbag removed after refund check")
 	_check(int(main.coins) == 50, "full refund restores the starting coins")
@@ -80,11 +106,19 @@ func _run() -> void:
 	_check(main.placing, "placement begins")
 	main.update_placement(Vector2(400, 400))
 	main.finish_placement("turret", Vector2(400, 400))
+	_check(main.orienting, "directional building enters orientation step")
+	_check(not main.placing, "placement drag ends before orientation")
+	_check(int(main.coins) == 50, "direction confirmation happens before payment")
+	_check(is_equal_approx(main.orient_facing, -PI / 2.0), "default facing points up")
+	main._update_orientation(main.orient_pos + Vector2(100, 0))
+	_check(is_equal_approx(main.orient_facing, 0.0), "dragging sets the facing")
+	main._confirm_orientation()
 	_check(main.placed_buildings.size() == 1, "basic turret placed")
 	_check(int(main.coins) == 20, "basic turret costs 30")
 	var turret: Node = main.placed_buildings[0]
 	_check(turret.category == ItemDefs.CATEGORY_FIREPOWER, "turret is firepower")
 	_check(turret.global_position == main.snap_to_grid(Vector2(400, 400)), "placement snaps to grid")
+	_check(is_equal_approx(turret.facing_angle, 0.0), "chosen facing is stored on the building")
 	_check(int(turret.damage) == 1, "basic turret base damage")
 	_check(int(turret.attack_range) == 300, "basic turret short range")
 	_check(absf(float(turret.interval) - 0.3) < 0.001, "basic turret interval")
@@ -97,6 +131,7 @@ func _run() -> void:
 	main.begin_placement("solar")
 	main.update_placement(Vector2(250, 400))
 	main.finish_placement("solar", Vector2(250, 400))
+	_check(not main.orienting, "static energy building skips orientation")
 	_check(main.placed_buildings.size() == 2, "solar panel placed")
 	_check(int(main.coins) == 0, "solar panel costs 20")
 	_check(main.power_supply == 2 and main.power_demand == 1, "solar supplies two power")
@@ -107,7 +142,7 @@ func _run() -> void:
 	_check(int(solar.energy_output) == 2, "solar outputs two")
 	_check(int(turret.get_refund()) == 30, "dismantling the last firepower refunds in full")
 	main.select_building(solar)
-	_check(main.focus_panel.upgrade_buttons.size() == 1, "solar offers a fusion refit")
+	_check(main.focus_panel.visible, "focus panel opens for energy building")
 	main.clear_selection()
 
 	# 网格吸附边缘
@@ -136,54 +171,52 @@ func _run() -> void:
 	_check(main.placed_buildings.size() == 2, "invalid placement rejected")
 	_check(int(main.coins) == 500, "invalid placement costs nothing")
 
-	# ---------------------------------------------------------------- 聚焦面板与形态升级
+	# ---------------------------------------------------------------- 直接建造高级道具
 	main.select_building(turret)
 	_check(main.focus_panel.visible, "focus panel opens")
-	_check(main.focus_panel.upgrade_buttons.size() == 2, "focus panel offers two refits")
-	_check(main.focus_panel.upgrade_button != null, "first refit button exists")
 	_check(main.focus_panel.stat_values[0].text == "1", "focus panel shows base damage")
 	main.clear_selection()
 
-	main.select_building(turret)
 	var coins_before := int(main.coins)
-	main.upgrade_selected_to("heavy_turret")
-	_check(turret.item_id == "heavy_turret", "turret refits in place")
-	_check(main.placed_buildings.size() == 2, "refit does not create a new building")
-	_check(int(main.coins) == coins_before - 90, "refit costs 90")
-	_check(int(turret.damage) == 10, "heavy turret base damage")
-	_check(absf(float(turret.interval) - 2.0) < 0.001, "heavy turret fires slowly")
-	_check(int(turret.pierce) == -1, "heavy turret pierces while power remains")
-	_check(int(turret.attack_range) == 500, "heavy turret long range")
-	_check(int(turret.energy_demand) == 2, "heavy turret drains two power")
-	_check(main.power_supply == 2 and main.power_demand == 2, "heavy refit updates power demand")
-	_check(main.power_ok, "solar still covers heavy turret")
-	_check(main.focus_panel.upgrade_buttons.is_empty(), "heavy turret has no further form")
+	main.begin_placement("heavy_turret")
+	main.finish_placement("heavy_turret", Vector2(380, 700))
+	_check(main.orienting, "heavy turret also asks for a facing")
+	main._confirm_orientation()
+	_check(main.placed_buildings.size() == 3, "heavy turret placed as its own item")
+	_check(int(main.coins) == coins_before - 120, "heavy turret costs 120")
+	var heavy_build: Node = main.placed_buildings[2]
+	_check(heavy_build.item_id == "heavy_turret", "heavy turret keeps its own definition")
+	_check(int(heavy_build.damage) == 10, "heavy turret base damage")
+	_check(absf(float(heavy_build.interval) - 2.0) < 0.001, "heavy turret fires slowly")
+	_check(int(heavy_build.pierce) == -1, "heavy turret pierces while power remains")
+	_check(int(heavy_build.attack_range) == 500, "heavy turret long range")
+	_check(int(heavy_build.energy_demand) == 2, "heavy turret drains two power")
+	main.select_building(heavy_build)
 	_check(main.focus_panel.stat_values[3].text == "∞", "focus panel shows unlimited pierce")
 	main.clear_selection()
 
-	main.select_building(solar)
-	main.upgrade_selected_to("fusion_tower")
-	_check(solar.item_id == "fusion_tower", "solar refits into fusion tower")
-	_check(int(solar.energy_output) == 4, "fusion tower outputs four")
-	_check(main.power_supply == 4 and main.power_demand == 2, "fusion tower doubles supply")
-	main.clear_selection()
+	main.begin_placement("fusion_tower")
+	main.finish_placement("fusion_tower", Vector2(620, 480))
+	_check(not main.orienting, "fusion tower skips orientation")
+	_check(int(main.coins) == coins_before - 180, "fusion tower costs 60 after heavy")
+	var fusion: Node = main.placed_buildings[3]
+	_check(fusion.item_id == "fusion_tower", "fusion tower placed directly")
+	_check(int(fusion.energy_output) == 4, "fusion tower outputs four")
+	_check(main.power_supply == 6 and main.power_demand == 3, "fusion tower raises supply")
+	_check(main.power_ok, "fusion tower powers the heavy turret")
 
 	# ---------------------------------------------------------------- 激光塔
-	main.coins = 1000
-	main.begin_placement("turret")
-	main.finish_placement("turret", Vector2(560, 560))
-	_check(main.placed_buildings.size() == 3, "second turret placed for laser refit")
-	var laser: Node = main.placed_buildings[2]
-	main.select_building(laser)
-	main.upgrade_selected_to("laser_tower")
-	_check(laser.item_id == "laser_tower", "turret refits into laser tower")
+	main.begin_placement("laser_tower")
+	main.finish_placement("laser_tower", Vector2(560, 560))
+	_check(main.orienting, "laser tower enters orientation step")
+	main._confirm_orientation()
+	_check(int(main.coins) == coins_before - 330, "laser tower costs 150 after heavy and fusion")
+	var laser: Node = main.placed_buildings[4]
+	_check(laser.item_id == "laser_tower", "laser tower placed directly")
 	_check(laser.attack_style == "laser", "laser tower uses beam attack")
 	_check(int(laser.energy_demand) == 3, "laser tower drains three power")
-	_check(main.power_demand == 5, "laser refit raises power demand")
-	# 补一块太阳能，保证激光塔有电
-	_place("solar", Vector2(620, 480))
-	main.refresh_power()
-	_check(main.power_supply == 6 and main.power_ok, "extra solar powers the laser tower")
+	_check(main.power_demand == 6, "laser tower raises power demand")
+	_check(main.power_supply == 6 and main.power_ok, "existing energy covers the laser tower")
 	main.clear_selection()
 
 	var laser_target := _add_test_block(Vector2(560, 470), 40)
@@ -275,18 +308,13 @@ func _run() -> void:
 			ball._vanish()
 	_clear_buildings()
 	main.coins = 2000
-	_place("solar", Vector2(120, 740))
-	_place("solar", Vector2(600, 740))
+	_place("fusion_tower", Vector2(120, 740))
+	_place("fusion_tower", Vector2(600, 740))
 	_place("solar", Vector2(360, 740))
-	for i in 2:
-		var energy_building: Node = main.placed_buildings[i]
-		energy_building.upgrade_to(ItemDefs.get_item("fusion_tower"), 0)
 	var row_turret: Node = _place("turret", Vector2(180, 620))
 	var off_turret: Node = _place("turret", Vector2(180, 700))
-	var heavy: Node = _place("turret", Vector2(400, 700))
-	heavy.upgrade_to(ItemDefs.get_item("heavy_turret"), 0)
-	var compression: Node = _place("sandbag", Vector2(300, 620))
-	compression.upgrade_to(ItemDefs.get_item("compression_tower"), 0)
+	var heavy: Node = _place("heavy_turret", Vector2(400, 700))
+	var compression: Node = _place("compression_tower", Vector2(300, 620), PI)
 	var sandbag: Node = _place("sandbag", Vector2(480, 620))
 	main.refresh_power()
 	_check(main.power_supply == 10, "controlled field has ten power")
@@ -302,8 +330,7 @@ func _run() -> void:
 	main.select_building(compression)
 	_check(main.focus_panel.visible, "compression focus panel opens")
 	_check(main.focus_panel.stat_values[2].text == "×2", "focus panel shows compression multiplier")
-	_check(main.focus_panel.stat_values[4].text == I18n.t("focus.line_row"), "focus panel shows row coverage")
-	_check(main.focus_panel.upgrade_buttons.is_empty(), "compression tower is already maxed")
+	_check(main.focus_panel.stat_values[4].text == I18n.t("focus.line_row"), "focus panel shows line coverage")
 	main.clear_selection()
 	main.select_building(main.placed_buildings[0])
 	_check(main.focus_panel.stat_values[0].text == "+4", "focus panel shows fusion output")
@@ -364,7 +391,7 @@ func _run() -> void:
 	_check(row_turret.modulate == Color.WHITE, "powered building icon keeps its color")
 	_check(main.get_buff_multiplier(row_turret.global_position) == 1, "offline compression stops buffing")
 	_check(int(row_turret.get_refund()) == 15, "powered building keeps the normal dismantle refund")
-	_check(int(heavy.get_refund()) == 30, "offline building can be dismantled for full refund")
+	_check(int(heavy.get_refund()) == 120, "offline building can be dismantled for full refund")
 
 	# 新布置的建筑在缺电时直接离线，但既有建筑继续工作
 	var new_turret: Node = _place("turret", Vector2(600, 700))
@@ -492,9 +519,9 @@ func _clear_buildings() -> void:
 	main.refresh_power()
 
 
-func _place(item_id: String, target: Vector2) -> Node:
+func _place(item_id: String, target: Vector2, facing := -PI / 2.0) -> Node:
 	var item: Dictionary = ItemDefs.get_item(item_id)
-	return main._place_building(item, main.snap_to_grid(target))
+	return main._place_building(item, main.snap_to_grid(target), facing)
 
 
 func _add_test_block(center: Vector2, hp: int) -> Dictionary:

@@ -6,7 +6,8 @@ extends Node
 ##   -- --size=1000x2000        指定尺寸，按 image_<宽>x<高>.png 保存
 ##   -- --settings              截取游戏内设置面板
 ##   -- --focus                 截取炮塔聚焦面板
-##   -- --power                 截取能源不足、新建筑离线的状态
+##   -- --power                 截取能源不足、建筑置灰的状态
+##   -- --orient                截取拖放后的朝向选择状态
 
 const ItemDefs = preload("res://scripts/item_defs.gd")
 
@@ -39,20 +40,15 @@ func _ready() -> void:
 
 	# 第二阶段：摆出三类建筑，正常速度跑一小段，拍到开火、增益和能源线
 	main.coins = 1000
-	var solar_a: Node = _place("solar", Vector2(120, 740))
-	var solar_b: Node = _place("solar", Vector2(600, 740))
+	_place("fusion_tower", Vector2(120, 740))
+	_place("fusion_tower", Vector2(600, 740))
 	_place("solar", Vector2(360, 740))
-	solar_a.upgrade_to(ItemDefs.get_item("fusion_tower"), 0)
-	solar_b.upgrade_to(ItemDefs.get_item("fusion_tower"), 0)
 
 	var turret_a: Node = _place("turret", Vector2(180, 700))
-	var turret_b: Node = _place("turret", Vector2(380, 700))
-	var turret_c: Node = _place("turret", Vector2(560, 700))
-	turret_b.upgrade_to(ItemDefs.get_item("heavy_turret"), 0)
-	turret_c.upgrade_to(ItemDefs.get_item("laser_tower"), 0)
+	_place("heavy_turret", Vector2(380, 700))
+	_place("laser_tower", Vector2(560, 700))
 
-	var sandbag: Node = _place("sandbag", Vector2(300, 620))
-	sandbag.upgrade_to(ItemDefs.get_item("compression_tower"), 0)
+	_place("compression_tower", Vector2(300, 620), PI)
 	_place("sandbag", Vector2(480, 620))
 	_place("turret", Vector2(180, 620))
 	main.refresh_power()
@@ -65,6 +61,13 @@ func _ready() -> void:
 		_place("turret", Vector2(620, 620))
 		main.refresh_power()
 
+	var show_orientation := "--orient" in OS.get_cmdline_user_args()
+	if show_orientation:
+		main.coins = maxi(int(main.coins), 100)
+		main.begin_placement("compression_tower")
+		main.finish_placement("compression_tower", Vector2(500, 520))
+		main._update_orientation(Vector2(700, 520))
+
 	await get_tree().create_timer(5.0).timeout
 	var show_settings := "--settings" in OS.get_cmdline_user_args()
 	var show_focus := "--focus" in OS.get_cmdline_user_args()
@@ -74,7 +77,7 @@ func _ready() -> void:
 		main.select_building(turret_a)
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
-	var suffix := "_settings" if show_settings else ("_focus" if show_focus else ("_power" if show_power else ""))
+	var suffix := "_settings" if show_settings else ("_focus" if show_focus else ("_power" if show_power else ("_orient" if show_orientation else "")))
 	var path := ""
 	if _has_size_arg():
 		path = "res://image_%dx%d%s.png" % [target_size.x, target_size.y, suffix]
@@ -84,6 +87,8 @@ func _ready() -> void:
 		path = "res://game_settings_preview.png"
 	elif show_power:
 		path = "res://power_preview.png"
+	elif show_orientation:
+		path = "res://orientation_preview.png"
 	else:
 		path = SHOT_PATH
 	img.save_png(ProjectSettings.globalize_path(path))
@@ -114,8 +119,8 @@ func _requested_size_argument() -> Vector2i:
 	return Vector2i.ZERO
 
 
-func _place(item_id: String, target: Vector2) -> Node:
+func _place(item_id: String, target: Vector2, facing := -PI / 2.0) -> Node:
 	var item: Dictionary = ItemDefs.get_item(item_id)
 	if item.is_empty():
 		return null
-	return main._place_building(item, main.snap_to_grid(target))
+	return main._place_building(item, main.snap_to_grid(target), facing)

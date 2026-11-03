@@ -1,7 +1,7 @@
 extends RefCounted
 
-## 建筑定义表：三类基础建筑（火力 / 阵地 / 能源）以及各自的升级形态。
-## 商店只出售基础形态，升级在聚焦面板里完成。
+## 建筑定义表：三类建筑（火力 / 阵地 / 能源）及其可用道具。
+## 商店按类别切换道具列表，所有形态都直接拖放建造，不再有升级路线。
 
 const CATEGORY_FIREPOWER := "firepower"
 const CATEGORY_FORTIFICATION := "fortification"
@@ -11,8 +11,13 @@ const COLOR_FIREPOWER := Color(1.0, 0.55, 0.18)
 const COLOR_FORTIFICATION := Color(0.41, 0.74, 0.76)
 const COLOR_ENERGY := Color(0.93, 0.76, 0.30)
 
-## 底部商店的展示顺序
-const SHOP_ORDER := ["turret", "sandbag", "solar"]
+## 底部商店的类别顺序与每类可选道具（第一个是默认选中项）
+const CATEGORY_ORDER := [CATEGORY_FIREPOWER, CATEGORY_FORTIFICATION, CATEGORY_ENERGY]
+const ITEMS_BY_CATEGORY := {
+	CATEGORY_FIREPOWER: ["turret", "heavy_turret", "laser_tower"],
+	CATEGORY_FORTIFICATION: ["sandbag", "compression_tower"],
+	CATEGORY_ENERGY: ["solar", "fusion_tower"],
+}
 
 const ITEMS := {
 	"turret": {
@@ -39,7 +44,6 @@ const ITEMS := {
 		"base": 26.0,
 		"color": COLOR_FIREPOWER,
 		"icon": "res://assets/ui/turret.png",
-		"upgrades": ["heavy_turret", "laser_tower"],
 	},
 	"heavy_turret": {
 		"id": "heavy_turret",
@@ -47,7 +51,7 @@ const ITEMS := {
 		"desc_key": "item.heavy_turret.desc",
 		"category": CATEGORY_FIREPOWER,
 		"tier": 2,
-		"cost": 90,
+		"cost": 120,
 		"energy_demand": 2,
 		"energy_output": 0,
 		"hp": 80,
@@ -66,7 +70,6 @@ const ITEMS := {
 		"base": 30.0,
 		"color": COLOR_FIREPOWER,
 		"icon": "res://assets/ui/heavy_turret.png",
-		"upgrades": [],
 	},
 	"laser_tower": {
 		"id": "laser_tower",
@@ -74,7 +77,7 @@ const ITEMS := {
 		"desc_key": "item.laser_tower.desc",
 		"category": CATEGORY_FIREPOWER,
 		"tier": 2,
-		"cost": 120,
+		"cost": 150,
 		"energy_demand": 3,
 		"energy_output": 0,
 		"hp": 70,
@@ -92,7 +95,6 @@ const ITEMS := {
 		"base": 28.0,
 		"color": Color(0.72, 0.90, 0.96),
 		"icon": "res://assets/ui/laser_tower.png",
-		"upgrades": [],
 	},
 	"sandbag": {
 		"id": "sandbag",
@@ -112,7 +114,6 @@ const ITEMS := {
 		"sprite_scale": 1.20,
 		"color": COLOR_FORTIFICATION,
 		"icon": "res://assets/ui/sandbag.png",
-		"upgrades": ["compression_tower"],
 	},
 	"compression_tower": {
 		"id": "compression_tower",
@@ -120,7 +121,7 @@ const ITEMS := {
 		"desc_key": "item.compression_tower.desc",
 		"category": CATEGORY_FORTIFICATION,
 		"tier": 2,
-		"cost": 45,
+		"cost": 60,
 		"energy_demand": 2,
 		"energy_output": 0,
 		"hp": 180,
@@ -132,7 +133,6 @@ const ITEMS := {
 		"sprite_scale": 1.20,
 		"color": COLOR_FORTIFICATION,
 		"icon": "res://assets/ui/compression_tower.png",
-		"upgrades": [],
 	},
 	"solar": {
 		"id": "solar",
@@ -152,7 +152,6 @@ const ITEMS := {
 		"sprite_scale": 1.25,
 		"color": COLOR_ENERGY,
 		"icon": "res://assets/ui/solar.png",
-		"upgrades": ["fusion_tower"],
 	},
 	"fusion_tower": {
 		"id": "fusion_tower",
@@ -160,7 +159,7 @@ const ITEMS := {
 		"desc_key": "item.fusion_tower.desc",
 		"category": CATEGORY_ENERGY,
 		"tier": 2,
-		"cost": 40,
+		"cost": 60,
 		"energy_demand": 0,
 		"energy_output": 4,
 		"hp": 80,
@@ -172,7 +171,6 @@ const ITEMS := {
 		"sprite_scale": 1.15,
 		"color": COLOR_ENERGY,
 		"icon": "res://assets/ui/fusion_tower.png",
-		"upgrades": [],
 	},
 }
 
@@ -181,29 +179,18 @@ static func get_item(id: String) -> Dictionary:
 	return ITEMS.get(id, {})
 
 
-static func get_shop_items() -> Array:
+static func get_category_items(category: String) -> Array:
 	var result: Array = []
-	for id in SHOP_ORDER:
+	for id in ITEMS_BY_CATEGORY.get(category, []):
 		var item: Dictionary = get_item(String(id))
 		if not item.is_empty():
 			result.append(item)
 	return result
 
 
-static func is_shop_item(id: String) -> bool:
-	return SHOP_ORDER.has(id)
-
-
-static func get_upgrades(id: String) -> Array:
-	var item: Dictionary = get_item(id)
-	if item.is_empty():
-		return []
-	var result: Array = []
-	for upgrade_id in item.get("upgrades", []):
-		var upgrade: Dictionary = get_item(String(upgrade_id))
-		if not upgrade.is_empty():
-			result.append(upgrade)
-	return result
+static func get_default_item(category: String) -> Dictionary:
+	var items: Array = get_category_items(category)
+	return items[0] if not items.is_empty() else {}
 
 
 static func category_name_key(category: String) -> String:

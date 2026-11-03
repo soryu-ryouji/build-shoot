@@ -20,5 +20,5 @@ const FONT_TITLE := 23
 const FONT_DISPLAY := 42
 
 const HUD_HEIGHT := 94.0
-const SHOP_HEIGHT := 112.0
+const SHOP_HEIGHT := 164.0
 const TOAST_HEIGHT := 52.0

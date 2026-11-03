@@ -193,8 +193,8 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
-## 场上炮塔的目标：射程内最近的方块。
-func get_nearest_target(origin: Vector2, max_range: float) -> Dictionary:
+## 场上炮塔的目标：射程内、朝向半圆内最近的方块。
+func get_nearest_target(origin: Vector2, max_range: float, facing := -10.0, half_arc := PI) -> Dictionary:
 	var best: Dictionary = {}
 	var best_dist := max_range * max_range
 	for b in blocks:
@@ -203,6 +203,9 @@ func get_nearest_target(origin: Vector2, max_range: float) -> Dictionary:
 		var rect: Rect2 = b.rect
 		var center := rect.get_center()
 		if center.y < PLAY_TOP:
+			continue
+		var offset := center - origin
+		if facing > -10.0 and absf(wrapf(offset.angle() - facing, -PI, PI)) > half_arc:
 			continue
 		var dist := center.distance_squared_to(origin)
 		if dist <= best_dist:

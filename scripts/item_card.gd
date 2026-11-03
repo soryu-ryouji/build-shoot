@@ -1,16 +1,18 @@
 extends Control
 
-## 底部商店里的单个建筑卡片：类别、图标、名称、价格与能源摘要。
+## 底部商店里的类别卡：显示当前选中的道具，点击切换类别，拖拽放置该道具。
 ## 三张卡并排时宽度较窄，采用「类别 / 图标 / 名称 / 价格」的竖排布局。
 
 const Palette = preload("res://scripts/palette.gd")
 const ItemDefs = preload("res://scripts/item_defs.gd")
 const UiMetrics = preload("res://scripts/ui_metrics.gd")
 
-signal drag_started(item_id: String)
+signal pressed(category: String, pos: Vector2)
 
 var game: Node
 var item: Dictionary = {}
+var category := ""
+var active := false
 
 var category_label: Label
 var name_label: Label
@@ -24,7 +26,7 @@ var _icon_texture: Texture2D
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	mouse_default_cursor_shape = Control.CURSOR_DRAG
+	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	mouse_entered.connect(_on_mouse_entered)
 	mouse_exited.connect(_on_mouse_exited)
 	resized.connect(_layout)
@@ -34,9 +36,7 @@ func _ready() -> void:
 	_style.set_border_width_all(1)
 	_style.set_corner_radius_all(2)
 
-	var icon_path := String(item.get("icon", ""))
-	if not icon_path.is_empty():
-		_icon_texture = load(icon_path)
+	_load_icon()
 
 	category_label = _make_label(UiMetrics.FONT_MICRO, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
 	name_label = _make_label(15, Palette.INK, HORIZONTAL_ALIGNMENT_CENTER)
@@ -47,6 +47,26 @@ func _ready() -> void:
 	_refresh_texts()
 	_can_buy = int(game.coins) >= int(item.cost)
 	_layout()
+
+
+func _load_icon() -> void:
+	_icon_texture = null
+	var icon_path := String(item.get("icon", ""))
+	if not icon_path.is_empty():
+		_icon_texture = load(icon_path)
+
+
+func set_item(new_item: Dictionary) -> void:
+	item = new_item
+	_load_icon()
+	_refresh_texts()
+	_can_buy = int(game.coins) >= int(item.cost)
+	queue_redraw()
+
+
+func set_active(value: bool) -> void:
+	active = value
+	queue_redraw()
 
 
 func _make_label(font_size: int, color: Color, align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
@@ -120,20 +140,15 @@ func _process(_delta: float) -> void:
 func _gui_input(event: InputEvent) -> void:
 	if game == null or item.is_empty():
 		return
-	var pressed := false
+	var pressed_now := false
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		pressed = event.pressed
+		pressed_now = event.pressed
 	elif event is InputEventScreenTouch:
-		pressed = event.pressed
-	if not pressed:
+		pressed_now = event.pressed
+	if not pressed_now:
 		return
 
-	if int(game.coins) < int(item.cost):
-		game.hud.toast(I18n.t("shop.not_enough"), Palette.DANGER)
-		accept_event()
-		return
-
-	drag_started.emit(String(item.id))
+	pressed.emit(category, get_global_rect().position + event.position)
 	accept_event()
 
 
@@ -141,13 +156,14 @@ func _draw() -> void:
 	if item.is_empty():
 		return
 
-	var category := String(item.category)
-	var accent := ItemDefs.category_color(category)
-	_style.bg_color = Color(1.0, 0.98, 0.90, 1.0) if _hovered and _can_buy else Color(Palette.PAPER, 0.98)
-	var border_alpha := 0.90 if _hovered and _can_buy else 0.30
+	var item_category := String(item.category)
+	var accent := ItemDefs.category_color(item_category)
+	_style.bg_color = Color(1.0, 0.98, 0.90, 1.0) if (_hovered or active) and _can_buy else Color(Palette.PAPER, 0.98)
+	var border_alpha := 1.0 if active else (0.90 if _hovered and _can_buy else 0.30)
 	_style.border_color = Color(accent.r, accent.g, accent.b, border_alpha) if _can_buy else Palette.DANGER.darkened(0.30)
+	_style.set_border_width_all(2 if active else 1)
 	draw_style_box(_style, Rect2(Vector2.ZERO, size))
-	draw_rect(Rect2(0, 10, 3, size.y - 20), Color(accent.r, accent.g, accent.b, 0.85 if _can_buy else 0.25))
+	draw_rect(Rect2(0, 10, 3, size.y - 20), Color(accent.r, accent.g, accent.b, 0.95 if active or _can_buy else 0.25))
 
 	var icon := _icon_rect()
 	var center := icon.get_center()

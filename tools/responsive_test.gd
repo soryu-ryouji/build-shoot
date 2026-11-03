@@ -47,6 +47,8 @@ func _run() -> void:
 		main._on_shop_drag_started("turret")
 		main._on_shop_drag_moved(main.world_to_screen(world))
 		main._on_shop_drag_released("turret", main.world_to_screen(world))
+		_check(main.orienting, "directional placement awaits confirmation %s" % target)
+		main._confirm_orientation()
 		_check(main.placed_buildings.size() == 1, "touch drag placement %s" % target)
 		if main.placed_buildings.size() == 1:
 			main.select_building(main.placed_buildings[0])
@@ -54,9 +56,7 @@ func _run() -> void:
 			_check(main.focus_panel.visible, "focus panel opens %s" % target)
 			_check(_inside(main.focus_panel.get_global_rect(), view), "focus panel inside %s" % target)
 			_check_touch(main.focus_panel.close_button, "focus close button %s" % target)
-			_check_touch(main.focus_panel.upgrade_button, "focus upgrade button %s" % target)
 			_check_touch(main.focus_panel.dismantle_button, "focus dismantle button %s" % target)
-			_check_font(main.focus_panel.upgrade_button, 16, "focus upgrade font %s" % target)
 			main.clear_selection()
 		for building in main.placed_buildings:
 			building.queue_free()

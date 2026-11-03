@@ -22,10 +22,6 @@ var desc_label: Label
 var power_label: Label
 var close_button: Button
 var rule: ColorRect
-var upgrade_box: VBoxContainer
-var upgrade_buttons: Array[Button] = []
-## 第一个升级按钮，供响应式回归检查点击区域
-var upgrade_button: Button = null
 var dismantle_button: Button
 var stat_cells: Array[VBoxContainer] = []
 var stat_names: Array[Label] = []
@@ -118,10 +114,6 @@ func _ready() -> void:
 		stat_values[i].add_theme_font_override("font", NumberFont)
 
 	column.add_child(_separator())
-
-	upgrade_box = VBoxContainer.new()
-	upgrade_box.add_theme_constant_override("separation", 4)
-	column.add_child(upgrade_box)
 
 	dismantle_button = Button.new()
 	dismantle_button.focus_mode = Control.FOCUS_NONE
@@ -227,7 +219,6 @@ func _refresh_texts() -> void:
 	desc_label.text = building.get_display_desc()
 	power_label.text = _power_text()
 	power_label.add_theme_color_override("font_color", Palette.DANGER if not building.powered else Palette.INK_MUTED)
-	_refresh_upgrades()
 	_update_values()
 
 
@@ -242,52 +233,6 @@ func _power_text() -> String:
 	if not building.powered:
 		text += " · " + I18n.t("focus.paralyzed")
 	return text
-
-
-func _refresh_upgrades() -> void:
-	for child in upgrade_box.get_children():
-		upgrade_box.remove_child(child)
-		child.queue_free()
-	upgrade_buttons.clear()
-	upgrade_button = null
-
-	if building == null or not is_instance_valid(building):
-		return
-	var options: Array = building.get_upgrade_options()
-	if options.is_empty():
-		var maxed := _make_label(upgrade_box, UiMetrics.FONT_SMALL, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-		maxed.text = I18n.t("focus.maxed")
-		return
-
-	for option in options:
-		var effect := _make_label(upgrade_box, UiMetrics.FONT_MICRO, Palette.INK_MUTED)
-		effect.text = I18n.t(String(option.desc_key))
-		effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		effect.max_lines_visible = 2
-		effect.custom_minimum_size.y = 30
-
-		var button := Button.new()
-		button.focus_mode = Control.FOCUS_NONE
-		button.alignment = HORIZONTAL_ALIGNMENT_CENTER
-		button.custom_minimum_size.y = 50
-		button.add_theme_font_size_override("font_size", UiMetrics.FONT_LABEL)
-		button.add_theme_color_override("font_color", Palette.INK)
-		button.add_theme_color_override("font_hover_color", Palette.INK)
-		button.add_theme_color_override("font_disabled_color", Palette.INK_MUTED)
-		button.add_theme_stylebox_override("normal", _button_style(Palette.ACCENT, Palette.ACCENT))
-		button.add_theme_stylebox_override("hover", _button_style(Palette.ACCENT.lightened(0.18), Palette.ACCENT))
-		button.add_theme_stylebox_override("pressed", _button_style(Palette.ACCENT.darkened(0.15), Palette.ACCENT))
-		button.add_theme_stylebox_override("disabled", _button_style(Color(0.72, 0.74, 0.72, 0.65), Color(0.30, 0.33, 0.34, 0.25)))
-		var target_id := String(option.id)
-		var target_cost := int(option.cost)
-		button.text = I18n.t("focus.upgrade_to", [I18n.t(String(option.name_key)), target_cost])
-		button.set_meta("cost", target_cost)
-		button.pressed.connect(func() -> void: _on_upgrade_to(target_id))
-		upgrade_box.add_child(button)
-		upgrade_buttons.append(button)
-
-	if not upgrade_buttons.is_empty():
-		upgrade_button = upgrade_buttons[0]
 
 
 func _update_values() -> void:
@@ -335,9 +280,6 @@ func _update_values() -> void:
 
 	power_label.text = _power_text()
 	power_label.add_theme_color_override("font_color", Palette.DANGER if not building.powered else Palette.INK_MUTED)
-
-	for button in upgrade_buttons:
-		button.disabled = int(game.coins) < int(button.get_meta("cost", 0))
 	dismantle_button.text = I18n.t("focus.dismantle", [building.get_refund()])
 
 
@@ -350,10 +292,6 @@ func _on_locale_changed(_locale: String) -> void:
 
 func _on_close() -> void:
 	game.clear_selection()
-
-
-func _on_upgrade_to(target_id: String) -> void:
-	game.upgrade_selected_to(target_id)
 
 
 func _on_dismantle() -> void:

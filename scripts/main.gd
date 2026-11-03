@@ -37,6 +37,11 @@ var selected_building: Node = null
 var placing := false
 var placing_id := ""
 var placing_cost := 0
+var orienting := false
+var orient_item: Dictionary = {}
+var orient_pos := Vector2.ZERO
+var orient_facing := -PI / 2.0
+var orient_dragging := false
 
 var preparing := true
 var prep_timer := PREP_TIME
@@ -208,6 +213,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				GameSettings.save_settings()
 		return
 
+	if orienting:
+		_handle_orientation_input(event)
+		return
+
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		_handle_world_click(screen_to_world(event.position))
 	elif event is InputEventScreenTouch and event.pressed:
@@ -256,8 +265,6 @@ func _on_shop_drag_released(item_id: String, pos: Vector2) -> void:
 
 
 func begin_placement(item_id: String) -> void:
-	if not ItemDefs.is_shop_item(item_id):
-		return
 	var item: Dictionary = ItemDefs.get_item(item_id)
 	if item.is_empty():
 		return
@@ -265,6 +272,7 @@ func begin_placement(item_id: String) -> void:
 		hud.toast(I18n.t("shop.not_enough"), Palette.DANGER)
 		return
 
+	cancel_orientation()
 	clear_selection()
 	placing = true
 	placing_id = item_id
@@ -289,7 +297,14 @@ func finish_placement(item_id: String, pos: Vector2) -> void:
 	var item: Dictionary = ItemDefs.get_item(placing_id)
 	var snapped := snap_to_grid(pos)
 	var valid := is_valid_placement(snapped) and coins >= int(item.cost)
+	placing = false
+	placing_id = ""
+	placing_cost = 0
+
 	if valid:
+		if _needs_direction(item):
+			_begin_orientation(item, snapped)
+			return
 		coins -= int(item.cost)
 		_place_building(item, snapped)
 	elif coins < int(item.cost):
@@ -297,9 +312,6 @@ func finish_placement(item_id: String, pos: Vector2) -> void:
 	elif _inside_arena(snapped):
 		hud.toast(I18n.t("shop.invalid"), Palette.DANGER)
 
-	placing = false
-	placing_id = ""
-	placing_cost = 0
 	placement_ghost.end()
 
 
@@ -307,10 +319,84 @@ func cancel_placement() -> void:
 	placing = false
 	placing_id = ""
 	placing_cost = 0
+	cancel_orientation()
 	if placement_ghost != null:
 		placement_ghost.end()
 	if shop_bar != null:
 		shop_bar.cancel_drag()
+
+
+func cancel_orientation() -> void:
+	orienting = false
+	orient_dragging = false
+	orient_item = {}
+	orient_pos = Vector2.ZERO
+	if placement_ghost != null:
+		placement_ghost.end()
+
+
+func _needs_direction(item: Dictionary) -> bool:
+	return String(item.get("attack_style", "none")) != "none" or int(item.get("buff_multiplier", 1)) > 1
+
+
+func _begin_orientation(item: Dictionary, pos: Vector2) -> void:
+	orienting = true
+	orient_dragging = false
+	orient_item = item
+	orient_pos = pos
+	orient_facing = -PI / 2.0
+	placement_ghost.begin_orientation(pos, item, orient_facing, get_play_rect())
+
+
+func _handle_orientation_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			orient_dragging = true
+			_update_orientation(screen_to_world(event.position))
+		elif orient_dragging:
+			_update_orientation(screen_to_world(event.position))
+			_confirm_orientation()
+		return
+	if event is InputEventMouseMotion and orient_dragging:
+		_update_orientation(screen_to_world(event.position))
+		return
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			orient_dragging = true
+			_update_orientation(screen_to_world(event.position))
+		elif orient_dragging:
+			_update_orientation(screen_to_world(event.position))
+			_confirm_orientation()
+		return
+	if event is InputEventScreenDrag and orient_dragging:
+		_update_orientation(screen_to_world(event.position))
+
+
+func _update_orientation(world_pos: Vector2) -> void:
+	var offset := world_pos - orient_pos
+	if offset.length() < 10.0:
+		return
+	var angle := offset.angle()
+	orient_facing = roundf(angle / (PI / 4.0)) * (PI / 4.0)
+	placement_ghost.set_facing(orient_facing)
+
+
+func _confirm_orientation() -> void:
+	var item := orient_item
+	var pos := orient_pos
+	var facing := orient_facing
+	var cost := int(item.get("cost", 0))
+	if coins < cost:
+		hud.toast(I18n.t("shop.not_enough"), Palette.DANGER)
+		cancel_orientation()
+		return
+	coins -= cost
+	orienting = false
+	orient_dragging = false
+	orient_item = {}
+	orient_pos = Vector2.ZERO
+	placement_ghost.end()
+	_place_building(item, pos, facing)
 
 
 func snap_to_grid(pos: Vector2) -> Vector2:
@@ -355,9 +441,9 @@ func _inside_arena(pos: Vector2) -> bool:
 	return rect.has_point(pos)
 
 
-func _place_building(item: Dictionary, pos: Vector2) -> Node:
+func _place_building(item: Dictionary, pos: Vector2, facing := -PI / 2.0) -> Node:
 	var building = PlacedBuilding.new()
-	building.setup(self, item)
+	building.setup(self, item, facing)
 	building.position = pos
 	items_layer.add_child(building)
 	placed_buildings.append(building)
@@ -415,32 +501,6 @@ func dismantle_selected() -> void:
 	t.queue_free()
 	clear_selection()
 	refresh_power()
-	hud.pop_coins()
-
-
-func upgrade_selected_to(target_id: String) -> void:
-	var t = selected_building
-	if t == null or not is_instance_valid(t):
-		return
-	var target: Dictionary = ItemDefs.get_item(target_id)
-	if target.is_empty():
-		return
-	var allowed := false
-	for option in t.get_upgrade_options():
-		if String(option.id) == target_id:
-			allowed = true
-			break
-	if not allowed:
-		return
-	var cost := int(target.cost)
-	if coins < cost:
-		hud.toast(I18n.t("shop.not_enough"), Palette.DANGER)
-		return
-	coins -= cost
-	t.upgrade_to(target, cost)
-	refresh_power()
-	if focus_panel != null and focus_panel.visible:
-		focus_panel.refresh()
 	hud.pop_coins()
 
 

@@ -51,6 +51,7 @@ var selected := false
 var shots := 0
 var hurt_flash := 0.0
 
+var facing_angle := -PI / 2.0
 var aim_angle := -PI / 2.0
 var _time := 0.0
 var _cooldown := 0.0
@@ -62,24 +63,15 @@ var _beam_target := Vector2.ZERO
 var _beam_buffed := false
 
 
-func setup(g: Node, def: Dictionary) -> void:
+func setup(g: Node, def: Dictionary, facing := -PI / 2.0) -> void:
 	game = g
 	z_index = 4
 	_apply_def(def)
+	facing_angle = facing
+	aim_angle = facing
 	invested = int(def.get("cost", 0))
 	max_hp = maxi(1, int(def.get("hp", 1)))
 	hp = float(max_hp)
-	queue_redraw()
-
-
-## 原地升级为另一种形态：保留位置与发射数，血量补满，投入计入拆除退款。
-func upgrade_to(def: Dictionary, paid: int) -> void:
-	invested += paid
-	_apply_def(def)
-	max_hp = maxi(1, int(def.get("hp", 1)))
-	# 形态升级后补满血，作为投入金币的即时回报
-	hp = float(max_hp)
-	_cooldown = 0.0
 	queue_redraw()
 
 
@@ -117,10 +109,6 @@ func get_display_name() -> String:
 
 func get_display_desc() -> String:
 	return I18n.t(desc_key)
-
-
-func get_upgrade_options() -> Array:
-	return ItemDefs.get_upgrades(item_id)
 
 
 func get_refund() -> int:
@@ -173,12 +161,13 @@ func get_block_rect() -> Rect2:
 	return Rect2(global_position - Vector2(30.0, 30.0), Vector2(60.0, 60.0))
 
 
-## 压缩塔的覆盖范围：与本塔同一水平线，横贯整个战场。
+## 压缩塔的覆盖范围：穿过本塔、沿朝向延伸的整条直线。
 func covers_point(point: Vector2) -> bool:
 	if not buff_line or not powered:
 		return false
-	var rect: Rect2 = game.get_play_rect()
-	return absf(point.y - global_position.y) <= 34.0 and rect.grow(8.0).has_point(point)
+	var offset := point - global_position
+	var direction := Vector2.from_angle(facing_angle)
+	return absf(offset.cross(direction)) <= 30.0 and game.get_play_rect().grow(8.0).has_point(point)
 
 
 func take_damage(amount: float) -> void:
@@ -220,7 +209,7 @@ func _process(delta: float) -> void:
 		return
 
 	_cooldown = maxf(0.0, _cooldown - delta)
-	var target: Dictionary = game.blocks.get_nearest_target(global_position, attack_range)
+	var target: Dictionary = game.blocks.get_nearest_target(global_position, attack_range, facing_angle, PI / 2.0)
 	if target.is_empty():
 		_has_target = false
 		queue_redraw()
@@ -304,8 +293,20 @@ func _draw() -> void:
 
 func _draw_selection() -> void:
 	if is_firepower():
-		draw_arc(Vector2.ZERO, attack_range, 0.0, TAU, 64, Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.22), 1.5)
+		_draw_facing_range(attack_range, Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.22))
 	draw_arc(Vector2.ZERO, base_radius + 4.0, 0.0, TAU, 32, Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.60), 1.5)
+
+
+func _draw_facing_range(radius: float, color: Color) -> void:
+	var points := PackedVector2Array([Vector2.ZERO])
+	var steps := 24
+	for i in steps + 1:
+		var angle := facing_angle - PI / 2.0 + PI * float(i) / float(steps)
+		points.append(Vector2.from_angle(angle) * radius)
+	draw_colored_polygon(points, Color(color.r, color.g, color.b, 0.05))
+	draw_arc(Vector2.ZERO, radius, facing_angle - PI / 2.0, facing_angle + PI / 2.0, 48, color, 1.5)
+	draw_line(Vector2.ZERO, Vector2.from_angle(facing_angle - PI / 2.0) * radius, Color(color.r, color.g, color.b, 0.35), 1.0)
+	draw_line(Vector2.ZERO, Vector2.from_angle(facing_angle + PI / 2.0) * radius, Color(color.r, color.g, color.b, 0.35), 1.0)
 
 
 func _draw_firepower() -> void:
@@ -370,23 +371,64 @@ func _draw_fortification() -> void:
 
 func _draw_buff_line() -> void:
 	var rect: Rect2 = game.get_play_rect()
-	var x0 := rect.position.x - global_position.x
-	var x1 := rect.end.x - global_position.x
-	if x1 <= x0:
+	var direction := Vector2.from_angle(facing_angle)
+	var span := _line_rect_span(global_position, direction, rect)
+	if span.size() < 2:
 		return
+	var a: Vector2 = span[0] - global_position
+	var b: Vector2 = span[1] - global_position
 	var alpha := 0.62 if selected else 0.38
 	if not powered:
 		alpha = 0.07
 	var line_color := Color(0.38, 0.86, 0.98, alpha)
-	# 半透明光带加实线，避免跟场地网格混在一起
-	draw_rect(Rect2(Vector2(x0, -4.0), Vector2(x1 - x0, 8.0)), Color(0.45, 0.88, 0.98, alpha * 0.16))
-	draw_line(Vector2(x0, 0.0), Vector2(x1, 0.0), line_color, 4.0 if selected else 3.0)
-	var step := 54.0
-	var offset := fmod(_time * 90.0, step)
-	var x := x0 + offset
-	while x < x1:
-		draw_circle(Vector2(x, 0.0), 2.2 if selected else 1.7, Color(0.82, 0.98, 1.0, alpha + 0.18))
-		x += step
+	draw_line(a, b, Color(0.45, 0.88, 0.98, alpha * 0.16), 10.0)
+	draw_line(a, b, line_color, 4.0 if selected else 3.0)
+	var length := a.distance_to(b)
+	if length <= 0.1:
+		return
+	var along := (b - a).normalized()
+	var offset := fmod(_time * 90.0, 54.0)
+	var point := a + along * offset
+	while point.distance_to(a) < length:
+		draw_circle(point, 2.2 if selected else 1.7, Color(0.82, 0.98, 1.0, alpha + 0.18))
+		point += along * 54.0
+
+
+## 求一条无限直线与矩形边界的两个交点，用于把压缩塔光束裁到战场内。
+func _line_rect_span(origin: Vector2, direction: Vector2, rect: Rect2) -> Array:
+	var far := 4000.0
+	var a := origin - direction * far
+	var b := origin + direction * far
+	var edges := [
+		[rect.position, Vector2(rect.end.x, rect.position.y)],
+		[Vector2(rect.end.x, rect.position.y), rect.end],
+		[rect.end, Vector2(rect.position.x, rect.end.y)],
+		[Vector2(rect.position.x, rect.end.y), rect.position],
+	]
+	var points: Array[Vector2] = []
+	for edge in edges:
+		var hit = Geometry2D.segment_intersects_segment(a, b, edge[0], edge[1])
+		if hit == null:
+			continue
+		var point: Vector2 = hit
+		var duplicate := false
+		for existing in points:
+			if point.distance_to(existing) < 0.5:
+				duplicate = true
+				break
+		if not duplicate:
+			points.append(point)
+	if points.size() < 2:
+		return []
+	var best: Array[Vector2] = [points[0], points[1]]
+	var best_distance := points[0].distance_squared_to(points[1])
+	for i in points.size():
+		for j in range(i + 1, points.size()):
+			var distance := points[i].distance_squared_to(points[j])
+			if distance > best_distance:
+				best_distance = distance
+				best = [points[i], points[j]]
+	return best
 
 
 func _draw_energy() -> void:
