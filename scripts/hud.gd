@@ -6,7 +6,6 @@ extends Control
 signal settings_requested
 
 const Palette = preload("res://scripts/palette.gd")
-const NumberFont = preload("res://theme/number_font.tres")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
 const UiMetrics = preload("res://scripts/ui_metrics.gd")
 
@@ -15,7 +14,6 @@ var top_panel: PanelContainer
 var mode_label: Label
 var tag_label: Label
 var coins_label: Label
-var coins_title_label: Label
 var destroyed_label: Label
 var energy_label: Label
 var toast_label: Label
@@ -47,46 +45,16 @@ func _build() -> void:
 
 	var top_margin := MarginContainer.new()
 	top_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	top_margin.add_theme_constant_override("margin_left", 12)
-	top_margin.add_theme_constant_override("margin_top", 9)
-	top_margin.add_theme_constant_override("margin_right", 10)
-	top_margin.add_theme_constant_override("margin_bottom", 9)
+	top_margin.add_theme_constant_override("margin_left", 10)
+	top_margin.add_theme_constant_override("margin_top", 8)
+	top_margin.add_theme_constant_override("margin_right", 8)
+	top_margin.add_theme_constant_override("margin_bottom", 8)
 	top_panel.add_child(top_margin)
 
-	var column := VBoxContainer.new()
-	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_theme_constant_override("separation", 4)
-	top_margin.add_child(column)
-
-	var row := HBoxContainer.new()
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", UiMetrics.GAP)
-	column.add_child(row)
-
-	var mode_box := VBoxContainer.new()
-	mode_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	mode_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	mode_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	mode_box.add_theme_constant_override("separation", 0)
-	row.add_child(mode_box)
-	mode_label = _make_label(mode_box, "", UiMetrics.FONT_TITLE, Palette.INK)
-
-	var coin_panel := PanelContainer.new()
-	coin_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	coin_panel.custom_minimum_size.x = 104
-	coin_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var coin_style := _style(Color(1.0, 1.0, 0.98, 0.36), Palette.ACCENT, false)
-	coin_style.border_width_bottom = 3
-	coin_panel.add_theme_stylebox_override("panel", coin_style)
-	row.add_child(coin_panel)
-	var coin_box := VBoxContainer.new()
-	coin_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	coin_box.add_theme_constant_override("separation", -3)
-	coin_panel.add_child(coin_box)
-	coins_title_label = _make_label(coin_box, "", UiMetrics.FONT_MICRO, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-	coins_label = _make_label(coin_box, "", 30, Palette.ACCENT, HORIZONTAL_ALIGNMENT_CENTER)
-	coins_label.add_theme_font_override("font", NumberFont)
-	coins_label.pivot_offset = Vector2(52, 20)
+	var main_row := HBoxContainer.new()
+	main_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	main_row.add_theme_constant_override("separation", 8)
+	top_margin.add_child(main_row)
 
 	settings_button = Button.new()
 	settings_button.text = "≡"
@@ -102,16 +70,30 @@ func _build() -> void:
 	settings_button.add_theme_stylebox_override("hover", _button_style(Color(Palette.ACCENT, 0.16)))
 	settings_button.add_theme_stylebox_override("pressed", _button_style(Color(Palette.ACCENT, 0.28)))
 	settings_button.pressed.connect(func() -> void: settings_requested.emit())
-	row.add_child(settings_button)
+	main_row.add_child(settings_button)
 
-	var info := HBoxContainer.new()
-	info.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	info.add_theme_constant_override("separation", UiMetrics.GAP)
-	column.add_child(info)
-	tag_label = _make_label(info, "", UiMetrics.FONT_MICRO, Palette.INK_MUTED)
-	tag_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	energy_label = _make_label(info, "", UiMetrics.FONT_SMALL, Palette.ACCENT, HORIZONTAL_ALIGNMENT_RIGHT)
-	destroyed_label = _make_label(info, "", UiMetrics.FONT_SMALL, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
+	var left_box := VBoxContainer.new()
+	left_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	left_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left_box.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	left_box.add_theme_constant_override("separation", 0)
+	main_row.add_child(left_box)
+
+	mode_label = _make_label(left_box, "", UiMetrics.FONT_TITLE, Palette.INK)
+	mode_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	tag_label = _make_label(left_box, "", UiMetrics.FONT_MICRO, Palette.INK_MUTED)
+
+	var stats := VBoxContainer.new()
+	stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stats.size_flags_horizontal = Control.SIZE_SHRINK_END
+	stats.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	stats.add_theme_constant_override("separation", 0)
+	main_row.add_child(stats)
+
+	coins_label = _make_label(stats, "", 19, Palette.ACCENT, HORIZONTAL_ALIGNMENT_RIGHT)
+	destroyed_label = _make_label(stats, "", UiMetrics.FONT_SMALL, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
+	energy_label = _make_label(stats, "", UiMetrics.FONT_SMALL, Palette.ACCENT, HORIZONTAL_ALIGNMENT_RIGHT)
 
 	toast_label = _make_label(self, "", 21, Palette.ACCENT, HORIZONTAL_ALIGNMENT_CENTER)
 	toast_label.add_theme_constant_override("outline_size", 4)
@@ -154,9 +136,10 @@ func _layout() -> void:
 	var view := ResponsiveLayout.viewport_size(self)
 	var safe := ResponsiveLayout.safe_rect(self)
 	var margin := ResponsiveLayout.margin(self)
+	var hud_margin := minf(margin, 10.0)
 
-	top_panel.position = safe.position + Vector2(margin, margin)
-	top_panel.size = Vector2(safe.size.x - margin * 2.0, UiMetrics.HUD_HEIGHT)
+	top_panel.position = safe.position + Vector2(hud_margin, hud_margin)
+	top_panel.size = Vector2(safe.size.x - hud_margin * 2.0, UiMetrics.HUD_HEIGHT)
 
 	var message_width := minf(360.0, view.x - 32.0)
 	toast_label.size = Vector2(message_width, UiMetrics.TOAST_HEIGHT)
@@ -167,7 +150,6 @@ func _layout() -> void:
 func _refresh_static_texts() -> void:
 	mode_label.text = I18n.t("hud.mode")
 	tag_label.text = I18n.t("hud.tag")
-	coins_title_label.text = I18n.t("hud.coins_label")
 	settings_button.tooltip_text = I18n.t("settings.open")
 
 
@@ -179,7 +161,8 @@ func _process(delta: float) -> void:
 	if game == null:
 		return
 
-	coins_label.text = I18n.t("hud.coins_value", [int(game.coins)])
+	coins_label.text = I18n.t("hud.coins", [int(game.coins)])
+	coins_label.pivot_offset = Vector2(coins_label.size.x, coins_label.size.y * 0.5)
 	if _coin_pop > 0.0:
 		_coin_pop = maxf(0.0, _coin_pop - delta * 4.0)
 		coins_label.scale = Vector2.ONE * (1.0 + 0.12 * _coin_pop)

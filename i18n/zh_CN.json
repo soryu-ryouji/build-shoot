@@ -5,8 +5,6 @@
   "hud.wave_next": "第 %d 波 · 下一波 %d 秒",
   "hud.destroyed": "已击碎 %d",
   "hud.coins": "金币 %d",
-  "hud.coins_label": "金币",
-  "hud.coins_value": "%d",
   "hud.energy": "能源 %d/%d",
   "hud.energy_offline": "能源 %d/%d · 离线 %d",
   "category.firepower": "火力",

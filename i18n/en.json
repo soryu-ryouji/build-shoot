@@ -5,8 +5,6 @@
   "hud.wave_next": "WAVE %d · NEXT %ds",
   "hud.destroyed": "DESTROYED %d",
   "hud.coins": "COINS %d",
-  "hud.coins_label": "COINS",
-  "hud.coins_value": "%d",
   "hud.energy": "POWER %d/%d",
   "hud.energy_offline": "POWER %d/%d · %d OFF",
   "category.firepower": "FIREPOWER",
