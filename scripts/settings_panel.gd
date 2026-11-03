@@ -75,6 +75,9 @@ func _build() -> void:
 	close_button.pressed.connect(close_panel)
 
 	for option in OPTION_LABELS:
+		# Web 版嵌在竖屏舞台里，浏览器全屏会把舞台撑成横屏，直接不提供
+		if option == "fullscreen" and OS.has_feature("web"):
+			continue
 		var button := _make_button(column, false)
 		button.toggle_mode = true
 		button.custom_minimum_size.y = 56

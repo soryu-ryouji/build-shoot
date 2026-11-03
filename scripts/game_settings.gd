@@ -51,7 +51,8 @@ func _load_settings() -> void:
 
 
 func _apply_fullscreen() -> void:
-	if DisplayServer.get_name() == "headless":
+	# Web 端由外层竖屏舞台控制尺寸,不调用浏览器全屏
+	if DisplayServer.get_name() == "headless" or OS.has_feature("web"):
 		return
 	var mode := DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen else DisplayServer.WINDOW_MODE_WINDOWED
 	DisplayServer.window_set_mode(mode)
