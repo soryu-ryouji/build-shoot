@@ -1,10 +1,11 @@
 extends Control
 
-## 自适应主界面：背景等比覆盖，标题与操作容器随安全区域布局。
+## 自适应主界面：背景等比覆盖，标题在左上，操作按钮落在底部拇指区。
 
 const Palette = preload("res://scripts/palette.gd")
 const SettingsPanel = preload("res://scripts/settings_panel.gd")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
+const UiMetrics = preload("res://scripts/ui_metrics.gd")
 const MenuTexture = preload("res://assets/ui/menu_background.png")
 const MenuCharacterRig = preload("res://scripts/menu_character_rig.gd")
 # 立绘右边缘在设计稿中的位置（720x960），用于在更长的屏幕上把人整体挪回画面内
@@ -21,6 +22,9 @@ var title_box: VBoxContainer
 var actions_box: VBoxContainer
 var background: TextureRect
 var character: Control
+var accent_bar: ColorRect
+var title_rule: ColorRect
+var actions_rule: ColorRect
 
 
 func _ready() -> void:
@@ -47,37 +51,52 @@ func _build() -> void:
 	character = MenuCharacterRig.new()
 	add_child(character)
 
+	# 装饰线单独成节点，画在背景与立绘之上
+	accent_bar = _make_rule(Vector2(4, 84))
+	title_rule = _make_rule(Vector2(172, 2))
+	actions_rule = _make_rule(Vector2(124, 2))
+
 	title_box = VBoxContainer.new()
 	title_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_box.add_theme_constant_override("separation", 2)
 	add_child(title_box)
-	title_label = _make_label(title_box, 44, Palette.INK)
-	subtitle_label = _make_label(title_box, 14, Palette.INK_MUTED)
+	title_label = _make_label(title_box, UiMetrics.FONT_DISPLAY, Palette.INK)
+	subtitle_label = _make_label(title_box, UiMetrics.FONT_BODY, Palette.INK_MUTED)
 
 	actions_box = VBoxContainer.new()
 	actions_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	actions_box.add_theme_constant_override("separation", 14)
+	actions_box.add_theme_constant_override("separation", 10)
 	add_child(actions_box)
-	mode_label = _make_label(actions_box, 13, Palette.INK)
-	start_button = _make_button(actions_box, 18, true)
-	start_button.custom_minimum_size.y = 62
+	mode_label = _make_label(actions_box, UiMetrics.FONT_SMALL, Palette.INK)
+	start_button = _make_button(actions_box, 21, true)
+	start_button.custom_minimum_size.y = 66
 	start_button.pressed.connect(start_game)
 
 	var secondary := HBoxContainer.new()
 	secondary.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	secondary.add_theme_constant_override("separation", 10)
+	secondary.add_theme_constant_override("separation", UiMetrics.GAP)
 	actions_box.add_child(secondary)
-	settings_button = _make_button(secondary, 14, false)
-	settings_button.custom_minimum_size.y = 50
+	settings_button = _make_button(secondary, UiMetrics.FONT_LABEL, false)
+	settings_button.custom_minimum_size.y = 56
 	settings_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	settings_button.pressed.connect(open_settings)
-	quit_button = _make_button(secondary, 14, false)
-	quit_button.custom_minimum_size = Vector2(92, 50)
+	quit_button = _make_button(secondary, UiMetrics.FONT_LABEL, false)
+	quit_button.custom_minimum_size = Vector2(100, 56)
 	quit_button.pressed.connect(_on_quit)
 
 	settings_panel = SettingsPanel.new()
 	settings_panel.name = "SettingsPanel"
 	add_child(settings_panel)
+
+
+func _make_rule(rule_size: Vector2) -> ColorRect:
+	var rule := ColorRect.new()
+	rule.color = Palette.ACCENT
+	rule.custom_minimum_size = rule_size
+	rule.size = rule_size
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(rule)
+	return rule
 
 
 func _make_label(parent: Node, font_size: int, color: Color) -> Label:
@@ -100,7 +119,8 @@ func _make_button(parent: Node, font_size: int, primary: bool) -> Button:
 	button.add_theme_color_override("font_hover_color", Palette.INK)
 	button.add_theme_color_override("font_pressed_color", Palette.INK)
 	var border := Palette.ACCENT if primary else Color(0.20, 0.23, 0.24, 0.25)
-	button.add_theme_stylebox_override("normal", _style(Color(Palette.PAPER, 0.94), border, primary))
+	var fill_alpha := 0.97 if primary else 0.93
+	button.add_theme_stylebox_override("normal", _style(Color(Palette.PAPER, fill_alpha), border, primary))
 	button.add_theme_stylebox_override("hover", _style(Color(1.0, 0.94, 0.80, 0.98), Palette.ACCENT, true))
 	button.add_theme_stylebox_override("pressed", _style(Palette.ACCENT.darkened(0.15), Palette.ACCENT, true))
 	parent.add_child(button)
@@ -125,12 +145,22 @@ func _layout() -> void:
 	_layout_character()
 	var safe := ResponsiveLayout.safe_rect(self)
 	var margin := ResponsiveLayout.margin(self)
-	var width := minf(clampf(safe.size.x * 0.46, 260.0, 360.0), safe.size.x - margin * 2.0)
-	title_box.position = safe.position + Vector2(margin, margin * 2.0)
-	title_box.size = Vector2(width, 142)
-	actions_box.size = Vector2(width, 164)
-	# 功能菜单位于左侧中部，避免长屏设备上落到拇指难以触及的底部。
-	actions_box.position = Vector2(safe.position.x + margin, safe.position.y + safe.size.y * 0.46)
+	var width := minf(330.0, safe.size.x - margin * 2.0)
+	title_box.position = safe.position + Vector2(margin, margin + 8.0)
+	title_box.size = Vector2(width, 120)
+
+	actions_box.reset_size()
+	var actions_height := actions_box.get_combined_minimum_size().y
+	actions_box.size = Vector2(width, actions_height)
+	# 主菜单按钮贴近底部拇指区，长屏手机上也不用伸到屏幕上半部
+	actions_box.position = Vector2(
+		safe.position.x + margin,
+		safe.end.y - margin - actions_height - 28.0,
+	)
+
+	accent_bar.position = title_box.position + Vector2(-8, 4)
+	title_rule.position = title_box.position + Vector2(0, 104)
+	actions_rule.position = actions_box.position + Vector2(0, -16)
 	queue_redraw()
 
 
@@ -169,13 +199,3 @@ func open_settings() -> void:
 
 func _on_quit() -> void:
 	get_tree().quit()
-
-
-func _draw() -> void:
-	if title_box != null:
-		var p := title_box.position
-		draw_rect(Rect2(p + Vector2(-14, 4), Vector2(4, 92)), Palette.ACCENT)
-		draw_line(p + Vector2(0, 116), p + Vector2(172, 116), Palette.ACCENT, 2.0)
-	if actions_box != null:
-		var p := actions_box.position
-		draw_line(p + Vector2(0, -18), p + Vector2(124, -18), Palette.ACCENT, 2.0)

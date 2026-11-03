@@ -8,6 +8,7 @@ signal menu_requested
 
 const Palette = preload("res://scripts/palette.gd")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
+const UiMetrics = preload("res://scripts/ui_metrics.gd")
 const OPTION_LABELS := {
 	"fullscreen": "settings.fullscreen",
 	"animate_monsters": "settings.monster_animation",
@@ -50,54 +51,57 @@ func _build() -> void:
 
 	var margin := MarginContainer.new()
 	for side in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
-		margin.add_theme_constant_override(side, 22)
+		margin.add_theme_constant_override(side, 18)
 	panel.add_child(margin)
 
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 12)
+	column.add_theme_constant_override("separation", 10)
 	margin.add_child(column)
 
 	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 10)
 	column.add_child(header)
 	var titles := VBoxContainer.new()
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	titles.add_theme_constant_override("separation", 2)
 	header.add_child(titles)
-	title_label = _make_label(titles, 29, Palette.INK)
-	subtitle_label = _make_label(titles, 10, Palette.INK_MUTED)
+	title_label = _make_label(titles, 26, Palette.INK)
+	subtitle_label = _make_label(titles, UiMetrics.FONT_MICRO, Palette.INK_MUTED)
 	close_button = _make_button(header, false)
 	close_button.text = "×"
-	close_button.custom_minimum_size = Vector2(42, 42)
+	close_button.custom_minimum_size = Vector2(50, 50)
+	close_button.add_theme_font_size_override("font_size", 24)
 	close_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	close_button.pressed.connect(close_panel)
 
 	for option in OPTION_LABELS:
 		var button := _make_button(column, false)
 		button.toggle_mode = true
-		button.custom_minimum_size.y = 42
+		button.custom_minimum_size.y = 56
 		button.toggled.connect(_on_option_toggled.bind(option))
 		option_buttons[option] = button
 
 	language_button = _make_button(column, false)
-	language_button.custom_minimum_size.y = 44
+	language_button.custom_minimum_size.y = 56
 	language_button.pressed.connect(_on_language_pressed)
-	saved_label = _make_label(column, 10, Palette.INK_MUTED)
+	saved_label = _make_label(column, UiMetrics.FONT_MICRO, Palette.INK_MUTED)
 
 	game_actions = VBoxContainer.new()
-	game_actions.add_theme_constant_override("separation", 10)
+	game_actions.add_theme_constant_override("separation", 8)
 	column.add_child(game_actions)
 	resume_button = _make_button(game_actions, true)
-	resume_button.custom_minimum_size.y = 48
+	resume_button.custom_minimum_size.y = 60
+	resume_button.add_theme_font_size_override("font_size", UiMetrics.FONT_LABEL)
 	resume_button.pressed.connect(close_panel)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
+	row.add_theme_constant_override("separation", 8)
 	game_actions.add_child(row)
 	restart_button = _make_button(row, false)
-	restart_button.custom_minimum_size.y = 44
+	restart_button.custom_minimum_size.y = 54
 	restart_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	restart_button.pressed.connect(_on_restart)
 	menu_button = _make_button(row, false)
-	menu_button.custom_minimum_size.y = 44
+	menu_button.custom_minimum_size.y = 54
 	menu_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	menu_button.pressed.connect(_on_menu)
 
@@ -117,7 +121,7 @@ func _make_button(parent: Node, primary: bool) -> Button:
 	button.focus_mode = Control.FOCUS_NONE
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	button.add_theme_font_size_override("font_size", 13)
+	button.add_theme_font_size_override("font_size", 16)
 	button.add_theme_color_override("font_color", Palette.INK)
 	button.add_theme_color_override("font_hover_color", Palette.INK)
 	button.add_theme_color_override("font_pressed_color", Palette.INK)
@@ -156,8 +160,9 @@ func _layout() -> void:
 	var margin := ResponsiveLayout.margin(self)
 	panel.reset_size()
 	var minimum := panel.get_combined_minimum_size()
-	var target := Vector2(minf(440.0, safe.size.x - margin * 2.0), minimum.y)
-	target.x = maxf(target.x, minf(minimum.x, safe.size.x - margin * 2.0))
+	var available := safe.size.x - margin * 2.0
+	var target := Vector2(minf(376.0, available), minf(minimum.y, safe.size.y - margin * 2.0))
+	target.x = maxf(target.x, minf(minimum.x, available))
 	panel.size = target
 	panel.position = safe.position + (safe.size - target) * 0.5
 
