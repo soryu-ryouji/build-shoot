@@ -110,6 +110,7 @@
 - 新增语言：复制一份 JSON 翻译好，把语言代码加入 `scripts/i18n.gd` 的 `LOCALES` 即可
 - 缺少某个 key 时回退到中文，再回退到 key 本身
 - 中文显示使用内置的 Noto Sans SC 子集（`assets/ui/font/`，含 OFL 许可），桌面与 Web 一致，不依赖系统字体
+- 新增或修改 i18n 文案后运行 `python tools/build_font_subset.py`：脚本会提取 `i18n/*.json` 的字符，重建 `game_font.otf` 和 `game_numbers.otf`，随后再执行 `--headless --path . --import` 或重新导出 Web
 
 ## 运行
 
@@ -225,6 +226,7 @@ tools/responsive_test.tscn/gd 多尺寸竖屏、宽度适配、触摸部署与�
 tools/screenshot.tscn/gd    游戏、设置面板与聚焦面板截图工具
 tools/menu_screenshot.tscn/gd 主界面与主界面设置截图工具
 tools/generate_ui_assets.py 调用 ComfyUI qwen_workflow 生成 UI 素材
+tools/build_font_subset.py 从 i18n 文案重建中文字体子集
 tools/render_art_prompts.py 从生成脚本渲染 ART_PROMPTS.md
 tools/process_ui_assets.py  裁切、压暗和透明底后处理
 ART_PROMPTS.md              美术提示词、参考图、seed 与出图规范
