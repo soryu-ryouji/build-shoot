@@ -208,11 +208,15 @@ func _process(delta: float) -> void:
 	destroyed_label.text = I18n.t("hud.destroyed", [int(game.blocks.destroyed)])
 	var demand := int(game.power_demand)
 	var supply := int(game.power_supply)
+	var offline := int(game.power_offline)
 	if demand <= 0 and supply <= 0:
 		energy_label.text = ""
+	elif offline > 0:
+		energy_label.text = I18n.t("hud.energy_offline", [demand, supply, offline])
+		energy_label.add_theme_color_override("font_color", Palette.DANGER)
 	else:
-		energy_label.text = I18n.t("hud.energy_deficit" if not game.power_ok else "hud.energy", [demand, supply])
-		energy_label.add_theme_color_override("font_color", Palette.DANGER if not game.power_ok else Palette.ACCENT)
+		energy_label.text = I18n.t("hud.energy", [demand, supply])
+		energy_label.add_theme_color_override("font_color", Palette.ACCENT)
 	var wave := int(game.blocks.wave)
 	if wave > 0:
 		var next_wave := int(ceil(float(game.blocks.next_wave_in)))
@@ -220,7 +224,10 @@ func _process(delta: float) -> void:
 	var ball_count: int = game.active_balls.size()
 	var ball_key := "hud.ball_one" if ball_count == 1 else "hud.ball_many"
 	balls_label.text = I18n.t(ball_key, [ball_count])
-	if ball_count > 0:
+	if offline > 0:
+		# 缺电时把位置让给红色的离线提示
+		bounce_label.text = ""
+	elif ball_count > 0:
 		var ball: Node = game.active_balls[ball_count - 1]
 		bounce_label.text = I18n.t("hud.bounces", [int(ball.bounces_left)]) if int(ball.bounces_left) > 0 else I18n.t("hud.single_hit")
 	else:

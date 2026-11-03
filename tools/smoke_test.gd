@@ -346,7 +346,7 @@ func _run() -> void:
 	_check(attacker.get("blocked_by", null) == null, "enemy is released after the sandbag breaks")
 	_check(float(attacker.rect.position.y) > y_after_break, "released enemy resumes moving")
 
-	# ---------------------------------------------------------------- 能源瘫痪
+	# ---------------------------------------------------------------- 能源不足：既有优先，新建筑离线
 	var removed := 0
 	for b in main.placed_buildings.duplicate():
 		if String(b.item_id) == "fusion_tower" and removed < 2:
@@ -355,25 +355,46 @@ func _run() -> void:
 			removed += 1
 	_check(removed == 2, "both fusion towers dismantled")
 	_check(not main.power_ok, "dismantling energy buildings causes a deficit")
-	_check(not row_turret.powered, "all firepower is paralyzed during a deficit")
-	_check(main.get_buff_multiplier(row_turret.global_position) == 1, "compression buff stops during a deficit")
-	_check(int(row_turret.get_refund()) == 30, "deficit dismantle refunds the full investment")
+	_check(main.power_offline == 2, "only the newest consumers go offline")
+	main.hud._process(0.0)
+	_check("离线 2" in main.hud.energy_label.text, "HUD shows the offline count")
+	_check(row_turret.powered and off_turret.powered, "existing firepower keeps running during a deficit")
+	_check(not heavy.powered and not compression.powered, "newer buildings go offline first")
+	_check(main.get_buff_multiplier(row_turret.global_position) == 1, "offline compression stops buffing")
+	_check(int(row_turret.get_refund()) == 15, "powered building keeps the normal dismantle refund")
+	_check(int(heavy.get_refund()) == 30, "offline building can be dismantled for full refund")
+
+	# 新布置的建筑在缺电时直接离线，但既有建筑继续工作
+	var new_turret: Node = _place("turret", Vector2(600, 700))
+	_check(not new_turret.powered, "new building is offline when power is short")
+	_check(row_turret.powered, "existing turret keeps running after a new building is placed")
+	_check(main.power_offline == 3, "offline count includes the new building")
 	main.blocks.blocks.clear()
 	main.blocks.by_id.clear()
-	var target := _add_test_block(Vector2(180, 560), 10)
-	row_turret._cooldown = 0.0
-	var shots_during_deficit := int(row_turret.shots)
-	row_turret._process(0.2)
-	_check(int(row_turret.shots) == shots_during_deficit, "paralyzed turret cannot fire")
+	var target := _add_test_block(Vector2(600, 630), 10)
+	new_turret._cooldown = 0.0
+	var shots_during_deficit := int(new_turret.shots)
+	new_turret._process(0.2)
+	_check(int(new_turret.shots) == shots_during_deficit, "offline new turret cannot fire")
 
-	var restored_a: Node = _place("solar", Vector2(600, 700))
-	var restored_b: Node = _place("solar", Vector2(600, 600))
+	var restored_a: Node = _place("solar", Vector2(600, 740))
+	var restored_b: Node = _place("solar", Vector2(540, 700))
+	var restored_c: Node = _place("solar", Vector2(600, 600))
 	main.refresh_power()
-	_check(int(restored_a.energy_output) == 2 and int(restored_b.energy_output) == 2, "two solars restore supply")
+	_check(
+		int(restored_a.energy_output) == 2 and int(restored_b.energy_output) == 2 and int(restored_c.energy_output) == 2,
+		"three solars restore supply"
+	)
 	_check(main.power_ok, "power recovers after adding supply")
-	_check(row_turret.powered, "turret recovers after adding supply")
+	_check(main.power_offline == 0, "no building stays offline after supply recovers")
+	main.hud._process(0.0)
+	_check(not ("离线" in main.hud.energy_label.text), "HUD clears the offline count after recovery")
+	_check(row_turret.powered, "existing turret stays powered")
+	_check(new_turret.powered, "new turret comes online after supply recovers")
+	_check(heavy.powered and compression.powered, "older and newer buildings all come online")
 	_check(main.get_buff_multiplier(row_turret.global_position) == 2, "compression buff returns with power")
 	_check(int(row_turret.get_refund()) == 15, "refund returns to half after power is restored")
+	_check(int(new_turret.get_refund()) == 15, "powered new turret also refunds half")
 	main.blocks.blocks.erase(target)
 	main.blocks.by_id.erase(int(target.id))
 

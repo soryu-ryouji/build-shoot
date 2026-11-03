@@ -124,10 +124,10 @@ func get_upgrade_options() -> Array:
 
 
 func get_refund() -> int:
-	# 能源瘫痪或拆掉后场上将没有任何火力时允许全额返还，避免玩家无法继续获得金币
+	# 未供电的建筑或拆掉后场上将没有任何火力时允许全额返还，避免玩家无法继续获得金币
 	var full_refund := false
 	if game != null:
-		full_refund = not bool(game.power_ok) or not bool(game.has_firepower(self))
+		full_refund = not powered or not bool(game.has_firepower(self))
 	return int(invested * (1.0 if full_refund else 0.5))
 
 

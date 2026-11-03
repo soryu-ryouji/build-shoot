@@ -6,6 +6,7 @@ extends Node
 ##   -- --size=1000x2000        指定尺寸，按 image_<宽>x<高>.png 保存
 ##   -- --settings              截取游戏内设置面板
 ##   -- --focus                 截取炮塔聚焦面板
+##   -- --power                 截取能源不足、新建筑离线的状态
 
 const ItemDefs = preload("res://scripts/item_defs.gd")
 
@@ -57,6 +58,13 @@ func _ready() -> void:
 	main.refresh_power()
 	main.coins = 118
 
+	var show_power := "--power" in OS.get_cmdline_user_args()
+	if show_power:
+		# 产能刚好覆盖既有建筑，再追加两座炮塔，让新建筑离线
+		_place("turret", Vector2(620, 560))
+		_place("turret", Vector2(620, 620))
+		main.refresh_power()
+
 	await get_tree().create_timer(5.0).timeout
 	var show_settings := "--settings" in OS.get_cmdline_user_args()
 	var show_focus := "--focus" in OS.get_cmdline_user_args()
@@ -66,7 +74,7 @@ func _ready() -> void:
 		main.select_building(turret_a)
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
-	var suffix := "_settings" if show_settings else ("_focus" if show_focus else "")
+	var suffix := "_settings" if show_settings else ("_focus" if show_focus else ("_power" if show_power else ""))
 	var path := ""
 	if _has_size_arg():
 		path = "res://image_%dx%d%s.png" % [target_size.x, target_size.y, suffix]
@@ -74,6 +82,8 @@ func _ready() -> void:
 		path = "res://focus_preview.png"
 	elif show_settings:
 		path = "res://game_settings_preview.png"
+	elif show_power:
+		path = "res://power_preview.png"
 	else:
 		path = SHOT_PATH
 	img.save_png(ProjectSettings.globalize_path(path))

@@ -44,9 +44,10 @@ var coins := 50
 var active_balls: Array = []
 var shots_fired := 0
 
-## 全局能源：产能 >= 需求时所有建筑正常运转，不足时非能源建筑全部瘫痪。
+## 全局能源：按建筑布置顺序供电，既有建筑优先；产能不足时只有排在后面的建筑离线。
 var power_supply := 0
 var power_demand := 0
+var power_offline := 0
 var power_ok := true
 
 
@@ -369,6 +370,8 @@ func _place_building(item: Dictionary, pos: Vector2) -> Node:
 	items_layer.add_child(building)
 	placed_buildings.append(building)
 	refresh_power()
+	if not building.powered and hud != null:
+		hud.toast(I18n.t("power.offline_building"), Palette.DANGER)
 	return building
 
 
@@ -446,6 +449,8 @@ func upgrade_selected_to(target_id: String) -> void:
 	coins -= cost
 	t.upgrade_to(target, cost)
 	refresh_power()
+	if not t.powered and hud != null:
+		hud.toast(I18n.t("power.offline_building"), Palette.DANGER)
 	if focus_panel != null and focus_panel.visible:
 		focus_panel.refresh()
 	hud.pop_coins()
@@ -455,24 +460,37 @@ func upgrade_selected_to(target_id: String) -> void:
 
 func refresh_power() -> void:
 	var supply := 0
-	var demand := 0
 	for b in placed_buildings:
 		if is_instance_valid(b) and bool(b.alive):
 			supply += int(b.energy_output)
-			demand += int(b.energy_demand)
+
+	var remaining := supply
+	var demand := 0
+	var offline := 0
+	var previous_offline := power_offline
+
+	# 先到先得：按布置顺序分配能源，新建筑排在最后，缺电时由新建筑承担离线。
+	for b in placed_buildings:
+		if not is_instance_valid(b) or not bool(b.alive):
+			continue
+		demand += int(b.energy_demand)
+		if bool(b.is_energy()):
+			b.set_powered(true)
+			continue
+		if remaining >= int(b.energy_demand):
+			b.set_powered(true)
+			remaining -= int(b.energy_demand)
+		else:
+			b.set_powered(false)
+			offline += 1
 
 	power_supply = supply
 	power_demand = demand
-	var ok := supply >= demand
-	var changed := ok != power_ok
-	power_ok = ok
+	power_offline = offline
+	power_ok = offline == 0
 
-	for b in placed_buildings:
-		if is_instance_valid(b):
-			b.set_powered(ok or bool(b.is_energy()))
-
-	if changed and hud != null:
-		if ok:
+	if offline != previous_offline and hud != null:
+		if offline == 0:
 			hud.toast(I18n.t("power.restored"), Palette.CYAN)
 		else:
 			hud.toast(I18n.t("power.deficit"), Palette.DANGER)
@@ -480,10 +498,8 @@ func refresh_power() -> void:
 
 ## 压缩塔的直线增益：返回 1 或 2。多个压缩塔不叠加。
 func get_buff_multiplier(point: Vector2) -> int:
-	if not power_ok:
-		return 1
 	for b in placed_buildings:
-		if is_instance_valid(b) and int(b.buff_multiplier) > 1 and bool(b.powered) and b.covers_point(point):
+		if is_instance_valid(b) and bool(b.powered) and int(b.buff_multiplier) > 1 and b.covers_point(point):
 			return int(b.buff_multiplier)
 	return 1
 
