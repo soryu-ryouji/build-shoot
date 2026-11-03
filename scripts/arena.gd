@@ -6,8 +6,8 @@ extends Node2D
 const Palette = preload("res://scripts/palette.gd")
 const BattleMap = preload("res://scripts/battle_map.gd")
 
-## 贴图范围：576×476 的瓦片区左右各留 24 像素外框
-const FRAME_RECT := Rect2(48.0, 96.0, 624.0, 524.0)
+## 贴图范围：8×13 的瓦片区（384×442）左右各留 24 像素外框
+const FRAME_RECT := Rect2(48.0, 96.0, 432.0, 490.0)
 
 ## 核心血量比例，由 main 在掉血时同步过来
 var core_ratio := 1.0

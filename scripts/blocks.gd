@@ -291,11 +291,11 @@ func _base_health_for_wave(wave_number: int) -> int:
 	return int(round(3.0 * pow(HEALTH_GROWTH, maxi(wave_number, 1) - 1)))
 
 
-## 每一行的规模：开场 3 只，之后逐波逼近满行。
+## 每一行的规模：开场 3 只，之后随波次增长，上限铺满地图宽度。
 func _enemy_count_for_wave(wave_number: int) -> int:
 	if wave_number <= 1:
 		return 3
-	return clampi(8 + wave_number, 8, BattleMap.COLS - 1)
+	return clampi(6 + wave_number, 6, BattleMap.COLS)
 
 
 ## 一波铺几行：第 2 波 3 行（30 只），第 4 波 4 行，第 6 波起 5 行。

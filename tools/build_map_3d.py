@@ -25,8 +25,9 @@ TILE_GROUND = 48.0
 TILE_SCREEN_Y = 34.0
 ELEV_SIN = TILE_SCREEN_Y / TILE_GROUND
 CAM_X_ROT = math.pi / 2.0 - math.asin(ELEV_SIN)
-FRAME_W = 624
-FRAME_H = 524
+## 由 maps.json 的格子数推出的画布尺寸：瓦片区左右各留 24 像素外框
+FRAME_W = 432
+FRAME_H = 490
 
 
 # ---------------------------------------------------------------- 场景工具
@@ -126,13 +127,18 @@ def build_map(map_data: dict, mats: dict) -> None:
         bevel=2.0,
     )
 
-    route_tiles = set()
-    for route in map_data["routes"]:
-        for col, row in route:
-            route_tiles.add((col, row))
     core_tiles = {tuple(t) for t in map_data["core"]}
     gate_tiles = {tuple(t) for t in map_data["gates"]}
-    _ = route_tiles
+
+    # 高台：整块抬起来，四周露出侧壁，形成明日方舟式的高低错落
+    high_tiles = set()
+    high_rects = []
+    for rect in map_data.get("high", []):
+        c0, r0, c1, r1 = [int(v) for v in rect]
+        high_rects.append((c0, r0, c1, r1))
+        for c in range(c0, c1 + 1):
+            for r in range(r0, r1 + 1):
+                high_tiles.add((c, r))
 
     tile_top = 4.0
     plate = 46.0
@@ -140,6 +146,8 @@ def build_map(map_data: dict, mats: dict) -> None:
         for r in range(rows):
             center = tile_center_ground(c, r)
             tile = (c, r)
+            if tile in high_tiles:
+                continue
             if tile in core_tiles:
                 mat = mats["corepad"]
                 height = tile_top + 1.5
@@ -157,13 +165,44 @@ def build_map(map_data: dict, mats: dict) -> None:
                 bevel=1.6,
             )
 
+    high_top = tile_top + DATA_JSON.get("high_lift", 12.0)
+    for index, (c0, r0, c1, r1) in enumerate(high_rects):
+        x0 = (c0 - cols * 0.5) * TILE_GROUND
+        x1 = (c1 + 1 - cols * 0.5) * TILE_GROUND
+        y0 = (rows * 0.5 - (r1 + 1)) * TILE_GROUND
+        y1 = (rows * 0.5 - r0) * TILE_GROUND
+        width = x1 - x0
+        depth = y1 - y0
+        center = ((x0 + x1) * 0.5, (y0 + y1) * 0.5)
+        box(
+            f"GEO-plateau-{index}",
+            (center[0], center[1], high_top * 0.5),
+            (width - 2.0, depth - 2.0, high_top),
+            mats["plateau"],
+            bevel=2.4,
+        )
+        box(
+            f"GEO-plateau-top-{index}",
+            (center[0], center[1], high_top + 0.4),
+            (width - 8.0, depth - 8.0, 1.2),
+            mats["plate_a"],
+            bevel=1.4,
+        )
+        # 高台边缘的橙色压条，让高低差更清楚
+        box(
+            f"GEO-plateau-trim-{index}",
+            (center[0], y0 + 2.5, high_top + 0.8),
+            (width - 8.0, 3.0, 1.0),
+            mats["accent"],
+            bevel=0.0,
+        )
+
     _build_road(map_data["routes"], tile_top, mats)
     _build_walls(field_w, field_d, margin, wall_depth, mats)
     _build_props(field_w, field_d, margin, wall_depth, mats)
     for index, (col, row) in enumerate(map_data["gates"]):
         _build_gate(index, col, row, mats)
     _build_core(core_tiles, mats)
-
 
 def _build_road(routes: list, tile_top: float, mats: dict) -> None:
     """连续路面：整段铺一条深色带 + 中央亮线 + 方向箭头，转角用方块补齐。"""
@@ -424,6 +463,7 @@ def make_materials() -> dict:
         "pipe": material("MAT-pipe", (0.55, 0.58, 0.60), roughness=0.3, metallic=0.8),
         "mark": material("MAT-mark", (0.86, 0.88, 0.9), roughness=0.4, emission=(0.9, 0.93, 0.95), strength=0.15),
         "wall": material("MAT-wall", (0.40, 0.42, 0.44), roughness=0.5, metallic=0.2),
+        "plateau": material("MAT-plateau", (0.46, 0.47, 0.47), roughness=0.6, metallic=0.15),
         "metal": material("MAT-metal", (0.55, 0.57, 0.59), roughness=0.35, metallic=0.7),
         "accent": material("MAT-accent", (0.95, 0.64, 0.23), roughness=0.4, emission=(0.95, 0.64, 0.23), strength=0.3),
         "socket": material("MAT-socket", (0.06, 0.07, 0.08), roughness=0.8),
@@ -432,8 +472,8 @@ def make_materials() -> dict:
         "gatepad": material("MAT-gatepad", (0.30, 0.29, 0.29), roughness=0.6),
         "corepad": material("MAT-corepad", (0.76, 0.78, 0.79), roughness=0.5, metallic=0.1),
         "core_base": material("MAT-core-base", (0.74, 0.75, 0.72), roughness=0.45, metallic=0.15),
-        "core_ring": material("MAT-core-ring", (0.3, 0.6, 0.62), roughness=0.35, emission=(0.41, 0.74, 0.76), strength=0.8),
-        "core_core": material("MAT-core-core", (0.7, 0.95, 0.98), roughness=0.2, emission=(0.5, 0.95, 1.0), strength=1.2),
+        "core_ring": material("MAT-core-ring", (0.3, 0.6, 0.62), roughness=0.35, emission=(0.41, 0.74, 0.76), strength=0.5),
+        "core_core": material("MAT-core-core", (0.7, 0.95, 0.98), roughness=0.2, emission=(0.5, 0.95, 1.0), strength=0.6),
     }
 
 
@@ -448,8 +488,10 @@ def main() -> None:
     if "--map" in argv:
         only = argv[argv.index("--map") + 1]
 
-    global DATA_JSON
+    global DATA_JSON, FRAME_W, FRAME_H
     DATA_JSON = json.loads(DATA.read_text(encoding="utf-8"))
+    FRAME_W = int(DATA_JSON["cols"] * TILE_GROUND + 48)
+    FRAME_H = int(DATA_JSON["rows"] * TILE_SCREEN_Y + 48)
     for map_data in DATA_JSON["maps"]:
         if only and map_data["id"] != only:
             continue

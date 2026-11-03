@@ -28,12 +28,15 @@ func _ready() -> void:
 			"gates": gates,
 			"core": core,
 			"routes": routes,
+			"high": data.get("high", []),
 		})
 
 	var payload := {
 		"cols": BattleMap.COLS,
 		"rows": BattleMap.ROWS,
 		"tile": BattleMap.TILE,
+		"tile_h": BattleMap.TILE_H,
+		"high_lift": BattleMap.HIGH_LIFT,
 		"origin": [BattleMap.ORIGIN.x, BattleMap.ORIGIN.y],
 		"maps": maps,
 	}

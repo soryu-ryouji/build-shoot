@@ -43,15 +43,15 @@ func _ready() -> void:
 	# 第二阶段：摆出三类建筑，正常速度跑一小段，拍到开火、增益和能源线
 	main.coins = 1000
 	_place("fusion_tower", _tile(1, 12))
-	_place("fusion_tower", _tile(11, 12))
+	_place("fusion_tower", _tile(7, 12))
 	_place("solar", _tile(5, 12))
 
 	var turret_a: Node = _place("turret", _tile(2, 10))
 	_place("heavy_turret", _tile(7, 11))
-	_place("laser_tower", _tile(10, 9))
+	_place("laser_tower", _tile(7, 9))
 
 	_place("compression_tower", _tile(4, 10), PI)
-	_place("sandbag", _tile(8, 10))
+	_place("sandbag", _tile(5, 10))
 	_place("turret", _tile(2, 8))
 	main.refresh_power()
 	main.coins = 118
@@ -59,8 +59,8 @@ func _ready() -> void:
 	var show_power := "--power" in OS.get_cmdline_user_args()
 	if show_power:
 		# 产能刚好覆盖既有建筑，再追加两座炮塔，让新建筑离线
-		_place("turret", _tile(9, 11))
-		_place("turret", _tile(9, 12))
+		_place("turret", _tile(6, 10))
+		_place("turret", _tile(6, 12))
 		main.refresh_power()
 
 	var show_orientation := "--orient" in OS.get_cmdline_user_args()
@@ -68,13 +68,13 @@ func _ready() -> void:
 		main.coins = maxi(int(main.coins), 100)
 		main.begin_placement("compression_tower")
 		main.finish_placement("compression_tower", _tile(6, 7))
-		main._update_orientation(_tile(9, 7))
+		main._update_orientation(_tile(7, 7))
 
 	var show_place := "--place" in OS.get_cmdline_user_args()
 	if show_place:
 		main.coins = maxi(int(main.coins), 100)
 		main.begin_placement("turret")
-		main.update_placement(_tile(6, 5))
+		main.update_placement(_tile(2, 5))
 
 	await get_tree().create_timer(5.0, true, false, true).timeout
 	var show_settings := "--settings" in OS.get_cmdline_user_args()

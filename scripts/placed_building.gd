@@ -393,15 +393,19 @@ func _draw() -> void:
 
 ## 2.5D 贴图：地面阴影 + 按朝向选一张渲染图，激光和索敌提示仍用代码画
 func _draw_sprite_25d() -> void:
+	# 站高台上时整张贴图要抬起平台的高度，不然会陷进平台里
+	var lift := BattleMap.screen_lift(BattleMap.tile_at(global_position))
+	var origin := Vector2(0.0, -lift)
 	# 椭圆地面阴影，让建筑不像是浮在地图上
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.55))
-	draw_circle(Vector2(0.0, 4.0), base_radius * 1.05, Color(0.05, 0.06, 0.07, 0.30))
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_set_transform(origin + Vector2(0.0, 4.0), 0.0, Vector2(1.0, 0.55))
+	draw_circle(Vector2.ZERO, base_radius * 1.05, Color(0.05, 0.06, 0.07, 0.30))
+	draw_set_transform(origin, 0.0, Vector2.ONE)
 
 	var sprite := BuildingArt.texture_for(item_id, aim_angle)
 	if sprite != null:
 		var side := float(BuildingArt.SPRITE_SIZE)
-		draw_texture_rect(sprite, Rect2(Vector2(-side, -side) * 0.5, Vector2(side, side)), false)
+		draw_texture_rect(sprite, Rect2(origin + Vector2(-side, -side) * 0.5, Vector2(side, side)), false)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 	if category == ItemDefs.CATEGORY_FIREPOWER:
 		if _has_target and GameSettings.show_aim:

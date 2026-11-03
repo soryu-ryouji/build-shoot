@@ -556,7 +556,7 @@ func is_valid_placement(pos: Vector2, category := "") -> bool:
 	if not BattleMap.is_buildable(tile, category):
 		return false
 	for t in placed_buildings:
-		if is_instance_valid(t) and pos.distance_to(t.global_position) < BattleMap.TILE * 1.05:
+		if is_instance_valid(t) and BattleMap.tile_at(t.global_position) == tile:
 			return false
 	return true
 

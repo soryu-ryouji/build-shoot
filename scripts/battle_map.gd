@@ -1,103 +1,91 @@
 extends RefCounted
 
-## 多张一体式瓦片地图：12×14 的格子，敌人沿画在地图上的通路从缺口走到核心。
-## 地图数据（路线、缺口、核心、地板贴图）只在这里定义，绘制和行走共用同一份坐标。
+## 2.5D 瓦片地图：8×13 的格子，敌人沿画在地图上的通路从缺口走到核心。
+## 地图数据（路线、缺口、核心、高台）只在这里定义，绘制和行走共用同一份坐标。
 
-const COLS := 12
-const ROWS := 14
+const COLS := 8
+const ROWS := 13
 ## 地面格距（世界单位）与它在 2.5D 投影下的屏幕高度
 const TILE := 48.0
 const TILE_H := 34.0
 const ORIGIN := Vector2(72.0, 120.0)
+## 高台比低地高出的世界单位，用于把高台上的建筑往上抬同样的投影高度
+const HIGH_LIFT := 12.0
 
 ## 阵地在通路上也能建（相当于明日方舟的近战阻挡位），火力和能源只能放在路外。
 const CATEGORY_FORTIFICATION := "fortification"
 
 const ROUTE_JUNCTION_A := [
-	Vector2i(1, 0), Vector2i(1, 1), Vector2i(1, 2), Vector2i(1, 3),
-	Vector2i(2, 3), Vector2i(3, 3), Vector2i(4, 3), Vector2i(5, 3),
-	Vector2i(5, 4), Vector2i(5, 5), Vector2i(5, 6),
-	Vector2i(6, 6), Vector2i(7, 6), Vector2i(8, 6),
-	Vector2i(8, 7), Vector2i(8, 8), Vector2i(8, 9), Vector2i(8, 10),
-	Vector2i(7, 10), Vector2i(6, 10),
-	Vector2i(6, 11), Vector2i(6, 12), Vector2i(6, 13),
+	Vector2i(1, 0), Vector2i(1, 1), Vector2i(1, 2), Vector2i(2, 2), Vector2i(2, 3),
+	Vector2i(3, 3), Vector2i(4, 3), Vector2i(4, 4), Vector2i(4, 5), Vector2i(4, 6),
+	Vector2i(3, 6), Vector2i(3, 7), Vector2i(3, 8), Vector2i(3, 9), Vector2i(3, 10),
+	Vector2i(3, 11), Vector2i(3, 12),
 ]
 
 const ROUTE_JUNCTION_B := [
-	Vector2i(10, 0), Vector2i(10, 1), Vector2i(10, 2),
-	Vector2i(9, 2), Vector2i(8, 2),
-	Vector2i(8, 3), Vector2i(8, 4), Vector2i(8, 5), Vector2i(8, 6),
-	Vector2i(8, 7), Vector2i(8, 8), Vector2i(8, 9), Vector2i(8, 10),
-	Vector2i(7, 10), Vector2i(6, 10),
-	Vector2i(6, 11), Vector2i(6, 12), Vector2i(6, 13),
+	Vector2i(6, 0), Vector2i(6, 1), Vector2i(6, 2), Vector2i(6, 3), Vector2i(6, 4),
+	Vector2i(6, 5), Vector2i(5, 5), Vector2i(5, 6), Vector2i(5, 7), Vector2i(5, 8),
+	Vector2i(5, 9), Vector2i(5, 10), Vector2i(4, 10), Vector2i(4, 11), Vector2i(4, 12),
 ]
 
 const ROUTE_CHICANE_A := [
-	Vector2i(0, 1), Vector2i(0, 2), Vector2i(0, 3), Vector2i(0, 4),
-	Vector2i(1, 4), Vector2i(2, 4), Vector2i(2, 5), Vector2i(2, 6), Vector2i(2, 7),
-	Vector2i(2, 8), Vector2i(3, 8), Vector2i(4, 8), Vector2i(5, 8),
-	Vector2i(5, 9), Vector2i(5, 10), Vector2i(5, 11),
-	Vector2i(6, 11), Vector2i(6, 12), Vector2i(6, 13),
+	Vector2i(0, 1), Vector2i(0, 2), Vector2i(1, 2), Vector2i(2, 2), Vector2i(2, 3),
+	Vector2i(2, 4), Vector2i(1, 4), Vector2i(1, 5), Vector2i(1, 6), Vector2i(1, 7),
+	Vector2i(2, 7), Vector2i(3, 7), Vector2i(4, 7), Vector2i(4, 8), Vector2i(4, 9),
+	Vector2i(4, 10), Vector2i(4, 11), Vector2i(4, 12),
 ]
 
 const ROUTE_CHICANE_B := [
-	Vector2i(11, 1), Vector2i(11, 2), Vector2i(11, 3), Vector2i(11, 4),
-	Vector2i(10, 4), Vector2i(9, 4), Vector2i(9, 5), Vector2i(9, 6), Vector2i(9, 7),
-	Vector2i(9, 8), Vector2i(8, 8), Vector2i(7, 8), Vector2i(6, 8),
-	Vector2i(6, 9), Vector2i(6, 10), Vector2i(6, 11),
-	Vector2i(6, 12), Vector2i(6, 13),
+	Vector2i(7, 1), Vector2i(7, 2), Vector2i(6, 2), Vector2i(5, 2), Vector2i(5, 3),
+	Vector2i(5, 4), Vector2i(6, 4), Vector2i(6, 5), Vector2i(6, 6), Vector2i(6, 7),
+	Vector2i(5, 7), Vector2i(5, 8), Vector2i(4, 8), Vector2i(4, 9), Vector2i(4, 10),
+	Vector2i(4, 11), Vector2i(4, 12),
 ]
 
 const ROUTE_ZIGZAG_A := [
-	Vector2i(1, 0), Vector2i(1, 1), Vector2i(1, 2),
-	Vector2i(2, 2), Vector2i(3, 2), Vector2i(4, 2), Vector2i(5, 2),
-	Vector2i(5, 3), Vector2i(5, 4), Vector2i(5, 5),
-	Vector2i(6, 5), Vector2i(7, 5), Vector2i(8, 5),
-	Vector2i(8, 6), Vector2i(8, 7), Vector2i(8, 8),
-	Vector2i(7, 8), Vector2i(6, 8), Vector2i(5, 8), Vector2i(4, 8), Vector2i(3, 8),
-	Vector2i(3, 9), Vector2i(3, 10),
-	Vector2i(4, 10), Vector2i(5, 10), Vector2i(6, 10), Vector2i(7, 10), Vector2i(8, 10),
-	Vector2i(9, 10), Vector2i(9, 11), Vector2i(9, 12), Vector2i(9, 13),
+	Vector2i(1, 0), Vector2i(1, 1), Vector2i(2, 1), Vector2i(3, 1), Vector2i(3, 2),
+	Vector2i(3, 3), Vector2i(2, 3), Vector2i(2, 4), Vector2i(2, 5), Vector2i(1, 5),
+	Vector2i(1, 6), Vector2i(1, 7), Vector2i(2, 7), Vector2i(3, 7), Vector2i(3, 8),
+	Vector2i(4, 8), Vector2i(5, 8), Vector2i(5, 9), Vector2i(5, 10), Vector2i(5, 11),
+	Vector2i(5, 12),
 ]
 
 const ROUTE_ZIGZAG_B := [
-	Vector2i(10, 0), Vector2i(10, 1), Vector2i(10, 2),
-	Vector2i(9, 2), Vector2i(8, 2),
-	Vector2i(8, 3), Vector2i(8, 4), Vector2i(8, 5),
-	Vector2i(8, 6), Vector2i(8, 7), Vector2i(8, 8),
-	Vector2i(7, 8), Vector2i(6, 8), Vector2i(5, 8), Vector2i(4, 8), Vector2i(3, 8),
-	Vector2i(3, 9), Vector2i(3, 10),
-	Vector2i(4, 10), Vector2i(5, 10), Vector2i(6, 10), Vector2i(7, 10), Vector2i(8, 10),
-	Vector2i(9, 10), Vector2i(9, 11), Vector2i(9, 12), Vector2i(9, 13),
+	Vector2i(6, 0), Vector2i(6, 1), Vector2i(6, 2), Vector2i(6, 3), Vector2i(5, 3),
+	Vector2i(5, 4), Vector2i(4, 4), Vector2i(4, 5), Vector2i(4, 6), Vector2i(4, 7),
+	Vector2i(4, 8), Vector2i(5, 8), Vector2i(5, 9), Vector2i(5, 10), Vector2i(5, 11),
+	Vector2i(5, 12),
 ]
 
 const MAPS := [
 	{
 		"id": "junction",
 		"name_key": "map.junction",
-		"gates": [Vector2i(1, 0), Vector2i(10, 0)],
-		"core": [Vector2i(5, 13), Vector2i(6, 13)],
+		"gates": [Vector2i(1, 0), Vector2i(6, 0)],
+		"core": [Vector2i(3, 12), Vector2i(4, 12)],
 		"routes": [ROUTE_JUNCTION_A, ROUTE_JUNCTION_B],
+		"high": [[0, 4, 1, 7], [6, 7, 7, 9], [0, 9, 1, 11]],
 		"art": "res://assets/ui/25d/map_junction.png",
 	},
 	{
 		"id": "chicane",
 		"name_key": "map.chicane",
-		"gates": [Vector2i(0, 1), Vector2i(11, 1)],
-		"core": [Vector2i(5, 13), Vector2i(6, 13)],
+		"gates": [Vector2i(0, 1), Vector2i(7, 1)],
+		"core": [Vector2i(3, 12), Vector2i(4, 12)],
 		"routes": [ROUTE_CHICANE_A, ROUTE_CHICANE_B],
+		"high": [[5, 9, 6, 11], [0, 8, 1, 10], [2, 10, 3, 11]],
 		"art": "res://assets/ui/25d/map_chicane.png",
 	},
 	{
 		"id": "zigzag",
 		"name_key": "map.zigzag",
-		"gates": [Vector2i(1, 0), Vector2i(10, 0)],
-		"core": [Vector2i(9, 13), Vector2i(10, 13)],
+		"gates": [Vector2i(1, 0), Vector2i(6, 0)],
+		"core": [Vector2i(5, 12), Vector2i(6, 12)],
 		"routes": [ROUTE_ZIGZAG_A, ROUTE_ZIGZAG_B],
+		"high": [[0, 8, 1, 10], [6, 5, 7, 7], [2, 9, 3, 11]],
 		"art": "res://assets/ui/25d/map_zigzag.png",
 	},
 ]
-
 static var _active := 0
 static var _path_cache: Dictionary = {}
 
@@ -207,6 +195,30 @@ static func _build_path_cache() -> void:
 	for route in active_map().routes:
 		for tile in route:
 			_path_cache[tile] = true
+
+
+## 高台：明日方舟式的高砖块，地形上比低地高一层，上面的建筑会抬高同样的投影量。
+static func high_tiles() -> Array:
+	var result: Array = []
+	for rect in active_map().get("high", []):
+		for col in range(int(rect[0]), int(rect[2]) + 1):
+			for row in range(int(rect[1]), int(rect[3]) + 1):
+				var tile := Vector2i(col, row)
+				if in_bounds(tile) and not is_path(tile) and not is_gate(tile) and not is_core(tile):
+					result.append(tile)
+	return result
+
+
+static func is_high(tile: Vector2i) -> bool:
+	return high_tiles().has(tile)
+
+
+## 站在该格上的建筑需要往上抬的屏幕像素（高台投影高度）
+static func screen_lift(tile: Vector2i) -> float:
+	if not is_high(tile):
+		return 0.0
+	# 相机俯角 asin(34/48)，竖直高度投影到屏幕的系数就是 34/48 的余弦
+	return HIGH_LIFT * sqrt(1.0 - (TILE_H / TILE) * (TILE_H / TILE))
 
 
 ## 路线去重后的线段列表：绘制通路时只画一次，避免两条路线重叠处变深。
