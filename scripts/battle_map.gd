@@ -65,7 +65,6 @@ const MAPS := [
 		"core": [Vector2i(3, 12), Vector2i(4, 12)],
 		"routes": [ROUTE_JUNCTION_A, ROUTE_JUNCTION_B],
 		"high": [[0, 4, 1, 7], [6, 7, 7, 9], [0, 9, 1, 11]],
-		"art": "res://assets/ui/25d/map_junction.png",
 	},
 	{
 		"id": "chicane",
@@ -74,7 +73,6 @@ const MAPS := [
 		"core": [Vector2i(3, 12), Vector2i(4, 12)],
 		"routes": [ROUTE_CHICANE_A, ROUTE_CHICANE_B],
 		"high": [[5, 9, 6, 11], [0, 8, 1, 10], [2, 10, 3, 11]],
-		"art": "res://assets/ui/25d/map_chicane.png",
 	},
 	{
 		"id": "zigzag",
@@ -83,7 +81,6 @@ const MAPS := [
 		"core": [Vector2i(5, 12), Vector2i(6, 12)],
 		"routes": [ROUTE_ZIGZAG_A, ROUTE_ZIGZAG_B],
 		"high": [[0, 8, 1, 10], [6, 5, 7, 7], [2, 9, 3, 11]],
-		"art": "res://assets/ui/25d/map_zigzag.png",
 	},
 ]
 static var _active := 0
@@ -109,8 +106,7 @@ static func map_name_key() -> String:
 	return String(active_map().name_key)
 
 
-static func art_path() -> String:
-	return String(active_map().art)
+
 
 
 # ---------------------------------------------------------------- 坐标换算

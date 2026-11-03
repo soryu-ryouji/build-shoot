@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b7pgr4iau6hxh"
-path="res://.godot/imported/map_chicane.png-e447007d0de4f9caf9c6e67acc64ab86.ctex"
+uid="uid://412omhy0bkhf"
+path="res://.godot/imported/gate_2.png-75e4736bf2065228a91e6198fd9250e0.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/25d/map_chicane.png"
-dest_files=["res://.godot/imported/map_chicane.png-e447007d0de4f9caf9c6e67acc64ab86.ctex"]
+source_file="res://assets/ui/tiles/gate_2.png"
+dest_files=["res://.godot/imported/gate_2.png-75e4736bf2065228a91e6198fd9250e0.ctex"]
 
 [params]
 

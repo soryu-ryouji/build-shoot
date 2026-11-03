@@ -31,6 +31,7 @@
 - 开局没有默认建筑，玩家有 50 金币；5 秒准备期内不出怪
 - 地图固定为 8×13 瓦片（每格 48×34 像素，2.5D 投影），共三张：枢纽站（顶部两个缺口汇入中央核心）、回环廊（左右两侧缺口对称收束）、之字道（长折返路线通往右下核心）；主界面点地图名切换，选择会保存
 - 地形分高低两层：`high` 矩形标出的高台比低地高一层，边缘有侧壁和橙色压条；高台上的建筑会按同样的投影高度往上抬，看起来是站在平台上
+- 地板铺满整个屏幕，地图边界是一圈矮墙；屏幕上下不会露出空白
 - 缺口和核心所在格子不能建造；通路上只能放阵地建筑，火力和能源必须放在路外
 - 敌人从缺口淡入后沿路线逐格行走，被沙袋等阵地建筑挡住时停下攻击，撞到核心扣 1 点核心血量
 - 核心 12 点血量，扣完弹出结算面板（坚持到第几波、击碎多少），可以直接重开或回主菜单
@@ -182,20 +183,20 @@ Godot_v4.7.2-stable_win64.exe --path . res://tools/screenshot.tscn
 
 主界面背景与人物立绘（分两层）、战场底板、四类怪物、炮塔/重型炮塔分层素材，以及激光塔、沙袋、压缩塔、太阳能电板、聚能塔的场上素材都由本地 ComfyUI 的 `qwen_workflow` 生成，成品位于 `assets/ui/`。新建筑统一用现有炮塔贴图作为画风参考，提示词强调明日方舟式战术动画质感、象牙白装甲、石墨金属、信号橙点缀和严格的俯视透视；激光塔生成基盘与发射头两层，沙袋和能源建筑各生成一张透明底单体图，商店图标从场上素材裁切。
 
-三张地图的地形与场上建筑已经改成 2.5D：Blender 里按 `assets/maps/maps.json` 的瓦片/路线/缺口/核心坐标搭地形，用一台固定正交相机（俯角 asin(34/48)≈45.1°、1 世界单位 = 1 像素）渲染成 432×490 的地图贴图和 160×160 的建筑贴图。三座火力塔各渲染 8 个朝向，其余建筑各 1 张，游戏里按 `aim_angle` 选图。
+场上的一切现在都是 Blender 渲染的 2.5D 贴片，用同一台固定正交相机（俯角 asin(34/48)≈45.1°、1 世界单位 = 1 像素）：
 
-坐标是同一份：`scripts/battle_map.gd` 定义 8×13 格、每格 48×34 像素，`tools/export_map_data.tscn` 把它导出成 `assets/maps/maps.json` 给 Blender：
+- 地块：[build_tiles_3d.py](tools/build_tiles_3d.py) 生成 64×64 的贴片，格子地面中心落在图片中心——地板两种、高台、外框墙、四个朝向的缺口、核心，另有三座火力塔各 8 朝向和四种建筑各 1 张（[build_buildings_3d.py](tools/build_buildings_3d.py)）。
+- 拼地图：[arena.gd](scripts/arena.gd) 按 `battle_map.gd` 的 8×13 格子铺地板，可视区域之外也继续铺，屏幕上不会露底；路面按路线画成连续带子，高台整块抬起、比低地高一层，建筑站上去会自动抬同样的投影高度。
 
 ```bash
-godot --headless --path . res://tools/export_map_data.tscn
-blender -b --factory-startup -P tools/build_map_3d.py -- --outdir assets/ui/25d
+blender -b --factory-startup -P tools/build_tiles_3d.py -- --outdir assets/ui/tiles
 blender -b --factory-startup -P tools/build_buildings_3d.py -- --outdir assets/ui/25d
-python tools/preview_25d.py                # 可选：合成一张检查比例与对位的预览
+python tools/preview_tiles.py junction    # 可选：拼一张检查接缝与路面连接
 ```
 
-![2.5D 地图与建筑](image.png)
+![2.5D 地块拼出的地图](image.png)
 
-旧的 ComfyUI 地图贴图（`assets/ui/map_*.png`、`gate.png`、`core.png`）保留在仓库里作为回退素材；当前游戏读取的是 `assets/ui/25d/`。
+旧的整图地图贴图（`assets/ui/map_*.png`、`assets/ui/25d/map_*.png`）不再使用，仓库里保留 ComfyUI 版本作为回退素材。
 
 完整的 Prompt、负向词、seed、参考图、尺寸和后处理规范沉淀在 [ART_PROMPTS.md](ART_PROMPTS.md)，其他 AI 可以直接按文档出图。修改提示词时先改 [generate_ui_assets.py](tools/generate_ui_assets.py)，再运行 `python tools/render_art_prompts.py` 重新生成文档。
 
@@ -246,7 +247,7 @@ scripts/item_chip.gd        类别上方的道具列表项
 scripts/placed_building.gd  场上建筑：2.5D 贴图、朝向、圆形索敌、激光、能源、拦截与血量
 scripts/focus_panel.gd      聚焦面板：分类属性与拆除
 scripts/placement_ghost.gd  拖拽放置预览、射程格子与朝向选择
-scripts/arena.gd            2.5D 地图贴图、核心血条与受击脉冲
+scripts/arena.gd            2.5D 地块拼图：铺地板、路面带、高台、外框、核心与血条
 scripts/hud.gd              HUD、金币/核心血量与击碎数/能源读数与飘字
 scripts/palette.gd          配色
 i18n/zh_CN.json             中文翻译表（默认）
@@ -254,7 +255,7 @@ i18n/en.json                英文翻译表
 theme/game_theme.tres       全局 UI 字体（含 CJK 回退）
 tools/smoke_test.tscn/gd    无头冒烟测试
 tools/responsive_test.tscn/gd 多尺寸竖屏、宽度适配、触摸部署与控件尺寸回归测试
-tools/build_map_3d.py       用 Blender 生成 2.5D 地图贴图（地形/路线/缺口/核心）
+tools/build_tiles_3d.py     用 Blender 生成 2.5D 地块贴片（地板/高台/外框/缺口/核心）
 tools/build_buildings_3d.py 用 Blender 生成 2.5D 建筑贴图（8 朝向）
 tools/generate_ui_assets.py 用 ComfyUI 生成主界面、战场、怪物与建筑素材
 tools/screenshot.tscn/gd    游戏、设置面板与聚焦面板截图工具

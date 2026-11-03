@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dyqxashe6rytl"
-path="res://.godot/imported/map_zigzag.png-a581b3c77ae5b5e8dd4594ce396ec544.ctex"
+uid="uid://co5pnlad436hn"
+path="res://.godot/imported/floor_a.png-075823681ba66d4c43a9df8f115da972.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/25d/map_zigzag.png"
-dest_files=["res://.godot/imported/map_zigzag.png-a581b3c77ae5b5e8dd4594ce396ec544.ctex"]
+source_file="res://assets/ui/tiles/floor_a.png"
+dest_files=["res://.godot/imported/floor_a.png-075823681ba66d4c43a9df8f115da972.ctex"]
 
 [params]
 

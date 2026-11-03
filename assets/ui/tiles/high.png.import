@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://euj6cqlevocr"
-path="res://.godot/imported/map_junction.png-a335eebd4f2f34f1070b0b15d5b950f9.ctex"
+uid="uid://8y7lb2qq75jv"
+path="res://.godot/imported/high.png-cee66073655993cfdbf3a624caa21248.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/25d/map_junction.png"
-dest_files=["res://.godot/imported/map_junction.png-a335eebd4f2f34f1070b0b15d5b950f9.ctex"]
+source_file="res://assets/ui/tiles/high.png"
+dest_files=["res://.godot/imported/high.png-cee66073655993cfdbf3a624caa21248.ctex"]
 
 [params]
 
