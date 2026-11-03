@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Generate the game's art through the local ComfyUI qwen_workflow."""
+"""Generate the game's art through the local ComfyUI qwen_workflow.
+
+The human/AI-readable prompt catalog is generated into ART_PROMPTS.md by
+tools/render_art_prompts.py. Keep the presets here as the source of truth.
+"""
 
 from __future__ import annotations
 

@@ -157,6 +157,8 @@ Godot_v4.7.2-stable_win64.exe --path . res://tools/screenshot.tscn
 
 主界面背景与人物立绘（分两层）、战场底板、四类怪物、炮塔/重型炮塔分层素材，以及激光塔、沙袋、压缩塔、太阳能电板、聚能塔的场上素材都由本地 ComfyUI 的 `qwen_workflow` 生成，成品位于 `assets/ui/`。新建筑统一用现有炮塔贴图作为画风参考，提示词强调明日方舟式战术动画质感、象牙白装甲、石墨金属、信号橙点缀和严格的俯视透视；激光塔生成基盘与发射头两层，沙袋和能源建筑各生成一张透明底单体图，商店图标从场上素材裁切。
 
+完整的 Prompt、负向词、seed、参考图、尺寸和后处理规范沉淀在 [ART_PROMPTS.md](ART_PROMPTS.md)，其他 AI 可以直接按文档出图。修改提示词时先改 [generate_ui_assets.py](tools/generate_ui_assets.py)，再运行 `python tools/render_art_prompts.py` 重新生成文档。
+
 ![新建筑素材：激光塔分层、沙袋、压缩塔、太阳能电板、聚能塔与炮塔参考](art_preview.png)
 
 主界面人物在纯绿幕上单独生成，后处理按绿色强度抠像并压掉绿边，放到 720x960 设计稿坐标后拆成腿部、大衣、躯干、右臂、头部五层，被上层遮住的接缝按邻接像素向内填充；`scripts/menu_character_rig.gd` 以脚底、髋、颈、肩和衣摆为枢轴分别旋转，步态、呼吸、摆臂和衣摆共用一套时间轴。每种怪物有一张四帧横向动画图集，按类型以 6～12 FPS 播放并使用不同相位；保留原碰撞矩形、受击后限时显示的血条和受击闪光。炮塔和激光塔都拆成基盘与头部两层素材：基盘是严格俯视的扁平圆盘／八边形板，后处理时按旋转对称化，随瞄准旋转时不会出现光照翻转或透视变化；头部按机身最宽处对齐基盘圆心，和基盘共用同一旋转轴，开炮只让头部后坐，放置预览使用同一套分层素材。需要重新生成时，先启动 `http://127.0.0.1:8188/`，再运行：
@@ -212,5 +214,7 @@ tools/responsive_test.tscn/gd 多尺寸竖屏、宽度适配、触摸部署与�
 tools/screenshot.tscn/gd    游戏、设置面板与聚焦面板截图工具
 tools/menu_screenshot.tscn/gd 主界面与主界面设置截图工具
 tools/generate_ui_assets.py 调用 ComfyUI qwen_workflow 生成 UI 素材
+tools/render_art_prompts.py 从生成脚本渲染 ART_PROMPTS.md
 tools/process_ui_assets.py  裁切、压暗和透明底后处理
+ART_PROMPTS.md              美术提示词、参考图、seed 与出图规范
 ```
