@@ -16,6 +16,7 @@ var name_label: Label
 var cost_label: Label
 var _icon_texture: Texture2D
 var _hovered := false
+var _can_buy := false
 var _style: StyleBoxFlat
 
 
@@ -33,6 +34,8 @@ func _ready() -> void:
 	cost_label = _make_label(UiMetrics.FONT_MICRO, Palette.ACCENT)
 	I18n.locale_changed.connect(_refresh_texts)
 	_refresh_texts()
+	_can_buy = game != null and int(game.coins) >= int(item.cost)
+	_apply_text_colors()
 	_layout()
 
 
@@ -87,6 +90,26 @@ func _on_mouse_exited() -> void:
 	queue_redraw()
 
 
+func _process(_delta: float) -> void:
+	if game == null or item.is_empty():
+		return
+	var can_buy: bool = int(game.coins) >= int(item.cost)
+	if can_buy != _can_buy:
+		_can_buy = can_buy
+		_apply_text_colors()
+		queue_redraw()
+
+
+func _apply_text_colors() -> void:
+	# 买不起时只改颜色和叠一层灰，点击切换照常可用。
+	if _can_buy:
+		name_label.add_theme_color_override("font_color", Palette.INK)
+		cost_label.add_theme_color_override("font_color", Palette.ACCENT)
+	else:
+		name_label.add_theme_color_override("font_color", Color(Palette.INK_MUTED, 0.70))
+		cost_label.add_theme_color_override("font_color", Color(Palette.DANGER, 0.55))
+
+
 func _gui_input(event: InputEvent) -> void:
 	var pressed_now := false
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -101,14 +124,22 @@ func _gui_input(event: InputEvent) -> void:
 func _draw() -> void:
 	var accent := ItemDefs.category_color(String(item.category))
 	var fill := Color(1.0, 0.98, 0.90, 1.0) if active else Color(Palette.PAPER, 0.92)
-	if _hovered and not active:
+	if not _can_buy:
+		fill = Color(0.85, 0.85, 0.83, 0.94)
+	elif _hovered and not active:
 		fill = Color(1.0, 0.98, 0.94, 1.0)
 	_style.bg_color = fill
-	_style.border_color = Color(accent.r, accent.g, accent.b, 0.95 if active else 0.28)
+	var border := accent if _can_buy else Palette.DANGER.darkened(0.30)
+	var border_alpha := 0.95 if active else 0.28
+	if not _can_buy:
+		border_alpha = 0.55 if active else 0.20
+	_style.border_color = Color(border.r, border.g, border.b, border_alpha)
 	_style.set_border_width_all(2 if active else 1)
 	draw_style_box(_style, Rect2(Vector2.ZERO, size))
 	var icon := _icon_rect()
 	if _icon_texture != null:
-		draw_texture_rect(_icon_texture, icon, false, Color.WHITE)
+		draw_texture_rect(_icon_texture, icon, false, Color(1.0, 1.0, 1.0, 1.0 if _can_buy else 0.40))
 	else:
-		draw_circle(icon.get_center(), icon.size.x * 0.38, Color(accent.r, accent.g, accent.b, 0.25))
+		draw_circle(icon.get_center(), icon.size.x * 0.38, Color(accent.r, accent.g, accent.b, 0.25 if _can_buy else 0.14))
+	if not _can_buy:
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0.0, 0.0, 0.0, 0.22))

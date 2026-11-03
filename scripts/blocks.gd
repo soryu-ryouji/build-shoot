@@ -18,6 +18,10 @@ const MONSTER_ANIMATIONS := {
 
 const PLAY_TOP := 112.0
 const PLAY_BOTTOM := 800.0
+## 敌人走到战场底部前先淡出，避免被裁剪线从中间切断
+const EXIT_FADE := 40.0
+## 淡出提前量，保证整个贴图在碰到裁剪线之前就不可见
+const EXIT_MARGIN := 12.0
 const COLS := 11
 const CELL_SIZE := Vector2(48.0, 30.0)
 const CELL_GAP_X := 4.0
@@ -404,37 +408,37 @@ func _spawn_row(y: float, count: int) -> void:
 		by_id[id] = block
 
 
-func _draw_kind(inner: Rect2, kind: String, col: Color) -> void:
+func _draw_kind(inner: Rect2, kind: String, col: Color, alpha := 1.0) -> void:
 	var c := inner.get_center() + Vector2(0.0, -2.0)
 	match kind:
 		KIND_SWIFT:
-			var mark := Color(0.9, 1.0, 1.0, 0.72)
+			var mark := Color(0.9, 1.0, 1.0, 0.72 * alpha)
 			draw_polyline(PackedVector2Array([
 				c + Vector2(-8.0, -5.0),
 				c + Vector2(0.0, 2.0),
 				c + Vector2(8.0, -5.0),
 			]), mark, 2.0, true)
 		KIND_ARMORED:
-			draw_rect(inner.grow(-3.0), col.lightened(0.35), false, 2.0)
+			draw_rect(inner.grow(-3.0), Color(col.lightened(0.35), alpha), false, 2.0)
 			for x in [inner.position.x + 5.0, inner.end.x - 5.0]:
-				draw_circle(Vector2(x, inner.position.y + 5.0), 1.5, col.lightened(0.55))
+				draw_circle(Vector2(x, inner.position.y + 5.0), 1.5, Color(col.lightened(0.55), alpha))
 		KIND_ELITE:
-			draw_arc(c, 7.0, 0.0, TAU, 6, col.lightened(0.60), 2.0, true)
-			draw_circle(c, 2.5, Color(1.0, 0.9, 0.95, 0.85))
+			draw_arc(c, 7.0, 0.0, TAU, 6, Color(col.lightened(0.60), alpha), 2.0, true)
+			draw_circle(c, 2.5, Color(1.0, 0.9, 0.95, 0.85 * alpha))
 
 
-func _draw_health_bar(inner: Rect2, hp: int, max_hp: int) -> void:
+func _draw_health_bar(inner: Rect2, hp: int, max_hp: int, alpha := 1.0) -> void:
 	var ratio := clampf(float(hp) / float(maxi(max_hp, 1)), 0.0, 1.0)
 	var back := Rect2(
 		Vector2(inner.position.x + 4.0, inner.end.y - HEALTH_BAR_HEIGHT - 2.0),
 		Vector2(inner.size.x - 8.0, HEALTH_BAR_HEIGHT)
 	)
-	draw_rect(back, Color(0.01, 0.02, 0.04, 0.9))
+	draw_rect(back, Color(0.01, 0.02, 0.04, 0.9 * alpha))
 	if ratio > 0.0:
 		var fill := Rect2(back.position, Vector2(back.size.x * ratio, back.size.y))
 		var fill_color := Palette.ACCENT if ratio > 0.30 else Palette.DANGER
-		draw_rect(fill, fill_color)
-	draw_rect(back, Color(1.0, 1.0, 1.0, 0.25), false, 1.0)
+		draw_rect(fill, Color(fill_color, alpha))
+	draw_rect(back, Color(1.0, 1.0, 1.0, 0.25 * alpha), false, 1.0)
 
 
 func _draw() -> void:
@@ -446,6 +450,10 @@ func _draw() -> void:
 		var hp: int = int(b.hp)
 		var col: Color = b.color
 		var kind := String(b.get("kind", KIND_NORMAL))
+		# 靠近底边时整体淡出，敌人不会在画面中间被裁掉
+		var alpha := clampf((PLAY_BOTTOM - EXIT_MARGIN - rect.get_center().y) / EXIT_FADE, 0.0, 1.0)
+		if alpha <= 0.0:
+			continue
 
 		var inner := rect.grow(-2.0)
 		var texture: Texture2D = MONSTER_TEXTURES.get(kind, MONSTER_TEXTURES[KIND_NORMAL])
@@ -470,31 +478,31 @@ func _draw() -> void:
 		var art_rect := Rect2(rect.get_center() - art_size * 0.5 + Vector2(0, -3), art_size)
 
 		if animation != null or texture != null:
-			draw_circle(rect.get_center() + Vector2(0, 5), 19.0, Color(0.0, 0.0, 0.0, 0.12))
-			draw_circle(rect.get_center(), 25.0, Color(col.r, col.g, col.b, 0.05))
+			draw_circle(rect.get_center() + Vector2(0, 5), 19.0, Color(0.0, 0.0, 0.0, 0.12 * alpha))
+			draw_circle(rect.get_center(), 25.0, Color(col.r, col.g, col.b, 0.05 * alpha))
 			if animation != null:
-				draw_texture_rect_region(animation, art_rect, frame_rect, Color.WHITE)
+				draw_texture_rect_region(animation, art_rect, frame_rect, Color(1.0, 1.0, 1.0, alpha))
 			else:
-				draw_texture_rect(texture, art_rect, false, Color.WHITE)
+				draw_texture_rect(texture, art_rect, false, Color(1.0, 1.0, 1.0, alpha))
 		else:
 			# 素材缺失时仍能显示可辨识的敌人，不影响战斗逻辑。
-			draw_rect(rect, col.darkened(0.72))
-			draw_rect(inner, col.darkened(0.30))
-			_draw_kind(inner, kind, col)
+			draw_rect(rect, Color(col.darkened(0.72), alpha))
+			draw_rect(inner, Color(col.darkened(0.30), alpha))
+			_draw_kind(inner, kind, col, alpha)
 
 		if hp < max_hp:
 			var c := rect.get_center() + Vector2(0, -3)
-			draw_line(c + Vector2(-7, -6), c + Vector2(5, 5), Color(0.0, 0.0, 0.0, 0.55), 1.5)
-			draw_line(c + Vector2(-4, 6), c + Vector2(6, -4), Color(0.0, 0.0, 0.0, 0.45), 1.5)
+			draw_line(c + Vector2(-7, -6), c + Vector2(5, 5), Color(0.0, 0.0, 0.0, 0.55 * alpha), 1.5)
+			draw_line(c + Vector2(-4, 6), c + Vector2(6, -4), Color(0.0, 0.0, 0.0, 0.45 * alpha), 1.5)
 
 		var flash := float(b.get("flash", 0.0))
 		if flash > 0.0:
 			if animation != null:
-				draw_texture_rect_region(animation, art_rect, frame_rect, Color(2.0, 2.0, 2.0, 0.65 * flash))
+				draw_texture_rect_region(animation, art_rect, frame_rect, Color(2.0, 2.0, 2.0, 0.65 * flash * alpha))
 			elif texture != null:
-				draw_texture_rect(texture, art_rect, false, Color(2.0, 2.0, 2.0, 0.65 * flash))
+				draw_texture_rect(texture, art_rect, false, Color(2.0, 2.0, 2.0, 0.65 * flash * alpha))
 			else:
-				draw_rect(inner, Color(1.0, 1.0, 1.0, 0.45 * flash))
+				draw_rect(inner, Color(1.0, 1.0, 1.0, 0.45 * flash * alpha))
 
 		# 正在啃食阵地建筑时，在方块底部画出抓挠痕迹
 		var attack_flash := float(b.get("attack_flash", 0.0))
@@ -502,8 +510,8 @@ func _draw() -> void:
 			var claw := rect.get_center() + Vector2(0.0, rect.size.y * 0.42)
 			for k in 3:
 				var x := claw.x - 8.0 + k * 8.0
-				draw_line(Vector2(x, claw.y), Vector2(x - 3.0, claw.y + 9.0), Color(0.95, 0.32, 0.28, 0.8 * attack_flash), 2.0)
+				draw_line(Vector2(x, claw.y), Vector2(x - 3.0, claw.y + 9.0), Color(0.95, 0.32, 0.28, 0.8 * attack_flash * alpha), 2.0)
 
 		# 血条只在受击后的短时间内显示，避免长时间占满屏幕
 		if float(b.get("hp_bar_time", 0.0)) > 0.0 and hp < max_hp:
-			_draw_health_bar(inner, hp, max_hp)
+			_draw_health_bar(inner, hp, max_hp, alpha)
