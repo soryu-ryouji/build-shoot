@@ -183,7 +183,7 @@ def make_materials() -> dict:
         "trim": material("MAT-trim", (0.55, 0.57, 0.58), roughness=0.24, metallic=0.9),
         "metal": material("MAT-metal", (0.10, 0.11, 0.12), roughness=0.35, metallic=0.7),
         "accent": material("MAT-accent", (0.92, 0.52, 0.09), roughness=0.35, emission=(0.92, 0.52, 0.09), strength=0.35),
-        "glow": material("MAT-glow", (0.32, 0.88, 0.45), roughness=0.3, emission=(0.32, 0.88, 0.45), strength=1.4),
+        "glow": material("MAT-glow", (0.86, 0.56, 0.15), roughness=0.3, emission=(0.86, 0.56, 0.15), strength=1.0),
         "lens": material("MAT-lens", (0.35, 0.9, 0.95), roughness=0.15, emission=(0.35, 0.9, 0.95), strength=1.8),
         "sack": material("MAT-sack", (0.55, 0.46, 0.32), roughness=0.8),
         "panel": material("MAT-panel", (0.06, 0.12, 0.20), roughness=0.25, metallic=0.45),

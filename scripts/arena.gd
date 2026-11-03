@@ -19,6 +19,7 @@ var core_ratio := 1.0
 var core_flash := 0.0
 
 var _floor: Array[Texture2D] = []
+var _props: Array[Texture2D] = []
 var _high: Texture2D
 var _rim: Texture2D
 var _core: Texture2D
@@ -30,7 +31,9 @@ func get_play_rect() -> Rect2:
 
 
 func _ready() -> void:
-	_floor = [_texture("floor_a"), _texture("floor_b")]
+	_floor = [_texture("floor_a"), _texture("floor_b"), _texture("floor_c"), _texture("floor_d")]
+	for name in ["prop_crates", "prop_pipes", "prop_barrier", "prop_coil", "prop_vent"]:
+		_props.append(_texture(name))
 	_high = _texture("high")
 	_rim = _texture("rim")
 	_core = _texture("core")
@@ -66,6 +69,7 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2(-2000.0, -2000.0), Vector2(5000.0, 5000.0)), Palette.BG)
 	var bounds := _visible_tiles()
 	_draw_ground(bounds)
+	_draw_props()
 	_draw_map()
 	_draw_core()
 
@@ -90,8 +94,35 @@ func _visible_tiles() -> Dictionary:
 func _draw_ground(bounds: Dictionary) -> void:
 	for row in range(int(bounds.r0), int(bounds.r1) + 1):
 		for col in range(int(bounds.c0), int(bounds.c1) + 1):
-			var texture: Texture2D = _floor[absi(col + row) % _floor.size()]
-			_draw_tile(texture, BattleMap.tile_center(Vector2i(col, row)))
+			_draw_tile(_floor_for(Vector2i(col, row)), BattleMap.tile_center(Vector2i(col, row)))
+
+
+## 四种地板变体按格子坐标固定散开，同一张图每次布局一致
+func _floor_for(tile: Vector2i) -> Texture2D:
+	if _floor.is_empty():
+		return null
+	var h := absi(tile.x * 7 + tile.y * 13 + tile.x * tile.y * 3) % 100
+	if h < 48:
+		return _floor[0]
+	if h < 72:
+		return _floor[1]
+	if h < 90:
+		return _floor[2]
+	return _floor[minf(3, _floor.size() - 1)]
+
+
+## 地图外的空地上撒装饰物，靠近边框留一格净空
+func _draw_props() -> void:
+	if _props.is_empty():
+		return
+	for row in range(-6, BattleMap.ROWS + 6):
+		for col in range(-6, BattleMap.COLS + 6):
+			if col >= -1 and col <= BattleMap.COLS and row >= -1 and row <= BattleMap.ROWS:
+				continue
+			if absi(col * 31 + row * 17 + col * row * 5) % 100 >= 20:
+				continue
+			var index := absi(col * 13 + row * 29) % _props.size()
+			_draw_tile(_props[index], BattleMap.tile_center(Vector2i(col, row)))
 
 
 ## 地图内容：先铺路面带，再按行铺高台和缺口，南侧的高块自然压住北侧

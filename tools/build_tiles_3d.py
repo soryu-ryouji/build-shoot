@@ -92,94 +92,106 @@ def cylinder(name, center, radius, depth, mat, vertices=48):
     return obj
 
 
+PALETTE = {
+    # 明日方舟式压色：蓝灰底 + 中灰钢板 + 米白面板 + 琥珀色警示，猩红只给缺口
+    "base": (0.050, 0.058, 0.068),
+    "deck": (0.190, 0.205, 0.220),
+    "plate": (0.270, 0.285, 0.300),
+    "cream": (0.720, 0.715, 0.675),
+    "amber": (0.860, 0.560, 0.150),
+    "steel": (0.380, 0.400, 0.410),
+    "red": (0.560, 0.090, 0.060),
+    "cyan": (0.360, 0.820, 0.860),
+}
+
+
 def make_materials() -> dict:
+    base = PALETTE["base"]
     return {
-        "gap": material("MAT-gap", (0.045, 0.05, 0.055), roughness=0.7, metallic=0.2),
-        "deck": material("MAT-deck", (0.16, 0.175, 0.19), roughness=0.45, metallic=0.5),
-        "plate": material("MAT-plate", (0.30, 0.32, 0.34), roughness=0.38, metallic=0.45),
-        "plate_alt": material("MAT-plate-alt", (0.26, 0.28, 0.30), roughness=0.42, metallic=0.5),
-        "steel": material("MAT-steel", (0.55, 0.57, 0.58), roughness=0.24, metallic=0.9),
-        "dark": material("MAT-dark", (0.085, 0.095, 0.105), roughness=0.35, metallic=0.65),
-        "orange": material("MAT-orange", (0.92, 0.52, 0.09), roughness=0.35, metallic=0.2,
-                           emission=(0.92, 0.52, 0.09), strength=0.25),
-        "yellow": material("MAT-yellow", (0.95, 0.76, 0.18), roughness=0.4, metallic=0.2),
-        "green": material("MAT-green", (0.32, 0.88, 0.45), roughness=0.3,
-                          emission=(0.32, 0.88, 0.45), strength=1.6),
-        "cyan": material("MAT-cyan", (0.35, 0.9, 0.95), roughness=0.25,
-                         emission=(0.35, 0.9, 0.95), strength=1.3),
-        "red": material("MAT-red", (0.7, 0.09, 0.06), roughness=0.4,
-                        emission=(1.0, 0.16, 0.10), strength=1.8),
+        "base": material("MAT-base", base, roughness=0.65, metallic=0.25),
+        "deck": material("MAT-deck", PALETTE["deck"], roughness=0.5, metallic=0.45),
+        "plate": material("MAT-plate", PALETTE["plate"], roughness=0.42, metallic=0.5),
+        "cream": material("MAT-cream", PALETTE["cream"], roughness=0.45, metallic=0.2),
+        "steel": material("MAT-steel", PALETTE["steel"], roughness=0.28, metallic=0.85),
+        "dark": material("MAT-dark", (0.075, 0.085, 0.095), roughness=0.4, metallic=0.55),
+        "amber": material("MAT-amber", PALETTE["amber"], roughness=0.35,
+                          emission=PALETTE["amber"], strength=0.5),
+        "red": material("MAT-red", PALETTE["red"], roughness=0.4,
+                        emission=PALETTE["red"], strength=1.6),
+        "cyan": material("MAT-cyan", PALETTE["cyan"], roughness=0.25,
+                         emission=PALETTE["cyan"], strength=1.1),
     }
 
 
 def screw(name: str, x: float, y: float, z: float, mats: dict) -> None:
-    cylinder(name, (x, y, z), 1.6, 0.9, mats["steel"], vertices=12)
+    cylinder(name, (x, y, z), 1.4, 0.8, mats["steel"], vertices=12)
 
 
 def hazard(name: str, y: float, z: float, width: float, mats: dict, count: int = 5) -> None:
-    """沿 X 方向交替的橙色警示条，贴在侧面。"""
     step = width / (count * 2 - 1)
     for i in range(count):
         box(f"{name}-{i}", (-width * 0.5 + step * (2 * i + 0.5), y, z),
-            (step * 1.15, 2.2, 3.2), mats["orange"])
+            (step * 1.15, 2.0, 2.6), mats["amber"])
 
 
 def build_floor(mats: dict, variant: int):
-    # 整格深色底座：相邻地块之间只留一条细缝
-    box("GEO-gap", (0.0, 0.0, 1.0), (TILE_GROUND, TILE_GROUND, 2.0), mats["gap"])
-    plate = mats["plate"] if variant == 0 else mats["plate_alt"]
-    box("GEO-deck", (0.0, 0.0, 4.0), (PLATE, PLATE, 5.0), plate, bevel=1.6)
-    # 面板线：内缩一圈的浅槽
-    box("GEO-panel", (0.0, 0.0, 6.7), (PLATE - 14.0, PLATE - 14.0, 0.5), mats["gap"], bevel=0.4)
-    box("GEO-panel-inner", (0.0, 0.0, 6.9), (PLATE - 17.0, PLATE - 17.0, 0.5), plate, bevel=0.4)
+    # 整格蓝黑底座，相邻地块之间只留细缝
+    box("GEO-gap", (0.0, 0.0, 1.0), (TILE_GROUND, TILE_GROUND, 2.0), mats["base"])
+    box("GEO-deck", (0.0, 0.0, 4.0), (PLATE, PLATE, 5.0), mats["deck"], bevel=1.6)
+    box("GEO-plate", (0.0, 0.0, 6.6), (PLATE - 8.0, PLATE - 8.0, 1.2), mats["plate"], bevel=1.0)
+    if variant == 0:
+        # 素板：只有面板缝和四角螺钉
+        box("GEO-seam", (0.0, -2.0, 7.25), (PLATE - 18.0, 1.2, 0.4), mats["base"])
+    elif variant == 1:
+        # 米白面板
+        box("GEO-cream", (0.0, 0.0, 7.35), (PLATE - 18.0, PLATE - 18.0, 1.0), mats["cream"], bevel=0.8)
+        box("GEO-cream-line", (0.0, 0.0, 7.9), (PLATE - 22.0, PLATE - 22.0, 0.4), mats["deck"])
+    elif variant == 2:
+        # 琥珀色细边
+        box("GEO-amber", (0.0, PLATE * 0.5 - 4.0, 7.2), (PLATE - 8.0, 1.6, 0.7), mats["amber"])
+        box("GEO-seam", (-6.0, 0.0, 7.25), (1.2, PLATE - 18.0, 0.4), mats["base"])
+    else:
+        # 检修口 + 通风件
+        box("GEO-hatch", (4.0, -4.0, 7.1), (18.0, 14.0, 0.9), mats["dark"], bevel=0.6)
+        for i in range(3):
+            box("GEO-slit", (0.5 + i * 4.0, -4.0, 7.6), (1.4, 10.0, 0.4), mats["base"])
+        box("GEO-mark", (-14.0, 12.0, 7.3), (7.0, 1.8, 0.5), mats["amber"])
     for sx in (-1.0, 1.0):
         for sy in (-1.0, 1.0):
-            screw("GEO-screw", sx * 19.0, sy * 19.0, 6.8, mats)
-    if variant == 1:
-        # 带绿色指示灯的通风模块
-        box("GEO-vent", (7.0, -7.0, 7.1), (13.0, 9.0, 0.8), mats["dark"], bevel=0.5)
-        for i in range(3):
-            box("GEO-vent-slit", (3.5 + i * 3.5, -7.0, 7.6), (1.2, 6.0, 0.4), mats["gap"])
-        box("GEO-light", (-13.0, 13.0, 7.2), (7.0, 2.2, 0.6), mats["green"])
-    else:
-        box("GEO-light", (-13.0, 13.0, 7.2), (7.0, 2.2, 0.6), mats["green"])
-        box("GEO-rail", (0.0, 16.0, 7.0), (26.0, 2.0, 0.6), mats["steel"])
+            screw("GEO-screw", sx * 18.0, sy * 18.0, 7.3, mats)
 
 
 def build_high(mats: dict):
-    # 高台：深色侧壁 + 浅色顶板，正面一条橙色警示带
+    # 高台：深色侧壁 + 灰顶板 + 米白面板 + 正面琥珀警示条
     box("GEO-high", (0.0, 0.0, 7.5), (PLATE, PLATE, 15.0), mats["dark"], bevel=1.2)
-    box("GEO-high-top", (0.0, 0.0, 16.4), (PLATE, PLATE, 3.0), mats["plate"], bevel=1.6)
-    box("GEO-high-panel", (0.0, 0.0, 18.1), (PLATE - 14.0, PLATE - 14.0, 0.5), mats["gap"], bevel=0.4)
+    box("GEO-high-top", (0.0, 0.0, 16.2), (PLATE, PLATE, 3.0), mats["deck"], bevel=1.6)
+    box("GEO-high-plate", (0.0, 0.0, 17.9), (PLATE - 8.0, PLATE - 8.0, 1.0), mats["plate"], bevel=1.0)
+    box("GEO-high-cream", (0.0, 0.0, 18.5), (PLATE - 20.0, PLATE - 20.0, 0.9), mats["cream"], bevel=0.7)
     for sx in (-1.0, 1.0):
         for sy in (-1.0, 1.0):
-            screw("GEO-screw", sx * 19.0, sy * 19.0, 18.0, mats)
-    hazard("GEO-hazard", -PLATE * 0.5 - 0.2, 6.0, PLATE - 8.0, mats, count=5)
-    box("GEO-high-light", (0.0, 19.0, 18.2), (18.0, 2.0, 0.6), mats["green"])
+            screw("GEO-screw", sx * 18.0, sy * 18.0, 18.4, mats)
+    hazard("GEO-hazard", -PLATE * 0.5 - 0.2, 6.0, PLATE - 10.0, mats, count=4)
 
 
 def build_rim(mats: dict):
-    # 边界矮墙：深色墙体 + 顶部钢板 + 正面铆钉与警示条
+    # 边界矮墙：深色墙体 + 灰顶 + 琥珀警示条
     box("GEO-rim", (0.0, 0.0, 13.0), (TILE_GROUND, TILE_GROUND, 26.0), mats["dark"], bevel=2.0)
-    box("GEO-rim-top", (0.0, 0.0, 27.2), (PLATE, PLATE, 2.4), mats["plate"], bevel=1.6)
-    box("GEO-rim-spine", (0.0, 0.0, 28.8), (PLATE - 16.0, PLATE - 16.0, 1.0), mats["steel"], bevel=0.8)
-    hazard("GEO-rim-hazard", -TILE_GROUND * 0.5 - 0.2, 16.0, TILE_GROUND - 6.0, mats, count=6)
+    box("GEO-rim-top", (0.0, 0.0, 27.0), (PLATE, PLATE, 2.2), mats["deck"], bevel=1.6)
+    box("GEO-rim-spine", (0.0, 0.0, 28.4), (PLATE - 18.0, PLATE - 18.0, 0.9), mats["steel"], bevel=0.7)
+    hazard("GEO-rim-hazard", -TILE_GROUND * 0.5 - 0.2, 15.0, TILE_GROUND - 8.0, mats, count=5)
     for i in range(4):
-        cylinder("GEO-rivet", (-15.0 + i * 10.0, -TILE_GROUND * 0.5 - 0.4, 23.0), 1.4, 1.0, mats["steel"], vertices=10)
+        cylinder("GEO-rivet", (-15.0 + i * 10.0, -TILE_GROUND * 0.5 - 0.4, 22.5), 1.3, 1.0, mats["steel"], vertices=10)
 
 
 def build_gate(mats: dict, direction: int):
-    box("GEO-gap", (0.0, 0.0, 1.0), (TILE_GROUND, TILE_GROUND, 2.0), mats["gap"])
-    box("GEO-deck", (0.0, 0.0, 4.0), (PLATE, PLATE, 5.0), mats["plate"], bevel=1.6)
-    box("GEO-socket", (0.0, 0.0, 7.0), (40.0, 40.0, 1.4), mats["gap"], bevel=1.5)
+    box("GEO-gap", (0.0, 0.0, 1.0), (TILE_GROUND, TILE_GROUND, 2.0), mats["base"])
+    box("GEO-deck", (0.0, 0.0, 4.0), (PLATE, PLATE, 5.0), mats["deck"], bevel=1.6)
+    box("GEO-socket", (0.0, 0.0, 7.0), (40.0, 40.0, 1.4), mats["base"], bevel=1.5)
     box("GEO-glow", (0.0, 0.0, 7.8), (32.0, 32.0, 1.2), mats["red"], bevel=1.0)
     frame = 43.0
     for dx, dy, sx, sy in ((0.0, -frame * 0.5, frame, 4.5), (0.0, frame * 0.5, frame, 4.5),
                            (-frame * 0.5, 0.0, 4.5, frame), (frame * 0.5, 0.0, 4.5, frame)):
         box("GEO-gate-frame", (dx, dy, 8.8), (sx, sy, 4.0), mats["steel"], bevel=1.0)
-    for sx in (-1.0, 1.0):
-        for sy in (-1.0, 1.0):
-            box("GEO-gate-mark", (sx * 17.0, sy * 17.0, 8.2), (6.0, 6.0, 0.8), mats["orange"])
     angle = -math.tau * direction / 4.0
     for obj in bpy.data.objects:
         if obj.type == "MESH":
@@ -187,15 +199,63 @@ def build_gate(mats: dict, direction: int):
 
 
 def build_core(mats: dict):
-    cylinder("GEO-core-gap", (0.0, 0.0, 1.0), 38.0, 2.0, mats["gap"], vertices=56)
-    cylinder("GEO-core-base", (0.0, 0.0, 5.0), 34.0, 6.0, mats["dark"], vertices=56)
-    cylinder("GEO-core-ring", (0.0, 0.0, 8.4), 26.0, 1.6, mats["steel"], vertices=56)
-    cylinder("GEO-core-amber", (0.0, 0.0, 9.4), 20.0, 1.0, mats["orange"], vertices=48)
-    cylinder("GEO-core-inner", (0.0, 0.0, 9.8), 14.0, 2.2, mats["cyan"], vertices=48)
+    cylinder("GEO-core-base", (0.0, 0.0, 1.0), 38.0, 2.0, mats["base"], vertices=56)
+    cylinder("GEO-core-body", (0.0, 0.0, 5.0), 34.0, 6.0, mats["dark"], vertices=56)
+    cylinder("GEO-core-ring", (0.0, 0.0, 8.2), 26.0, 1.6, mats["steel"], vertices=56)
+    cylinder("GEO-core-amber", (0.0, 0.0, 9.2), 21.0, 0.8, mats["amber"], vertices=48)
+    cylinder("GEO-core-inner", (0.0, 0.0, 9.6), 14.0, 2.2, mats["cyan"], vertices=48)
     for i in range(6):
         angle = math.tau * i / 6.0
         box("GEO-core-clamp", (math.cos(angle) * 31.0, math.sin(angle) * 31.0, 6.0),
             (11.0, 8.0, 5.0), mats["steel"], bevel=1.2).rotation_euler = (0.0, 0.0, angle)
+
+
+# ---------------------------------------------------------------- 装饰物
+
+def build_prop_crates(mats):
+    for i, (x, y, s, z) in enumerate(((-6.0, -4.0, 13.0, 6.5), (7.0, 2.0, 15.0, 7.5), (-2.0, 9.0, 10.0, 5.0))):
+        box(f"GEO-crate-{i}", (x, y, z), (s, s, s), mats["deck"], bevel=1.2)
+        box(f"GEO-crate-top-{i}", (x, y, z + s * 0.5 + 0.1), (s - 4.0, s - 4.0, 0.8), mats["cream"], bevel=0.4)
+        box(f"GEO-crate-band-{i}", (x, y, z), (s + 0.4, 2.0, s * 0.6), mats["steel"], bevel=0.3)
+
+
+def build_prop_pipes(mats):
+    for offset in (-4.0, 4.0):
+        cylinder("GEO-pipe", (0.0, offset, 7.0), 4.2, 30.0, mats["steel"], vertices=20).rotation_euler = (
+            0.0, math.pi / 2.0, 0.0)
+        box("GEO-pipe-band", (offset * 2.0, offset, 7.0), (2.5, 9.0, 9.0), mats["dark"], bevel=0.4)
+    box("GEO-pipe-base", (0.0, 0.0, 3.0), (34.0, 18.0, 3.0), mats["deck"], bevel=1.0)
+
+
+def build_prop_barrier(mats):
+    box("GEO-barrier-foot-a", (-12.0, 0.0, 2.5), (6.0, 22.0, 5.0), mats["dark"], bevel=0.8)
+    box("GEO-barrier-foot-b", (12.0, 0.0, 2.5), (6.0, 22.0, 5.0), mats["dark"], bevel=0.8)
+    box("GEO-barrier-panel", (0.0, 0.0, 11.0), (30.0, 4.0, 12.0), mats["cream"], bevel=1.0)
+    for i in range(3):
+        box("GEO-barrier-stripe", (-8.0 + i * 8.0, 0.0, 11.0), (5.0, 4.4, 5.0), mats["amber"], bevel=0.3)
+
+
+def build_prop_coil(mats):
+    cylinder("GEO-coil", (0.0, 0.0, 4.0), 12.0, 8.0, mats["dark"], vertices=28)
+    cylinder("GEO-coil-inner", (0.0, 0.0, 4.2), 6.0, 8.4, mats["steel"], vertices=24)
+    box("GEO-coil-base", (0.0, 0.0, 1.2), (30.0, 24.0, 2.4), mats["deck"], bevel=0.8)
+    box("GEO-coil-tag", (-10.0, 6.0, 8.6), (5.0, 3.0, 0.6), mats["amber"])
+
+
+def build_prop_vent(mats):
+    box("GEO-vent-body", (0.0, 0.0, 6.0), (26.0, 20.0, 12.0), mats["deck"], bevel=1.4)
+    for i in range(4):
+        box("GEO-vent-fin", (-9.0 + i * 6.0, 0.0, 12.4), (3.0, 14.0, 1.0), mats["steel"], bevel=0.3)
+    box("GEO-vent-cream", (0.0, -9.0, 8.0), (20.0, 3.0, 6.0), mats["cream"], bevel=0.5)
+
+
+PROPS = {
+    "prop_crates": build_prop_crates,
+    "prop_pipes": build_prop_pipes,
+    "prop_barrier": build_prop_barrier,
+    "prop_coil": build_prop_coil,
+    "prop_vent": build_prop_vent,
+}
 
 # ---------------------------------------------------------------- 相机与渲染
 
@@ -271,14 +331,15 @@ def main() -> None:
         if not outdir.is_absolute():
             outdir = ROOT / outdir
 
-    render("floor_a", lambda m: build_floor(m, 0), outdir)
-    render("floor_b", lambda m: build_floor(m, 1), outdir)
-
+    for variant in range(4):
+        render(f"floor_{'abcd'[variant]}", lambda m, v=variant: build_floor(m, v), outdir)
     render("high", build_high, outdir)
     render("rim", build_rim, outdir)
     for direction in range(4):
         render(f"gate_{direction}", lambda m, d=direction: build_gate(m, d), outdir)
     render("core", build_core, outdir, size=128)
+    for name, builder in PROPS.items():
+        render(name, builder, outdir)
 
 
 if __name__ == "__main__":
