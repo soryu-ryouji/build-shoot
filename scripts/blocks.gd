@@ -496,7 +496,7 @@ func _draw() -> void:
 		if sprite != null:
 			# 2.5D 贴片：轻微上下浮动代替逐帧动画
 			var bob := sin((_animation_time + phase) * 7.0) * 1.6 * scale
-			draw_circle(center + Vector2(0, 4), 19.0 * scale, Color(0.0, 0.0, 0.0, 0.22 * alpha))
+			draw_circle(center + Vector2(0, 4), 20.0 * scale, Color(0.0, 0.0, 0.0, 0.34 * alpha))
 			var side := 64.0 * scale
 			draw_texture_rect(
 				sprite,

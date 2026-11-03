@@ -178,10 +178,10 @@ DIRECTIONAL = {"turret", "heavy_turret", "laser_tower"}
 
 def make_materials() -> dict:
     return {
-        "base": material("MAT-base", (0.18, 0.20, 0.22), roughness=0.45, metallic=0.55),
-        "shell": material("MAT-shell", (0.30, 0.32, 0.34), roughness=0.38, metallic=0.5),
-        "trim": material("MAT-trim", (0.55, 0.57, 0.58), roughness=0.24, metallic=0.9),
-        "metal": material("MAT-metal", (0.10, 0.11, 0.12), roughness=0.35, metallic=0.7),
+        "base": material("MAT-base", (0.30, 0.32, 0.34), roughness=0.45, metallic=0.55),
+        "shell": material("MAT-shell", (0.56, 0.57, 0.56), roughness=0.38, metallic=0.5),
+        "trim": material("MAT-trim", (0.70, 0.72, 0.73), roughness=0.24, metallic=0.9),
+        "metal": material("MAT-metal", (0.16, 0.17, 0.18), roughness=0.35, metallic=0.7),
         "accent": material("MAT-accent", (0.92, 0.52, 0.09), roughness=0.35, emission=(0.92, 0.52, 0.09), strength=0.35),
         "glow": material("MAT-glow", (0.86, 0.56, 0.15), roughness=0.3, emission=(0.86, 0.56, 0.15), strength=1.0),
         "lens": material("MAT-lens", (0.35, 0.9, 0.95), roughness=0.15, emission=(0.35, 0.9, 0.95), strength=1.8),
@@ -211,6 +211,13 @@ def setup_lights() -> None:
     sun = bpy.data.objects.new("LGT-sun", sun_data)
     bpy.context.scene.collection.objects.link(sun)
     sun.rotation_euler = (math.radians(52.0), 0.0, math.radians(-38.0))
+
+    rim_data = bpy.data.lights.new("LGT-rim", "SUN")
+    rim_data.energy = 2.2
+    rim_data.angle = math.radians(6.0)
+    rim = bpy.data.objects.new("LGT-rim", rim_data)
+    bpy.context.scene.collection.objects.link(rim)
+    rim.rotation_euler = (math.radians(60.0), 0.0, math.radians(140.0))
 
     fill_data = bpy.data.lights.new("LGT-fill", "AREA")
     fill_data.energy = 9000.0

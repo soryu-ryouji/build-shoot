@@ -94,12 +94,12 @@ def cylinder(name, center, radius, depth, mat, vertices=48):
 
 PALETTE = {
     # 明日方舟式压色：蓝灰底 + 中灰钢板 + 米白面板 + 琥珀色警示，猩红只给缺口
-    "base": (0.050, 0.058, 0.068),
-    "deck": (0.190, 0.205, 0.220),
-    "plate": (0.270, 0.285, 0.300),
-    "cream": (0.720, 0.715, 0.675),
+    "base": (0.080, 0.090, 0.100),
+    "deck": (0.300, 0.315, 0.330),
+    "plate": (0.400, 0.415, 0.430),
+    "cream": (0.780, 0.775, 0.735),
     "amber": (0.860, 0.560, 0.150),
-    "steel": (0.380, 0.400, 0.410),
+    "steel": (0.500, 0.520, 0.530),
     "red": (0.560, 0.090, 0.060),
     "cyan": (0.360, 0.820, 0.860),
 }
@@ -113,7 +113,7 @@ def make_materials() -> dict:
         "plate": material("MAT-plate", PALETTE["plate"], roughness=0.42, metallic=0.5),
         "cream": material("MAT-cream", PALETTE["cream"], roughness=0.45, metallic=0.2),
         "steel": material("MAT-steel", PALETTE["steel"], roughness=0.28, metallic=0.85),
-        "dark": material("MAT-dark", (0.075, 0.085, 0.095), roughness=0.4, metallic=0.55),
+        "dark": material("MAT-dark", (0.115, 0.125, 0.135), roughness=0.4, metallic=0.55),
         "amber": material("MAT-amber", PALETTE["amber"], roughness=0.35,
                           emission=PALETTE["amber"], strength=0.5),
         "red": material("MAT-red", PALETTE["red"], roughness=0.4,
@@ -275,13 +275,13 @@ def setup_camera() -> None:
 
 def setup_lights() -> None:
     sun_data = bpy.data.lights.new("LGT-sun", "SUN")
-    sun_data.energy = 3.0
+    sun_data.energy = 3.6
     sun_data.angle = math.radians(3.0)
     sun = bpy.data.objects.new("LGT-sun", sun_data)
     bpy.context.scene.collection.objects.link(sun)
     sun.rotation_euler = (math.radians(52.0), 0.0, math.radians(-38.0))
     fill_data = bpy.data.lights.new("LGT-fill", "AREA")
-    fill_data.energy = 9000.0
+    fill_data.energy = 11000.0
     fill_data.size = 300.0
     fill = bpy.data.objects.new("LGT-fill", fill_data)
     bpy.context.scene.collection.objects.link(fill)
