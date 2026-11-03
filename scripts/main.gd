@@ -1,6 +1,6 @@
 extends Node2D
 
-## 游戏主体：滚动方块、金币道具、网格布置、炮塔金币强化、界面联动。
+## 游戏主体：滚动方块、金币经济、三类建筑布置、形态升级、能源结算与界面联动。
 
 const Palette = preload("res://scripts/palette.gd")
 const Arena = preload("res://scripts/arena.gd")
@@ -11,7 +11,7 @@ const HitEffects = preload("res://scripts/hit_effects.gd")
 const ItemDefs = preload("res://scripts/item_defs.gd")
 const ShopBar = preload("res://scripts/shop_bar.gd")
 const FocusPanel = preload("res://scripts/focus_panel.gd")
-const PlacedTurret = preload("res://scripts/placed_turret.gd")
+const PlacedBuilding = preload("res://scripts/placed_building.gd")
 const PlacementGhost = preload("res://scripts/placement_ghost.gd")
 const SettingsPanel = preload("res://scripts/settings_panel.gd")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
@@ -32,17 +32,22 @@ var focus_panel: Control
 var settings_panel: Control
 var world_camera: Camera2D
 
-var placed_turrets: Array = []
-var selected_turret: Node = null
+var placed_buildings: Array = []
+var selected_building: Node = null
 var placing := false
 var placing_id := ""
 var placing_cost := 0
 
 var preparing := true
 var prep_timer := PREP_TIME
-var coins := 30
+var coins := 50
 var active_balls: Array = []
 var shots_fired := 0
+
+## 全局能源：产能 >= 需求时所有建筑正常运转，不足时非能源建筑全部瘫痪。
+var power_supply := 0
+var power_demand := 0
+var power_ok := true
 
 
 func _ready() -> void:
@@ -83,6 +88,7 @@ func _setup_nodes() -> void:
 	blocks = Blocks.new()
 	blocks.name = "Blocks"
 	blocks.position = -play_rect.position
+	blocks.game = self
 	blocks_clip.add_child(blocks)
 
 	items_layer = Node2D.new()
@@ -217,14 +223,17 @@ func _on_ball_vanished(ball: Node) -> void:
 
 # ---------------------------------------------------------------- 方块 / 金币
 
-func hit_block(id: int, amount: int, hit_pos: Vector2 = Vector2.INF) -> void:
+func hit_block(id: int, amount: int, hit_pos: Vector2 = Vector2.INF, electric: bool = false) -> void:
 	var res: Dictionary = blocks.damage(id, amount)
 	if not bool(res.get("hit", false)):
 		return
 
 	var center: Vector2 = res.rect.get_center()
 	var fx_pos := center if hit_pos == Vector2.INF else hit_pos
-	effects.emit_hit(fx_pos, res.color, bool(res.destroyed))
+	var fx_color: Color = res.color
+	if electric:
+		fx_color = Color(0.68, 0.94, 1.0)
+	effects.emit_hit(fx_pos, fx_color, bool(res.destroyed))
 
 	if bool(res.destroyed):
 		_reward_block(int(res.max_hp))
@@ -254,6 +263,8 @@ func _on_shop_drag_released(item_id: String, pos: Vector2) -> void:
 
 
 func begin_placement(item_id: String) -> void:
+	if not ItemDefs.is_shop_item(item_id):
+		return
 	var item: Dictionary = ItemDefs.get_item(item_id)
 	if item.is_empty():
 		return
@@ -287,7 +298,7 @@ func finish_placement(item_id: String, pos: Vector2) -> void:
 	var valid := is_valid_placement(snapped) and coins >= int(item.cost)
 	if valid:
 		coins -= int(item.cost)
-		_place_turret(item, snapped)
+		_place_building(item, snapped)
 	elif coins < int(item.cost):
 		hud.toast(I18n.t("shop.not_enough"), Palette.DANGER)
 	elif _inside_arena(snapped):
@@ -340,7 +351,7 @@ func is_valid_placement(pos: Vector2) -> bool:
 		return false
 	if pos.y < rect.position.y + margin or pos.y > rect.end.y - margin:
 		return false
-	for t in placed_turrets:
+	for t in placed_buildings:
 		if is_instance_valid(t) and pos.distance_to(t.global_position) < 62.0:
 			return false
 	return true
@@ -351,12 +362,14 @@ func _inside_arena(pos: Vector2) -> bool:
 	return rect.has_point(pos)
 
 
-func _place_turret(item: Dictionary, pos: Vector2) -> void:
-	var t = PlacedTurret.new()
-	t.setup(self, item)
-	t.position = pos
-	items_layer.add_child(t)
-	placed_turrets.append(t)
+func _place_building(item: Dictionary, pos: Vector2) -> Node:
+	var building = PlacedBuilding.new()
+	building.setup(self, item)
+	building.position = pos
+	items_layer.add_child(building)
+	placed_buildings.append(building)
+	refresh_power()
+	return building
 
 
 func _handle_world_click(pos: Vector2) -> void:
@@ -367,7 +380,7 @@ func _handle_world_click(pos: Vector2) -> void:
 	# 手机上炮塔贴图只有 40dp 左右，判定半径放宽到 46 世界单位并取最近的一座
 	var best: Node = null
 	var best_distance := 46.0
-	for t in placed_turrets:
+	for t in placed_buildings:
 		if not is_instance_valid(t):
 			continue
 		var distance := pos.distance_to(t.global_position)
@@ -375,57 +388,148 @@ func _handle_world_click(pos: Vector2) -> void:
 			best = t
 			best_distance = distance
 	if best != null:
-		select_turret(best)
+		select_building(best)
 		return
 	clear_selection()
 
 
-func select_turret(t: Node) -> void:
+func select_building(t: Node) -> void:
 	if t == null or not is_instance_valid(t):
 		return
-	selected_turret = t
-	for other in placed_turrets:
+	selected_building = t
+	for other in placed_buildings:
 		if is_instance_valid(other):
 			other.selected = (other == t)
-	focus_panel.show_turret(t)
+	focus_panel.show_building(t)
 
 
 func clear_selection() -> void:
-	if selected_turret != null and is_instance_valid(selected_turret):
-		selected_turret.selected = false
-	selected_turret = null
+	if selected_building != null and is_instance_valid(selected_building):
+		selected_building.selected = false
+	selected_building = null
 	if focus_panel != null:
 		focus_panel.hide_panel()
 
 
 func dismantle_selected() -> void:
-	var t = selected_turret
+	var t = selected_building
 	if t == null or not is_instance_valid(t):
 		clear_selection()
 		return
 	coins += int(t.get_refund())
-	placed_turrets.erase(t)
+	placed_buildings.erase(t)
+	t.alive = false
 	t.queue_free()
 	clear_selection()
+	refresh_power()
 	hud.pop_coins()
 
 
-func upgrade_selected() -> void:
-	var t = selected_turret
+func upgrade_selected_to(target_id: String) -> void:
+	var t = selected_building
 	if t == null or not is_instance_valid(t):
 		return
-	var cost := int(t.get_upgrade_cost())
+	var target: Dictionary = ItemDefs.get_item(target_id)
+	if target.is_empty():
+		return
+	var allowed := false
+	for option in t.get_upgrade_options():
+		if String(option.id) == target_id:
+			allowed = true
+			break
+	if not allowed:
+		return
+	var cost := int(target.cost)
 	if coins < cost:
 		hud.toast(I18n.t("shop.not_enough"), Palette.DANGER)
 		return
 	coins -= cost
-	t.apply_upgrade(cost)
+	t.upgrade_to(target, cost)
+	refresh_power()
+	if focus_panel != null and focus_panel.visible:
+		focus_panel.refresh()
+	hud.pop_coins()
 
 
-func fire_item_ball(source: Node, pos: Vector2, dir: Vector2, dmg: int, pierce: int, bounces: int, speed: float, radius: float) -> void:
+## ---------------------------------------------------------------- 能源
+
+func refresh_power() -> void:
+	var supply := 0
+	var demand := 0
+	for b in placed_buildings:
+		if is_instance_valid(b) and bool(b.alive):
+			supply += int(b.energy_output)
+			demand += int(b.energy_demand)
+
+	power_supply = supply
+	power_demand = demand
+	var ok := supply >= demand
+	var changed := ok != power_ok
+	power_ok = ok
+
+	for b in placed_buildings:
+		if is_instance_valid(b):
+			b.set_powered(ok or bool(b.is_energy()))
+
+	if changed and hud != null:
+		if ok:
+			hud.toast(I18n.t("power.restored"), Palette.CYAN)
+		else:
+			hud.toast(I18n.t("power.deficit"), Palette.DANGER)
+
+
+## 压缩塔的直线增益：返回 1 或 2。多个压缩塔不叠加。
+func get_buff_multiplier(point: Vector2) -> int:
+	if not power_ok:
+		return 1
+	for b in placed_buildings:
+		if is_instance_valid(b) and int(b.buff_multiplier) > 1 and bool(b.powered) and b.covers_point(point):
+			return int(b.buff_multiplier)
+	return 1
+
+
+func is_building_buffed(point: Vector2) -> bool:
+	return get_buff_multiplier(point) > 1
+
+
+## 敌人只会被阵地建筑拦截；同一条线上取最靠上的那座。
+func get_blocking_building(rect: Rect2) -> Node:
+	var best: Node = null
+	var best_y := INF
+	for b in placed_buildings:
+		if not is_instance_valid(b):
+			continue
+		if not b.can_block():
+			continue
+		if b.get_block_rect().intersects(rect) and b.global_position.y < best_y:
+			best = b
+			best_y = b.global_position.y
+	return best
+
+
+func on_building_destroyed(building: Node) -> void:
+	placed_buildings.erase(building)
+	if selected_building == building:
+		clear_selection()
+	refresh_power()
+	if hud != null:
+		hud.toast(I18n.t("building.destroyed"), Palette.DANGER)
+
+
+## 场上是否还有火力建筑；exclude 用于拆除前判断拆掉后是否仍有输出。
+func has_firepower(exclude: Node = null) -> bool:
+	for b in placed_buildings:
+		if b == exclude or not is_instance_valid(b):
+			continue
+		if bool(b.alive) and b.is_firepower():
+			return true
+	return false
+
+
+func fire_item_ball(source: Node, pos: Vector2, dir: Vector2, dmg: int, pierce: int, bounces: int, speed: float, radius: float, electric: bool = false) -> void:
 	shots_fired += 1
 	var ball = Ball.new()
-	ball.setup(self, pos, dir, speed, radius, dmg, pierce, bounces)
+	ball.setup(self, pos, dir, speed, radius, dmg, pierce, bounces, electric)
 	balls_layer.add_child(ball)
 	ball.vanished.connect(_on_ball_vanished.bind(ball))
 	active_balls.append(ball)

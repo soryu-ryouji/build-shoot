@@ -50,6 +50,7 @@ var destroyed := 0
 var spawned_rows := 0
 var scroll_speed := 20.0
 var active := false
+var game: Node
 
 ## 当前波次；0 表示还没开始（准备阶段）
 var wave := 0
@@ -88,8 +89,18 @@ func _physics_process(delta: float) -> void:
 		return
 	var dy := scroll_speed * delta
 	for b in blocks:
-		if bool(b.alive):
-			b.rect.position.y += dy * float(b.get("speed_scale", 1.0))
+		if not bool(b.alive):
+			continue
+		# 被阵地建筑挡住时停下攻击，不再前进
+		if _update_block_attack(b, delta):
+			continue
+		var step := dy * float(b.get("speed_scale", 1.0))
+		if step <= 0.0:
+			continue
+		var rect: Rect2 = b.rect
+		rect.position.y += step
+		b.rect = rect
+		_try_block(b)
 
 	# 移除已经滚出底部或被击碎的方块
 	var i := blocks.size() - 1
@@ -113,10 +124,54 @@ func _physics_process(delta: float) -> void:
 		queue_redraw()
 
 
+func _update_block_attack(b: Dictionary, delta: float) -> bool:
+	var blocker = b.get("blocked_by", null)
+	if blocker == null:
+		return false
+	if not is_instance_valid(blocker) or not blocker.can_block():
+		b.blocked_by = null
+		return false
+	blocker.take_damage(_attack_dps(String(b.kind)) * delta)
+	b.attack_flash = 1.0
+	return true
+
+
+func _try_block(b: Dictionary) -> void:
+	if game == null:
+		return
+	var blocker = game.get_blocking_building(b.rect)
+	if blocker == null:
+		return
+	var rect: Rect2 = b.rect
+	var block_rect: Rect2 = blocker.get_block_rect()
+	rect.position.y = minf(rect.position.y, block_rect.position.y - rect.size.y - 2.0)
+	b.rect = rect
+	b.blocked_by = blocker
+	b.attack_flash = 1.0
+
+
+func _attack_dps(kind: String) -> float:
+	match kind:
+		KIND_SWIFT:
+			return 6.0
+		KIND_ARMORED:
+			return 3.0
+		KIND_ELITE:
+			return 12.0
+	return 5.0
+
+
 func _process(delta: float) -> void:
 	if active:
 		if GameSettings.animate_monsters:
 			_animation_time += delta
+		queue_redraw()
+	var any_attack := false
+	for b in blocks:
+		if float(b.get("attack_flash", 0.0)) > 0.0:
+			b.attack_flash = maxf(0.0, float(b.attack_flash) - delta * 4.0)
+			any_attack = true
+	if any_attack:
 		queue_redraw()
 	var any_hp_bar := false
 	for b in blocks:
@@ -332,6 +387,8 @@ func _spawn_row(y: float, count: int) -> void:
 			"flash": 0.0,
 			"hp_bar_time": 0.0,
 			"alive": true,
+			"blocked_by": null,
+			"attack_flash": 0.0,
 		}
 		blocks.append(block)
 		by_id[id] = block
@@ -428,6 +485,14 @@ func _draw() -> void:
 				draw_texture_rect(texture, art_rect, false, Color(2.0, 2.0, 2.0, 0.65 * flash))
 			else:
 				draw_rect(inner, Color(1.0, 1.0, 1.0, 0.45 * flash))
+
+		# 正在啃食阵地建筑时，在方块底部画出抓挠痕迹
+		var attack_flash := float(b.get("attack_flash", 0.0))
+		if attack_flash > 0.0 and b.get("blocked_by", null) != null:
+			var claw := rect.get_center() + Vector2(0.0, rect.size.y * 0.42)
+			for k in 3:
+				var x := claw.x - 8.0 + k * 8.0
+				draw_line(Vector2(x, claw.y), Vector2(x - 3.0, claw.y + 9.0), Color(0.95, 0.32, 0.28, 0.8 * attack_flash), 2.0)
 
 		# 血条只在受击后的短时间内显示，避免长时间占满屏幕
 		if float(b.get("hp_bar_time", 0.0)) > 0.0 and hp < max_hp:

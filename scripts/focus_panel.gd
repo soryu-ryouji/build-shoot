@@ -1,29 +1,37 @@
 extends Control
 
-## 点击已放置炮塔后弹出的聚焦面板：属性、射程、发射数、升级与拆除。
-## 移动端改为贴底的宽面板，按钮落在拇指区，字号和点击区域都按手机取值。
+## 点击已放置建筑后弹出的聚焦面板：按类别显示属性、形态升级与拆除。
+## 移动端使用贴底宽面板，升级按钮动态生成，保证 400×800 下仍能放下两个分支。
 
 const Palette = preload("res://scripts/palette.gd")
 const NumberFont = preload("res://theme/number_font.tres")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
 const UiMetrics = preload("res://scripts/ui_metrics.gd")
+const ItemDefs = preload("res://scripts/item_defs.gd")
 
-const STAT_KEYS := ["focus.damage", "focus.rate", "focus.range", "focus.pierce", "focus.bounce", "focus.shots"]
+const FIREPOWER_STATS := ["focus.damage", "focus.rate", "focus.range", "focus.pierce", "focus.bounce", "focus.shots"]
+const FORTIFICATION_STATS := ["focus.hp", "focus.block", "focus.buff", "focus.energy", "focus.line", "focus.status"]
+const ENERGY_STATS := ["focus.output", "focus.hp", "focus.energy_net", "focus.status"]
 
 var game: Node
-var turret: Node = null
+var building: Node = null
 
 var panel: PanelContainer
 var title_label: Label
 var desc_label: Label
+var power_label: Label
 var close_button: Button
-var upgrade_button: Button
+var rule: ColorRect
+var upgrade_box: VBoxContainer
+var upgrade_buttons: Array[Button] = []
+## 第一个升级按钮，供响应式回归检查点击区域
+var upgrade_button: Button = null
 var dismantle_button: Button
-var upgrade_hint: Label
+var stat_cells: Array[VBoxContainer] = []
 var stat_names: Array[Label] = []
 var stat_values: Array[Label] = []
 
-var _accent := Palette.CYAN
+var _accent := Palette.ACCENT
 var _panel_style: StyleBoxFlat
 
 
@@ -57,7 +65,7 @@ func _ready() -> void:
 	column.add_theme_constant_override("separation", UiMetrics.GAP - 2)
 	margin.add_child(column)
 
-	var rule := ColorRect.new()
+	rule = ColorRect.new()
 	rule.custom_minimum_size = Vector2(64, 3)
 	rule.color = Palette.ACCENT
 	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -68,13 +76,14 @@ func _ready() -> void:
 	column.add_child(header)
 	var titles := VBoxContainer.new()
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	titles.add_theme_constant_override("separation", 2)
+	titles.add_theme_constant_override("separation", 1)
 	header.add_child(titles)
 	title_label = _make_label(titles, 21, Palette.INK)
 	desc_label = _make_label(titles, UiMetrics.FONT_SMALL, Palette.INK_MUTED)
 	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc_label.max_lines_visible = 2
-	desc_label.custom_minimum_size.y = 30
+	desc_label.custom_minimum_size.y = 28
+	power_label = _make_label(titles, UiMetrics.FONT_MICRO, Palette.INK_MUTED)
 
 	close_button = Button.new()
 	close_button.text = "×"
@@ -96,35 +105,23 @@ func _ready() -> void:
 	grid.columns = 3
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.add_theme_constant_override("h_separation", 8)
-	grid.add_theme_constant_override("v_separation", 8)
+	grid.add_theme_constant_override("v_separation", 6)
 	column.add_child(grid)
-	for i in STAT_KEYS.size():
+	for i in 6:
 		var cell := VBoxContainer.new()
 		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cell.add_theme_constant_override("separation", 0)
 		grid.add_child(cell)
+		stat_cells.append(cell)
 		stat_names.append(_make_label(cell, UiMetrics.FONT_MICRO, Palette.INK_MUTED))
 		stat_values.append(_make_label(cell, 19, Palette.INK))
 		stat_values[i].add_theme_font_override("font", NumberFont)
 
 	column.add_child(_separator())
 
-	upgrade_hint = _make_label(column, UiMetrics.FONT_MICRO, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-
-	upgrade_button = Button.new()
-	upgrade_button.focus_mode = Control.FOCUS_NONE
-	upgrade_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	upgrade_button.custom_minimum_size.y = UiMetrics.TOUCH_LARGE
-	upgrade_button.add_theme_font_size_override("font_size", UiMetrics.FONT_LABEL)
-	upgrade_button.add_theme_color_override("font_color", Palette.INK)
-	upgrade_button.add_theme_color_override("font_hover_color", Palette.INK)
-	upgrade_button.add_theme_color_override("font_disabled_color", Palette.INK_MUTED)
-	upgrade_button.add_theme_stylebox_override("normal", _button_style(Palette.ACCENT, Palette.ACCENT))
-	upgrade_button.add_theme_stylebox_override("hover", _button_style(Palette.ACCENT.lightened(0.18), Palette.ACCENT))
-	upgrade_button.add_theme_stylebox_override("pressed", _button_style(Palette.ACCENT.darkened(0.15), Palette.ACCENT))
-	upgrade_button.add_theme_stylebox_override("disabled", _button_style(Color(0.72, 0.74, 0.72, 0.65), Color(0.30, 0.33, 0.34, 0.25)))
-	upgrade_button.pressed.connect(_on_upgrade)
-	column.add_child(upgrade_button)
+	upgrade_box = VBoxContainer.new()
+	upgrade_box.add_theme_constant_override("separation", 4)
+	column.add_child(upgrade_box)
 
 	dismantle_button = Button.new()
 	dismantle_button.focus_mode = Control.FOCUS_NONE
@@ -174,14 +171,22 @@ func _button_style(fill: Color, border: Color) -> StyleBoxFlat:
 	return style
 
 
-func show_turret(t: Node) -> void:
-	turret = t
-	_accent = Palette.ACCENT
+func show_building(t: Node) -> void:
+	building = t
+	_accent = ItemDefs.category_color(String(t.category))
 	_panel_style.border_color = _accent
+	rule.color = _accent
 	visible = true
 	_refresh_texts()
 	_layout()
 	queue_redraw()
+
+
+func refresh() -> void:
+	if not visible:
+		return
+	_refresh_texts()
+	_layout()
 
 
 func _layout() -> void:
@@ -203,43 +208,138 @@ func _layout() -> void:
 
 func hide_panel() -> void:
 	visible = false
-	turret = null
+	building = null
 
 
 func _process(_delta: float) -> void:
 	if not visible:
 		return
-	if turret == null or not is_instance_valid(turret):
+	if building == null or not is_instance_valid(building):
 		hide_panel()
 		return
 	_update_values()
 
 
 func _refresh_texts() -> void:
-	if turret == null or not is_instance_valid(turret):
+	if building == null or not is_instance_valid(building):
 		return
-	title_label.text = turret.get_display_name()
-	title_label.add_theme_color_override("font_color", Palette.INK)
-	desc_label.text = turret.get_display_desc()
-	for i in STAT_KEYS.size():
-		stat_names[i].text = I18n.t(STAT_KEYS[i])
+	title_label.text = building.get_display_name()
+	desc_label.text = building.get_display_desc()
+	power_label.text = _power_text()
+	power_label.add_theme_color_override("font_color", Palette.DANGER if not building.powered else Palette.INK_MUTED)
+	_refresh_upgrades()
 	_update_values()
 
 
-func _update_values() -> void:
-	if turret == null or not is_instance_valid(turret):
+func _power_text() -> String:
+	if building == null or not is_instance_valid(building):
+		return ""
+	var text := ""
+	if building.is_energy():
+		text = I18n.t("focus.output_value", [int(building.energy_output)])
+	else:
+		text = I18n.t("focus.demand_value", [int(building.energy_demand)])
+	if not building.powered:
+		text += " · " + I18n.t("focus.paralyzed")
+	return text
+
+
+func _refresh_upgrades() -> void:
+	for child in upgrade_box.get_children():
+		upgrade_box.remove_child(child)
+		child.queue_free()
+	upgrade_buttons.clear()
+	upgrade_button = null
+
+	if building == null or not is_instance_valid(building):
 		return
-	stat_values[0].text = str(int(turret.get_effective_damage()))
-	stat_values[1].text = I18n.t("focus.rate_value", [String.num(float(turret.get_effective_rate()), 2)])
-	stat_values[2].text = str(int(turret.attack_range))
-	stat_values[3].text = "∞" if int(turret.pierce) < 0 else str(int(turret.pierce))
-	stat_values[4].text = str(int(turret.bounces))
-	stat_values[5].text = str(int(turret.shots))
-	var cost := int(turret.get_upgrade_cost())
-	upgrade_hint.text = I18n.t("focus.upgrade_hint", [int(turret.upgrade_damage), String.num(float(turret.upgrade_rate), 1)])
-	upgrade_button.text = I18n.t("focus.upgrade", [cost])
-	upgrade_button.disabled = int(game.coins) < cost
-	dismantle_button.text = I18n.t("focus.dismantle", [turret.get_refund()])
+	var options: Array = building.get_upgrade_options()
+	if options.is_empty():
+		var maxed := _make_label(upgrade_box, UiMetrics.FONT_SMALL, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+		maxed.text = I18n.t("focus.maxed")
+		return
+
+	for option in options:
+		var effect := _make_label(upgrade_box, UiMetrics.FONT_MICRO, Palette.INK_MUTED)
+		effect.text = I18n.t(String(option.desc_key))
+		effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		effect.max_lines_visible = 2
+		effect.custom_minimum_size.y = 30
+
+		var button := Button.new()
+		button.focus_mode = Control.FOCUS_NONE
+		button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.custom_minimum_size.y = 50
+		button.add_theme_font_size_override("font_size", UiMetrics.FONT_LABEL)
+		button.add_theme_color_override("font_color", Palette.INK)
+		button.add_theme_color_override("font_hover_color", Palette.INK)
+		button.add_theme_color_override("font_disabled_color", Palette.INK_MUTED)
+		button.add_theme_stylebox_override("normal", _button_style(Palette.ACCENT, Palette.ACCENT))
+		button.add_theme_stylebox_override("hover", _button_style(Palette.ACCENT.lightened(0.18), Palette.ACCENT))
+		button.add_theme_stylebox_override("pressed", _button_style(Palette.ACCENT.darkened(0.15), Palette.ACCENT))
+		button.add_theme_stylebox_override("disabled", _button_style(Color(0.72, 0.74, 0.72, 0.65), Color(0.30, 0.33, 0.34, 0.25)))
+		var target_id := String(option.id)
+		var target_cost := int(option.cost)
+		button.text = I18n.t("focus.upgrade_to", [I18n.t(String(option.name_key)), target_cost])
+		button.set_meta("cost", target_cost)
+		button.pressed.connect(func() -> void: _on_upgrade_to(target_id))
+		upgrade_box.add_child(button)
+		upgrade_buttons.append(button)
+
+	if not upgrade_buttons.is_empty():
+		upgrade_button = upgrade_buttons[0]
+
+
+func _update_values() -> void:
+	if building == null or not is_instance_valid(building):
+		return
+
+	var names: Array = []
+	var values: Array = []
+	match String(building.category):
+		ItemDefs.CATEGORY_FIREPOWER:
+			names = FIREPOWER_STATS
+			values = [
+				str(int(building.get_effective_damage())),
+				I18n.t("focus.rate_value", [String.num(float(building.get_effective_rate()), 2)]),
+				str(int(building.attack_range)),
+				"∞" if int(building.pierce) < 0 else str(int(building.pierce)),
+				str(int(building.bounces)),
+				str(int(building.shots)),
+			]
+		ItemDefs.CATEGORY_FORTIFICATION:
+			names = FORTIFICATION_STATS
+			values = [
+				"%d/%d" % [int(ceil(float(building.hp))), int(building.max_hp)],
+				I18n.t("focus.yes") if bool(building.blocks_enemies) else I18n.t("focus.no"),
+				"×%d" % int(building.buff_multiplier) if int(building.buff_multiplier) > 1 else "—",
+				str(int(building.energy_demand)),
+				I18n.t("focus.line_row") if bool(building.buff_line) else "—",
+				I18n.t("focus.powered") if bool(building.powered) else I18n.t("focus.paralyzed"),
+			]
+		ItemDefs.CATEGORY_ENERGY:
+			names = ENERGY_STATS
+			values = [
+				"+%d" % int(building.energy_output),
+				"%d/%d" % [int(ceil(float(building.hp))), int(building.max_hp)],
+				"+%d" % (int(building.energy_output) - int(building.energy_demand)),
+				I18n.t("focus.powered") if bool(building.powered) else I18n.t("focus.paralyzed"),
+			]
+
+	for i in stat_cells.size():
+		var used := i < names.size()
+		stat_cells[i].visible = used
+		if used:
+			stat_names[i].text = I18n.t(String(names[i]))
+			stat_values[i].text = String(values[i])
+			stat_values[i].add_theme_color_override("font_color", Palette.DANGER if values[i] == I18n.t("focus.paralyzed") else Palette.INK)
+
+	power_label.text = _power_text()
+	power_label.add_theme_color_override("font_color", Palette.DANGER if not building.powered else Palette.INK_MUTED)
+
+	for button in upgrade_buttons:
+		button.disabled = int(game.coins) < int(button.get_meta("cost", 0))
+	dismantle_button.text = I18n.t("focus.dismantle", [building.get_refund()])
 
 
 func _on_locale_changed(_locale: String) -> void:
@@ -253,8 +353,8 @@ func _on_close() -> void:
 	game.clear_selection()
 
 
-func _on_upgrade() -> void:
-	game.upgrade_selected()
+func _on_upgrade_to(target_id: String) -> void:
+	game.upgrade_selected_to(target_id)
 
 
 func _on_dismantle() -> void:

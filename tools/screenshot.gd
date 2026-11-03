@@ -36,15 +36,25 @@ func _ready() -> void:
 	await get_tree().create_timer(FILL_SECONDS).timeout
 	Engine.time_scale = 1.0
 
-	# 第二阶段：摆出炮塔阵型，正常速度跑一小段，拍到开火和命中
-	main.coins = 340
-	_place("turret", Vector2(160, 700))
-	_place("turret", Vector2(330, 736))
-	_place("turret", Vector2(560, 692))
-	_place("turret", Vector2(470, 520))
-	_place("heavy_turret", Vector2(250, 584))
-	main.placed_turrets[1].apply_upgrade(15)
-	main.placed_turrets[1].apply_upgrade(22)
+	# 第二阶段：摆出三类建筑，正常速度跑一小段，拍到开火、增益和能源线
+	main.coins = 1000
+	var solar_a: Node = _place("solar", Vector2(120, 740))
+	var solar_b: Node = _place("solar", Vector2(600, 740))
+	_place("solar", Vector2(360, 740))
+	solar_a.upgrade_to(ItemDefs.get_item("fusion_tower"), 0)
+	solar_b.upgrade_to(ItemDefs.get_item("fusion_tower"), 0)
+
+	var turret_a: Node = _place("turret", Vector2(180, 700))
+	var turret_b: Node = _place("turret", Vector2(380, 700))
+	var turret_c: Node = _place("turret", Vector2(560, 700))
+	turret_b.upgrade_to(ItemDefs.get_item("heavy_turret"), 0)
+	turret_c.upgrade_to(ItemDefs.get_item("laser_tower"), 0)
+
+	var sandbag: Node = _place("sandbag", Vector2(300, 620))
+	sandbag.upgrade_to(ItemDefs.get_item("compression_tower"), 0)
+	_place("sandbag", Vector2(480, 620))
+	_place("turret", Vector2(180, 620))
+	main.refresh_power()
 	main.coins = 118
 
 	await get_tree().create_timer(5.0).timeout
@@ -53,7 +63,7 @@ func _ready() -> void:
 	if show_settings:
 		main.open_settings()
 	elif show_focus:
-		main.select_turret(main.placed_turrets[4])
+		main.select_building(turret_a)
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
 	var suffix := "_settings" if show_settings else ("_focus" if show_focus else "")
@@ -94,8 +104,8 @@ func _requested_size_argument() -> Vector2i:
 	return Vector2i.ZERO
 
 
-func _place(item_id: String, target: Vector2) -> void:
+func _place(item_id: String, target: Vector2) -> Node:
 	var item: Dictionary = ItemDefs.get_item(item_id)
 	if item.is_empty():
-		return
-	main._place_turret(item, main.snap_to_grid(target))
+		return null
+	return main._place_building(item, main.snap_to_grid(target))

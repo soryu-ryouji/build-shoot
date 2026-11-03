@@ -34,7 +34,7 @@ func _ready() -> void:
 
 	card_row = HBoxContainer.new()
 	card_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card_row.add_theme_constant_override("separation", UiMetrics.GAP)
+	card_row.add_theme_constant_override("separation", 6)
 	card_row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	card_row.offset_left = 10
 	card_row.offset_top = 10
@@ -52,11 +52,11 @@ func _build_cards() -> void:
 			card.queue_free()
 	cards.clear()
 
-	for item in ItemDefs.ITEMS:
+	for item in ItemDefs.get_shop_items():
 		var card = ItemCard.new()
 		card.game = game
 		card.item = item
-		card.custom_minimum_size = Vector2(120, 92)
+		card.custom_minimum_size = Vector2(96, 92)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		card.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		card.drag_started.connect(_on_card_drag_started)

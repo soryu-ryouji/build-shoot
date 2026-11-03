@@ -18,6 +18,8 @@ var pierce := 0  # 剩余穿透次数；PIERCE_UNLIMITED 表示按威力预算�
 var bounces_left := 6
 var max_bounces := 6
 var alive := true
+## 压缩塔增益后的炮弹：带电击特效果，伤害已在发射时翻倍
+var electric := false
 
 var _ignored := {}
 var _trail: Array[Vector2] = []
@@ -32,7 +34,8 @@ func setup(
 	p_radius: float,
 	p_damage: int,
 	p_pierce: int,
-	p_bounces: int
+	p_bounces: int,
+	p_electric: bool = false
 ) -> void:
 	game = g
 	position = start_pos
@@ -43,6 +46,7 @@ func setup(
 	pierce = p_pierce
 	bounces_left = p_bounces
 	max_bounces = maxi(p_bounces, 1)
+	electric = p_electric
 	_trail = [start_pos, start_pos]
 
 
@@ -110,7 +114,7 @@ func _advance(dist: float) -> void:
 			var absorbed := mini(damage, int(b.hp))
 			damage -= absorbed
 			_ignored[bid] = true
-			game.hit_block(bid, absorbed, position)
+			game.hit_block(bid, absorbed, position, electric)
 			if damage <= 0:
 				_spend_bounce()
 				return
@@ -119,10 +123,10 @@ func _advance(dist: float) -> void:
 			# 穿透不消耗弹跳次数，穿过期间忽略这块，直到完全离开
 			pierce -= 1
 			_ignored[bid] = true
-			game.hit_block(bid, damage, position)
+			game.hit_block(bid, damage, position, electric)
 		else:
 			var reflected := _resolve_rect(rect)
-			game.hit_block(bid, damage, position)
+			game.hit_block(bid, damage, position, electric)
 			if reflected:
 				_spend_bounce()
 				if not alive:
@@ -219,15 +223,28 @@ func _draw() -> void:
 	if not alive:
 		return
 
+	var glow := Color(0.50, 0.90, 1.0) if electric else Color(1.0, 0.82, 0.4)
+	var core := Color(0.78, 0.98, 1.0) if electric else Palette.BALL
+
 	# _trail 存的是全局坐标，绘制时要转换成本地坐标
 	for i in _trail.size():
 		var t := float(i) / float(_trail.size())
-		draw_circle(_trail[i] - position, radius * (0.45 + 0.45 * t), Color(1.0, 0.82, 0.4, 0.04 + t * 0.16))
-	draw_line(Vector2.ZERO, -dir * 22.0, Color(1.0, 0.85, 0.45, 0.22), maxf(2.0, radius * 0.6))
-	draw_circle(Vector2.ZERO, radius + 6.0, Color(1.0, 0.85, 0.4, 0.07))
-	draw_circle(Vector2.ZERO, radius + 2.0, Color(1.0, 0.85, 0.4, 0.18))
-	draw_circle(Vector2.ZERO, radius, Palette.BALL)
+		draw_circle(_trail[i] - position, radius * (0.45 + 0.45 * t), Color(glow.r, glow.g, glow.b, 0.04 + t * 0.16))
+	draw_line(Vector2.ZERO, -dir * 22.0, Color(glow.r, glow.g, glow.b, 0.22), maxf(2.0, radius * 0.6))
+	draw_circle(Vector2.ZERO, radius + 6.0, Color(glow.r, glow.g, glow.b, 0.07))
+	draw_circle(Vector2.ZERO, radius + 2.0, Color(glow.r, glow.g, glow.b, 0.18))
+	draw_circle(Vector2.ZERO, radius, core)
 	draw_circle(Vector2.ZERO, radius * 0.5, Color(1.0, 1.0, 1.0, 0.9))
+
+	if electric:
+		# 三簇短电弧，跟着球体旋转抖动
+		for k in 3:
+			var a := _life * 26.0 + k * TAU / 3.0
+			var p1 := Vector2.from_angle(a) * (radius + 1.0)
+			var p2 := Vector2.from_angle(a + 0.35) * (radius + 6.0)
+			var p3 := Vector2.from_angle(a + 0.12) * (radius + 10.0)
+			draw_polyline(PackedVector2Array([p1, p2, p3]), Color(0.74, 0.97, 1.0, 0.75), 1.4)
+		draw_arc(Vector2.ZERO, radius + 5.0, 0.0, TAU, 20, Color(0.62, 0.94, 1.0, 0.40), 1.0)
 
 	# 剩余弹跳次数：外圈进度弧，少于 3 次时变红
 	if max_bounces > 0:

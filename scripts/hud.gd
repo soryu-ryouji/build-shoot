@@ -19,6 +19,7 @@ var coins_label: Label
 var coins_title_label: Label
 var destroyed_label: Label
 var balls_label: Label
+var energy_label: Label
 var bounce_label: Label
 var toast_label: Label
 var settings_button: Button
@@ -123,6 +124,7 @@ func _build() -> void:
 	add_child(status_row)
 	balls_label = _make_label(status_row, "", UiMetrics.FONT_BODY, Palette.INK)
 	balls_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	energy_label = _make_label(status_row, "", UiMetrics.FONT_SMALL, Palette.ACCENT, HORIZONTAL_ALIGNMENT_RIGHT)
 	bounce_label = _make_label(status_row, "", UiMetrics.FONT_SMALL, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
 
 	toast_label = _make_label(self, "", 21, Palette.ACCENT, HORIZONTAL_ALIGNMENT_CENTER)
@@ -204,6 +206,13 @@ func _process(delta: float) -> void:
 		coins_label.scale = Vector2.ONE
 
 	destroyed_label.text = I18n.t("hud.destroyed", [int(game.blocks.destroyed)])
+	var demand := int(game.power_demand)
+	var supply := int(game.power_supply)
+	if demand <= 0 and supply <= 0:
+		energy_label.text = ""
+	else:
+		energy_label.text = I18n.t("hud.energy_deficit" if not game.power_ok else "hud.energy", [demand, supply])
+		energy_label.add_theme_color_override("font_color", Palette.DANGER if not game.power_ok else Palette.ACCENT)
 	var wave := int(game.blocks.wave)
 	if wave > 0:
 		var next_wave := int(ceil(float(game.blocks.next_wave_in)))

@@ -241,6 +241,61 @@ def process_units() -> None:
         process_sprite(monsters, box, name)
 
 
+# ---------------------------------------------------------------- 静态建筑素材
+
+STATIC_BUILDINGS = {
+    "sandbag": {"source": "sandbag.png", "field": "sandbag_field.png", "icon": "sandbag.png"},
+    "compression_tower": {
+        "source": "compression_tower.png",
+        "field": "compression_tower_field.png",
+        "icon": "compression_tower.png",
+    },
+    "solar": {"source": "solar.png", "field": "solar_field.png", "icon": "solar.png"},
+    "fusion_tower": {
+        "source": "fusion_tower.png",
+        "field": "fusion_tower_field.png",
+        "icon": "fusion_tower.png",
+    },
+}
+STATIC_FIELD_SIZE = 320
+STATIC_FIELD_FILL = 286
+STATIC_ICON_SIZE = 256
+
+
+def process_static_buildings() -> None:
+    for name, spec in STATIC_BUILDINGS.items():
+        source = Image.open(SOURCE / spec["source"])
+        rgba, strong = _cut_foreground_static(source)
+        bounds = strong.getbbox()
+        if bounds is None:
+            raise RuntimeError(f"No building found in {spec['source']}")
+
+        width = bounds[2] - bounds[0]
+        height = bounds[3] - bounds[1]
+        scale = STATIC_FIELD_FILL / max(width, height)
+        canvas = Image.new("RGBA", (STATIC_FIELD_SIZE, STATIC_FIELD_SIZE), (0, 0, 0, 0))
+        _composite(
+            canvas,
+            rgba,
+            scale,
+            STATIC_FIELD_SIZE * 0.5 - (bounds[0] + bounds[2]) * 0.5 * scale,
+            STATIC_FIELD_SIZE * 0.5 - (bounds[1] + bounds[3]) * 0.5 * scale,
+        )
+        canvas.save(TARGET / spec["field"], optimize=True)
+
+        icon = canvas.crop(canvas.getchannel("A").getbbox())
+        pad = max(8, round(max(icon.size) * 0.08))
+        square = Image.new("RGBA", (icon.width + pad * 2, icon.height + pad * 2), (0, 0, 0, 0))
+        square.alpha_composite(icon, (pad, pad))
+        square.thumbnail((STATIC_ICON_SIZE, STATIC_ICON_SIZE), Image.Resampling.LANCZOS)
+        icon_canvas = Image.new("RGBA", (STATIC_ICON_SIZE, STATIC_ICON_SIZE), (0, 0, 0, 0))
+        icon_canvas.alpha_composite(
+            square,
+            ((STATIC_ICON_SIZE - square.width) // 2, (STATIC_ICON_SIZE - square.height) // 2),
+        )
+        icon_canvas.save(TARGET / spec["icon"], optimize=True)
+
+
 
 
 def process_animations() -> None:
@@ -283,6 +338,12 @@ LAYER_TARGETS = {
         "base_width": LAYER_SIZE * 2.0 / 4.8,
         "folds": 8,
     },
+    "laser_tower": {
+        "source": "laser_layers.png",
+        "base_source": "laser_base.png",
+        "base_width": LAYER_SIZE * 2.0 / 6.0,
+        "folds": 1,
+    },
 }
 # 头部贴图里炮塔机身的中心行对齐到基盘圆心
 
@@ -292,10 +353,17 @@ def _background_color(image: Image.Image) -> tuple[int, int, int]:
     return tuple(int(statistics.median(channel)) for channel in zip(*(image.getpixel(p) for p in points)))
 
 
+def _difference_from_background(image: Image.Image, background: tuple[int, int, int]) -> Image.Image:
+    """逐通道取最大差异；蓝色太阳能板等暗色块不会被亮度换算吃掉。"""
+    difference = ImageChops.difference(image, Image.new("RGB", image.size, background))
+    red, green, blue = difference.split()
+    return ImageChops.lighter(ImageChops.lighter(red, green), blue)
+
+
 def _cut_foreground(image: Image.Image) -> tuple[Image.Image, Image.Image]:
     image = image.convert("RGB")
     background = _background_color(image)
-    difference = ImageChops.difference(image, Image.new("RGB", image.size, background)).convert("L")
+    difference = _difference_from_background(image, background)
     strong = difference.point(lambda value: 255 if value > 22 else 0)
     alpha = difference.point(lambda value: max(0, min(255, round((value - 3) * 255 / 20))))
     # 背景带轻微渐变，先按强边缘裁掉低幅噪声，再轻微羽化
@@ -305,6 +373,34 @@ def _cut_foreground(image: Image.Image) -> tuple[Image.Image, Image.Image]:
     rgba = image.convert("RGBA")
     rgba.putalpha(alpha)
     return rgba, strong
+
+
+def _cut_foreground_static(image: Image.Image) -> tuple[Image.Image, Image.Image]:
+    """静态建筑裁切：先用低阈值找出主体，再从画布边缘泛洪背景，保留深色石墨件。"""
+    image = image.convert("RGB")
+    background = _background_color(image)
+    difference = _difference_from_background(image, background)
+    candidate = difference.point(lambda value: 255 if value > 12 else 0)
+    candidate = candidate.filter(ImageFilter.MinFilter(3)).filter(ImageFilter.MaxFilter(3))
+
+    # 从边缘灌入背景标记，避免把主体内部和暗色边缘误删。
+    flood = candidate.copy()
+    width, height = flood.size
+    for x in range(0, width, 8):
+        for y in (0, height - 1):
+            if flood.getpixel((x, y)) == 0:
+                ImageDraw.floodfill(flood, (x, y), 128, thresh=0)
+    for y in range(0, height, 8):
+        for x in (0, width - 1):
+            if flood.getpixel((x, y)) == 0:
+                ImageDraw.floodfill(flood, (x, y), 128, thresh=0)
+
+    background_mask = flood.point(lambda value: 255 if value == 128 else 0)
+    object_mask = ImageChops.invert(background_mask)
+    alpha = object_mask.filter(ImageFilter.GaussianBlur(0.6))
+    rgba = image.convert("RGBA")
+    rgba.putalpha(alpha)
+    return rgba, object_mask
 
 
 def _cut_chroma(image: Image.Image) -> Image.Image:
@@ -389,8 +485,10 @@ def _symmetrize(image: Image.Image, folds: int) -> Image.Image:
     return result
 
 
-def process_turret_bases() -> None:
+def process_turret_bases(targets: list[str] | None = None) -> None:
     for name, spec in LAYER_TARGETS.items():
+        if targets is not None and name not in targets:
+            continue
         image = Image.open(SOURCE / spec["base_source"])
         rgba, strong = _cut_foreground(image)
         bounds = strong.getbbox()
@@ -410,8 +508,10 @@ def process_turret_bases() -> None:
         canvas.save(TARGET / f"{name}_base_field.png", optimize=True)
 
 
-def process_turret_layers() -> None:
+def process_turret_layers(targets: list[str] | None = None) -> None:
     for name, spec in LAYER_TARGETS.items():
+        if targets is not None and name not in targets:
+            continue
         source = Image.open(SOURCE / spec["source"])
         rgba, strong = _cut_foreground(source)
         split = _split_parts(strong)
@@ -466,7 +566,7 @@ def main() -> None:
         "preset",
         nargs="?",
         default="all",
-        choices=["all", "ui", "arena", "menu", "units", "bases", "layers", "animations"],
+        choices=["all", "ui", "arena", "menu", "units", "buildings", "bases", "layers", "laser", "animations"],
     )
     args = parser.parse_args()
     TARGET.mkdir(parents=True, exist_ok=True)
@@ -479,10 +579,15 @@ def main() -> None:
         process_menu()
     if args.preset in ("all", "units"):
         process_units()
+    if args.preset in ("all", "buildings"):
+        process_static_buildings()
     if args.preset in ("all", "bases"):
         process_turret_bases()
     if args.preset in ("all", "layers"):
         process_turret_layers()
+    if args.preset == "laser":
+        process_turret_bases(["laser_tower"])
+        process_turret_layers(["laser_tower"])
     if args.preset in ("all", "animations"):
         process_animations()
     print(f"Processed {args.preset} assets into assets/ui/")

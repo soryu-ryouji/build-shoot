@@ -174,6 +174,131 @@ PRESETS = {
             "text, no letters, no numbers, no dividers, no border, no UI, no extra objects"
         ),
     },
+    "laser_base": {
+        "landscape": True,
+        "seed": 65231,
+        "reference": "turret.png",
+        "style_reference": True,
+        "prompt": (
+            "Single isolated 2D game sprite of a compact circular laser turret mounting plate, "
+            "strict orthographic top-down view from directly above, rendered as a physical "
+            "three-dimensional object with visible plate thickness, side walls and natural "
+            "foreshortening rather than a flat icon. Concentric layered metal rings with a "
+            "recessed dark circular socket in the center, evenly spaced bolts, thin vent slits "
+            "and a ring of small pale cyan power indicators, warm ivory ceramic armor and "
+            "graphite gunmetal plates with a few signal orange accent lights. No turret body, "
+            "no emitter, no barrel, no gun. High-end Japanese anime tactical game asset in the "
+            "style of Arknights, crisp restrained cel shading, clean hard-edged linework, soft "
+            "ambient occlusion, centered on a perfectly uniform solid very dark charcoal "
+            "background, generous empty margins, no cast shadow on the background, no text, no "
+            "letters, no numbers, no border, no UI, no extra objects"
+        ),
+    },
+    "laser_layers": {
+        "landscape": True,
+        "seed": 64129,
+        "reference": "turret.png",
+        "style_reference": True,
+        "prompt": (
+            "Two separate original anime laser defense turret parts for a 2D tower defense "
+            "game, arranged vertically on a perfectly uniform solid very dark charcoal "
+            "background, both drawn in the same strict orthographic top-down view as if seen "
+            "from directly above, with visible physical thickness and natural foreshortening "
+            "rather than flat icons. Bottom: a compact circular armored mounting plate with a "
+            "recessed empty circular socket, concentric rings, bolts and cyan power indicators, "
+            "no turret body and no barrel on it. Top: the laser emitter head that fits into "
+            "that socket, a narrow graphite and warm ivory housing with one long slender "
+            "emitter barrel pointing straight up toward the top edge, a glowing pale cyan lens "
+            "at the muzzle, copper coil rings and small signal orange capacitor lights, with no "
+            "base plate beneath it. A clear empty gap of plain background separates the two "
+            "parts. High-end Japanese anime tactical game asset in the style of Arknights, "
+            "crisp restrained cel shading, angular graphite mechanisms, warm ivory armor "
+            "plates, signal orange accents, pale cyan energy details. Both parts share the same "
+            "vertical center axis, readable silhouettes, generous empty margins, no humans, no "
+            "text, no letters, no numbers, no dividers, no border, no UI, no extra objects"
+        ),
+    },
+    "sandbag": {
+        "landscape": True,
+        "seed": 65301,
+        "reference": "turret.png",
+        "prompt": (
+            "Using the supplied reference image only for rendering style, linework, cel shading "
+            "and material language, do not copy its turret shape or any mechanical gun parts. "
+            "Create a single isolated 2D game sprite of a low sandbag barricade for a top-down "
+            "anime tactical tower defense game. Camera pointing straight down from directly "
+            "above, the top surfaces of the bags dominate the image and only a thin front edge "
+            "is visible, with correct foreshortening and visible physical thickness rather than "
+            "a flat icon. A compact square low wall segment built from three rows and three "
+            "columns of tan canvas sandbags with visible seams, creases and slightly varied bag "
+            "shapes, held by two small graphite metal stakes. No base plate, no wheels, no "
+            "people, no turret, no gun, no barrel. Hand-painted 2D anime tactical game asset in "
+            "the style of Arknights, bold clean outlines, two-tone crisp cel shading, flat "
+            "restrained colors, warm sand canvas and graphite accents, soft ambient occlusion, "
+            "centered on a perfectly uniform solid very dark charcoal background, generous empty "
+            "margins, no cast shadow on the background, no text, no letters, no numbers, no "
+            "border, no UI, no extra objects, no photorealism, no soft 3D render"
+        ),
+    },
+    "compression_tower": {
+        "landscape": True,
+        "seed": 65317,
+        "reference": "turret.png",
+        "style_reference": True,
+        "prompt": (
+            "Single isolated 2D game sprite of a compact compression energy tower for a top-down "
+            "anime tactical tower defense game. Strict orthographic top-down view from directly "
+            "above, rendered as a physical three-dimensional object with visible thickness, side "
+            "walls, panel seams and natural foreshortening rather than a flat icon. A broad "
+            "octagonal graphite base with layered warm ivory armor plates, two short vertical "
+            "tuning prongs, a glowing pale cyan compression core in the center, copper coil "
+            "rings, thin vents and small signal orange warning lights. No gun barrel, no "
+            "sandbags, no people. High-end Japanese anime tactical game asset in the style of "
+            "Arknights, crisp restrained cel shading, clean hard-edged linework, soft ambient "
+            "occlusion, centered on a perfectly uniform solid very dark charcoal background, "
+            "generous empty margins, no cast shadow on the background, no text, no letters, no "
+            "numbers, no border, no UI, no extra objects"
+        ),
+    },
+    "solar": {
+        "landscape": True,
+        "seed": 65333,
+        "reference": "turret.png",
+        "style_reference": True,
+        "prompt": (
+            "Single isolated 2D game sprite of a small ground-mounted solar panel array for a "
+            "top-down anime tactical tower defense game. Strict orthographic top-down view from "
+            "directly above, with the four dark blue photovoltaic panels tilted a few degrees "
+            "so their physical thickness, pale metal grid lines, ivory frame and low graphite "
+            "mounting legs are visible with correct foreshortening rather than a flat icon. "
+            "Two by two cells with thin pale separation lines, a small signal orange status "
+            "lamp, industrial bolts and a compact base. No people, no text on the panels. "
+            "High-end Japanese anime tactical game asset in the style of Arknights, crisp "
+            "restrained cel shading, clean hard-edged linework, soft ambient occlusion, "
+            "centered on a perfectly uniform solid very dark charcoal background, generous "
+            "empty margins, no cast shadow on the background, no letters, no numbers, no "
+            "border, no UI, no extra objects"
+        ),
+    },
+    "fusion_tower": {
+        "landscape": True,
+        "seed": 65349,
+        "reference": "turret.png",
+        "style_reference": True,
+        "prompt": (
+            "Single isolated 2D game sprite of a compact fusion power tower for a top-down anime "
+            "tactical tower defense game. Strict orthographic top-down view from directly above, "
+            "rendered as a physical three-dimensional object with visible thickness, side walls "
+            "and natural foreshortening rather than a flat icon. A cylindrical reactor core "
+            "with a glowing warm golden plasma center, heavy graphite ring frame, layered warm "
+            "ivory armor segments, copper coil rings, thin industrial vents and small signal "
+            "orange energy arcs. No gun barrel, no people. High-end Japanese anime tactical "
+            "game asset in the style of Arknights, crisp restrained cel shading, clean "
+            "hard-edged linework, soft ambient occlusion, centered on a perfectly uniform solid "
+            "very dark charcoal background, generous empty margins, no cast shadow on the "
+            "background, no text, no letters, no numbers, no border, no UI, no extra objects"
+        ),
+    },
 }
 
 ANIMATION_PRESETS = {
@@ -204,6 +329,12 @@ for _kind, _config in ANIMATION_PRESETS.items():
     }
 
 NEGATIVE = "text, letters, words, numbers, watermark, logo, bright white background, cluttered center"
+
+# 以现有炮塔贴图作为风格参考；提示词只借用画风，不复制它的炮塔造型。
+STYLE_REFERENCE_PREFIX = (
+    "Using the supplied reference image only for rendering style, linework, cel shading and "
+    "material language, do not copy its turret shape, gun, barrel or base plate. "
+)
 
 
 def request_json(path: str, payload: dict | None = None) -> dict:
@@ -284,6 +415,8 @@ def generate(name: str, seed: int | None = None) -> None:
     preset = PRESETS[name]
     if seed is not None:
         preset = {**preset, "seed": seed}
+    if preset.get("style_reference"):
+        preset = {**preset, "prompt": STYLE_REFERENCE_PREFIX + preset["prompt"]}
     prefix = f"build_shoot/{name}"
     reference_name = ""
     if "reference" in preset:
@@ -329,7 +462,10 @@ def generate(name: str, seed: int | None = None) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("preset", choices=[*PRESETS, "base", "units", "animations", "all"])
+    parser.add_argument(
+        "preset",
+        choices=[*PRESETS, "base", "units", "buildings", "animations", "all"],
+    )
     parser.add_argument("--seed", type=int, help="覆盖预设种子，用于挑选画面")
     args = parser.parse_args()
     if args.preset == "all":
@@ -344,11 +480,27 @@ def main() -> None:
             "monsters",
             "turret_base",
             "heavy_turret_base",
+            "laser_base",
             "turret_layers",
             "heavy_turret_layers",
+            "laser_layers",
+            "sandbag",
+            "compression_tower",
+            "solar",
+            "fusion_tower",
         ]
     elif args.preset == "units":
-        names = ["monsters", "turret_base", "heavy_turret_base", "turret_layers", "heavy_turret_layers"]
+        names = [
+            "monsters",
+            "turret_base",
+            "heavy_turret_base",
+            "laser_base",
+            "turret_layers",
+            "heavy_turret_layers",
+            "laser_layers",
+        ]
+    elif args.preset == "buildings":
+        names = ["sandbag", "compression_tower", "solar", "fusion_tower"]
     elif args.preset == "animations":
         names = [f"anim_{kind}" for kind in ANIMATION_PRESETS]
     else:

@@ -47,9 +47,9 @@ func _run() -> void:
 		main._on_shop_drag_started("turret")
 		main._on_shop_drag_moved(main.world_to_screen(world))
 		main._on_shop_drag_released("turret", main.world_to_screen(world))
-		_check(main.placed_turrets.size() == 1, "touch drag placement %s" % target)
-		if main.placed_turrets.size() == 1:
-			main.select_turret(main.placed_turrets[0])
+		_check(main.placed_buildings.size() == 1, "touch drag placement %s" % target)
+		if main.placed_buildings.size() == 1:
+			main.select_building(main.placed_buildings[0])
 			await _frames(2)
 			_check(main.focus_panel.visible, "focus panel opens %s" % target)
 			_check(_inside(main.focus_panel.get_global_rect(), view), "focus panel inside %s" % target)
@@ -58,9 +58,10 @@ func _run() -> void:
 			_check_touch(main.focus_panel.dismantle_button, "focus dismantle button %s" % target)
 			_check_font(main.focus_panel.upgrade_button, 16, "focus upgrade font %s" % target)
 			main.clear_selection()
-		for turret in main.placed_turrets:
-			turret.queue_free()
-		main.placed_turrets.clear()
+		for building in main.placed_buildings:
+			building.queue_free()
+		main.placed_buildings.clear()
+		main.refresh_power()
 		main.open_settings()
 		await _frames(2)
 		_check(_inside(main.settings_panel.panel.get_global_rect(), view), "settings inside %s" % target)
