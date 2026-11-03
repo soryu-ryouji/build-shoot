@@ -4,6 +4,8 @@ extends Node2D
 ## 火力显示 180° 扇形射界，压缩塔显示沿朝向的直线覆盖范围。
 
 const Palette = preload("res://scripts/palette.gd")
+const BattleMap = preload("res://scripts/battle_map.gd")
+const BuildingArt = preload("res://scripts/building_art_25d.gd")
 const ItemDefs = preload("res://scripts/item_defs.gd")
 const BasicBaseTexture = preload("res://assets/ui/turret_base_field.png")
 const BasicHeadTexture = preload("res://assets/ui/turret_head_field.png")
@@ -20,7 +22,7 @@ const BASE_TEXTURE_SIZE := Vector2(320.0, 320.0)
 const HEAD_TEXTURE_SIZE := Vector2(320.0, 384.0)
 const HEAD_TEXTURE_PIVOT := Vector2(160.0, 320.0)
 
-const CELL_SIZE := 64.0
+const CELL_SIZE := Vector2(48.0, 34.0)
 
 var active := false
 var orienting := false
@@ -112,7 +114,7 @@ func _layout_hint() -> void:
 	if hint == null:
 		return
 	var below := play_rect.size.y > 0.0 and position.y < play_rect.position.y + 110.0
-	hint.position = Vector2(-hint.size.x * 0.5, CELL_SIZE * 0.5 + 8.0) if below else Vector2(-hint.size.x * 0.5, -CELL_SIZE * 0.5 - 100.0)
+	hint.position = Vector2(-hint.size.x * 0.5, CELL_SIZE.y * 0.5 + 8.0) if below else Vector2(-hint.size.x * 0.5, -CELL_SIZE.y * 0.5 - 100.0)
 
 
 func _draw() -> void:
@@ -130,7 +132,7 @@ func _draw_placement() -> void:
 	_draw_range_cells()
 
 	# 当前格
-	var cell := Rect2(Vector2(-CELL_SIZE * 0.5, -CELL_SIZE * 0.5), Vector2(CELL_SIZE, CELL_SIZE))
+	var cell := Rect2(-CELL_SIZE * 0.5, CELL_SIZE)
 	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.08))
 	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.65), false, 1.5)
 
@@ -148,7 +150,7 @@ func _draw_placement() -> void:
 func _draw_orientation() -> void:
 	var mark := Palette.ACCENT
 	_draw_range_cells()
-	var cell := Rect2(Vector2(-CELL_SIZE * 0.5, -CELL_SIZE * 0.5), Vector2(CELL_SIZE, CELL_SIZE))
+	var cell := Rect2(-CELL_SIZE * 0.5, CELL_SIZE)
 	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.08))
 	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.75), false, 2.0)
 	draw_circle(Vector2.ZERO, base_radius + 6.0, Color(mark.r, mark.g, mark.b, 0.08))
@@ -169,15 +171,22 @@ func _draw_orientation() -> void:
 
 
 func _draw_range_cells() -> void:
-	var side := CELL_SIZE - 4.0
+	var half := CELL_SIZE * 0.5 - Vector2(2.0, 2.0)
 	for point in range_cells:
 		var local: Vector2 = point - global_position
-		var cell := Rect2(local - Vector2.ONE * side * 0.5, Vector2(side, side))
+		var cell := Rect2(local - half, half * 2.0)
 		draw_rect(cell, RANGE_FILL)
 		draw_rect(cell, RANGE_LINE, false, 1.0)
 
 
 func _draw_body(tint: Color, angle := -PI / 2.0) -> void:
+	if BuildingArt.available(item_id):
+		# 2.5D 预览：直接贴 Blender 渲染图，按当前朝向选图
+		var sprite := BuildingArt.texture_for(item_id, angle)
+		if sprite != null:
+			var side := float(BuildingArt.SPRITE_SIZE)
+			draw_texture_rect(sprite, Rect2(Vector2(-side, -side) * 0.5, Vector2(side, side)), false, tint)
+		return
 	if item_id == "turret" or item_id == "heavy_turret":
 		draw_set_transform(Vector2.ZERO, angle + PI / 2.0, Vector2.ONE)
 		_draw_turret_preview(tint)

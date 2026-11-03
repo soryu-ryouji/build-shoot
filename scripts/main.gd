@@ -150,6 +150,8 @@ func _setup_nodes() -> void:
 
 	items_layer = Node2D.new()
 	items_layer.name = "Items"
+	# 2.5D 建筑要按位置前后遮挡，靠 y 排序决定绘制顺序
+	items_layer.y_sort_enabled = true
 	add_child(items_layer)
 
 	balls_layer = Node2D.new()

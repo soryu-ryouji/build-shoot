@@ -4,6 +4,8 @@ extends Node2D
 ## 火力自动索敌开火；阵地拦截敌人并吸收伤害；能源提供全局能源。
 
 const Palette = preload("res://scripts/palette.gd")
+const BattleMap = preload("res://scripts/battle_map.gd")
+const BuildingArt = preload("res://scripts/building_art_25d.gd")
 const ItemDefs = preload("res://scripts/item_defs.gd")
 const TurretVisuals = preload("res://scripts/turret_visuals.gd")
 const SandbagTexture = preload("res://assets/ui/sandbag_field.png")
@@ -251,7 +253,7 @@ func can_block() -> bool:
 
 
 func get_block_rect() -> Rect2:
-	return Rect2(global_position - Vector2(30.0, 30.0), Vector2(60.0, 60.0))
+	return Rect2(global_position - Vector2(28.0, 22.0), Vector2(56.0, 44.0))
 
 
 ## 压缩塔的覆盖范围：穿过本塔、沿朝向延伸的整条直线。
@@ -372,18 +374,49 @@ func _draw() -> void:
 	if selected:
 		_draw_selection()
 
-	match category:
-		ItemDefs.CATEGORY_FIREPOWER:
-			_draw_firepower()
-		ItemDefs.CATEGORY_FORTIFICATION:
-			_draw_fortification()
-		ItemDefs.CATEGORY_ENERGY:
-			_draw_energy()
+	if BuildingArt.available(item_id):
+		_draw_sprite_25d()
+	else:
+		match category:
+			ItemDefs.CATEGORY_FIREPOWER:
+				_draw_firepower()
+			ItemDefs.CATEGORY_FORTIFICATION:
+				_draw_fortification()
+			ItemDefs.CATEGORY_ENERGY:
+				_draw_energy()
 
 	if hurt_flash > 0.0:
 		draw_circle(Vector2.ZERO, base_radius + 4.0, Color(0.95, 0.30, 0.26, 0.20 * hurt_flash))
 
 	_draw_health_bar()
+
+
+## 2.5D 贴图：地面阴影 + 按朝向选一张渲染图，激光和索敌提示仍用代码画
+func _draw_sprite_25d() -> void:
+	# 椭圆地面阴影，让建筑不像是浮在地图上
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.55))
+	draw_circle(Vector2(0.0, 4.0), base_radius * 1.05, Color(0.05, 0.06, 0.07, 0.30))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+	var sprite := BuildingArt.texture_for(item_id, aim_angle)
+	if sprite != null:
+		var side := float(BuildingArt.SPRITE_SIZE)
+		draw_texture_rect(sprite, Rect2(Vector2(-side, -side) * 0.5, Vector2(side, side)), false)
+
+	if category == ItemDefs.CATEGORY_FIREPOWER:
+		if _has_target and GameSettings.show_aim:
+			var aim_dir := Vector2.from_angle(aim_angle)
+			var local_origin := aim_dir * barrel_length
+			var global_origin := global_position + local_origin
+			var hit_global := TurretVisuals.predict(game.blocks, game.get_play_rect(), global_origin, aim_dir)
+			TurretVisuals.draw_aim(self, local_origin, aim_dir, hit_global - global_position)
+			TurretVisuals.draw_lock(self, _target_pos - global_position, _time)
+		if attack_style == "laser" and _beam_hold > 0.0:
+			_draw_laser_beam()
+		var buffed: bool = game.get_buff_multiplier(global_position) > 1
+		if buffed:
+			var pulse := 0.5 + 0.5 * sin(_time * 7.0)
+			draw_arc(Vector2.ZERO, base_radius + 6.0, 0.0, TAU, 36, Color(0.55, 0.92, 1.0, 0.35 + pulse * 0.3), 1.5)
 
 
 func _draw_selection() -> void:
@@ -393,9 +426,10 @@ func _draw_selection() -> void:
 
 
 func _draw_range_cells() -> void:
+	var half := Vector2(BattleMap.TILE, BattleMap.TILE_H) * 0.5 + Vector2(2.0, 2.0)
 	for point in game.get_range_cells(global_position, attack_range):
 		var local: Vector2 = point - global_position
-		var cell := Rect2(local - Vector2(30.0, 30.0), Vector2(60.0, 60.0))
+		var cell := Rect2(local - half, half * 2.0)
 		draw_rect(cell, Color(0.42, 0.86, 0.52, 0.10))
 		draw_rect(cell, Color(0.42, 0.86, 0.52, 0.42), false, 1.0)
 

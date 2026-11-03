@@ -105,7 +105,7 @@ func _run() -> void:
 	# ---------------------------------------------------------------- 布置与能源
 	# 场上没有火力时拆除全额返还，保证不会因为花光金币而无法重建
 	main.begin_placement("sandbag")
-	main.finish_placement("sandbag", Vector2(520, 700))
+	main.finish_placement("sandbag", BattleMap.tile_center(Vector2i(9, 12)))
 	_check(main.placed_buildings.size() == 1, "sandbag placed before firepower")
 	var first_sandbag: Node = main.placed_buildings[0]
 	_check(int(first_sandbag.get_refund()) == 15, "no-firepower dismantle refunds in full")
@@ -118,10 +118,10 @@ func _run() -> void:
 	# 只有压缩塔需要二次确认，部署时显示施法绿格；确认后隐藏
 	main.coins = 100
 	main.begin_placement("compression_tower")
-	main.finish_placement("compression_tower", Vector2(400, 500))
+	main.finish_placement("compression_tower", BattleMap.tile_center(Vector2i(6, 7)))
 	_check(main.orienting, "compression tower enters orientation step")
 	_check(main.placement_ghost.range_cells.size() > 0, "compression shows green cast cells")
-	main._update_orientation(Vector2(500, 500))
+	main._update_orientation(BattleMap.tile_center(Vector2i(9, 7)))
 	_check(is_equal_approx(main.orient_facing, 0.0), "compression drag sets the cast direction")
 	main._confirm_orientation()
 	_check(main.placement_ghost.range_cells.is_empty(), "compression cast cells hide after confirmation")
@@ -136,15 +136,15 @@ func _run() -> void:
 
 	main.begin_placement("turret")
 	_check(main.placing, "placement begins")
-	main.update_placement(Vector2(400, 400))
-	main.finish_placement("turret", Vector2(400, 400))
+	main.update_placement(BattleMap.tile_center(Vector2i(6, 5)))
+	main.finish_placement("turret", BattleMap.tile_center(Vector2i(6, 5)))
 	_check(main.placement_ghost.range_cells.is_empty(), "turret range cells hide after placement")
 	_check(not main.orienting, "turret has no attack direction and places immediately")
 	_check(main.placed_buildings.size() == 1, "basic turret placed")
 	_check(int(main.coins) == 20, "basic turret costs 30")
 	var turret: Node = main.placed_buildings[0]
 	_check(turret.category == ItemDefs.CATEGORY_FIREPOWER, "turret is firepower")
-	_check(turret.global_position == main.snap_to_grid(Vector2(400, 400)), "placement snaps to grid")
+	_check(turret.global_position == BattleMap.tile_center(Vector2i(6, 5)), "placement snaps to grid")
 	_check(is_equal_approx(turret.facing_angle, -PI / 2.0), "turret keeps the default facing")
 	_check(int(turret.damage) == 1, "basic turret base damage")
 	_check(int(turret.attack_range) == 300, "basic turret short range")
@@ -156,8 +156,8 @@ func _run() -> void:
 	_check(int(turret.shots) == 0, "paralyzed turret cannot fire")
 
 	main.begin_placement("solar")
-	main.update_placement(Vector2(250, 400))
-	main.finish_placement("solar", Vector2(250, 400))
+	main.update_placement(BattleMap.tile_center(Vector2i(3, 5)))
+	main.finish_placement("solar", BattleMap.tile_center(Vector2i(3, 5)))
 	_check(not main.orienting, "static energy building skips orientation")
 	_check(main.placed_buildings.size() == 2, "solar panel placed")
 	_check(int(main.coins) == 0, "solar panel costs 20")
@@ -182,13 +182,13 @@ func _run() -> void:
 	var left: Vector2 = main.snap_to_grid(Vector2(65, 400))
 	var right: Vector2 = main.snap_to_grid(Vector2(655, 400))
 	var top: Vector2 = main.snap_to_grid(Vector2(416, 113))
-	var bottom: Vector2 = main.snap_to_grid(Vector2(416, 790))
-	var corner: Vector2 = main.snap_to_grid(Vector2(660, 805))
+	var bottom: Vector2 = main.snap_to_grid(Vector2(416, 600))
+	var corner: Vector2 = main.snap_to_grid(Vector2(660, 610))
 	_check(is_equal_approx(left.x, 96.0), "left edge snaps")
 	_check(is_equal_approx(right.x, 624.0), "right edge snaps")
-	_check(is_equal_approx(top.y, 144.0), "top edge snaps")
-	_check(is_equal_approx(bottom.y, 768.0), "bottom edge snaps")
-	_check(is_equal_approx(corner.x, 624.0) and is_equal_approx(corner.y, 768.0), "frame edge clamps")
+	_check(is_equal_approx(top.y, 137.0), "top edge snaps")
+	_check(is_equal_approx(bottom.y, 579.0), "bottom edge snaps")
+	_check(is_equal_approx(corner.x, 624.0) and is_equal_approx(corner.y, 579.0), "frame edge clamps")
 	_check(main.is_valid_placement(left), "left edge cell is placeable")
 	_check(main.is_valid_placement(right), "right edge cell is placeable")
 	_check(main.is_valid_placement(top), "top edge cell is placeable")
@@ -255,7 +255,7 @@ func _run() -> void:
 	main.clear_selection()
 
 	main.begin_placement("fusion_tower")
-	main.finish_placement("fusion_tower", Vector2(620, 480))
+	main.finish_placement("fusion_tower", BattleMap.tile_center(Vector2i(11, 7)))
 	_check(not main.orienting, "fusion tower skips orientation")
 	_check(int(main.coins) == coins_before - 180, "fusion tower costs 60 after heavy")
 	var fusion: Node = main.placed_buildings[3]
@@ -266,7 +266,7 @@ func _run() -> void:
 
 	# ---------------------------------------------------------------- 激光塔
 	main.begin_placement("laser_tower")
-	main.finish_placement("laser_tower", Vector2(560, 560))
+	main.finish_placement("laser_tower", BattleMap.tile_center(Vector2i(10, 9)))
 	_check(not main.orienting, "laser tower has no attack direction and places immediately")
 	_check(int(main.coins) == coins_before - 330, "laser tower costs 150 after heavy and fusion")
 	var laser: Node = main.placed_buildings[4]
@@ -292,8 +292,8 @@ func _run() -> void:
 
 	# ---------------------------------------------------------------- 建筑等级成长
 	# 补足能源，验证低/中/高级建筑的升级爬升与能耗
-	_place("fusion_tower", Vector2(120, 480))
-	_place("fusion_tower", Vector2(200, 480))
+	_place("fusion_tower", BattleMap.tile_center(Vector2i(1, 10)))
+	_place("fusion_tower", BattleMap.tile_center(Vector2i(2, 10)))
 	main.refresh_power()
 	_check(main.power_supply == 14 and main.power_demand == 6, "extra fusion towers power the upgrade checks")
 	main.coins = 1000
@@ -549,7 +549,7 @@ func _run() -> void:
 	for b in main.placed_buildings:
 		if b.is_firepower():
 			b._cooldown = 9999.0
-	var origin := Vector2(360.0, 740.0)
+	var origin := Vector2(360.0, 430.0)
 	for i in 3:
 		_add_test_block(origin + Vector2(0.0, -50.0 * float(i + 1)), 1)
 	var last_target := _add_test_block(origin + Vector2(0.0, -200.0), 3)

@@ -2,7 +2,7 @@
 
 ## 核心玩法
 
-三张 12×14 的一体式瓦片地图可轮换：每张都有自己的缺口位置、路线走向和核心位置，主界面可以切换。敌人从缺口出场，沿画在地面上的通路绕行，最终走向核心；把它们拦在路上或打掉，核心血量归零就失败。
+三张 12×14 格子的 2.5D 地图可轮换：地形和场上建筑都是 Blender 正交渲染的贴图（俯角约 45°），每张有自己的缺口位置、路线走向和核心位置，主界面可以切换。敌人从缺口出场，沿画在地面上的通路走向核心；把它们拦在路上或打掉，核心血量归零就失败。
 
 开局有 5 秒准备时间和 50 金币，玩家先把太阳能电板和炮塔放到格子上。倒计时结束后敌人开始从缺口涌出，炮塔自动锁定并射出弹珠。
 
@@ -29,7 +29,7 @@
 已跑通的玩法闭环：
 
 - 开局没有默认建筑，玩家有 50 金币；5 秒准备期内不出怪
-- 地图固定为 12×14 瓦片，共三张：枢纽站（顶部两个缺口汇入中央核心）、回环廊（左右两侧缺口对称收束）、之字道（长折返路线通往右下核心）；主界面点地图名切换，选择会保存
+- 地图固定为 12×14 瓦片（每格 48×34 像素，2.5D 投影），共三张：枢纽站（顶部两个缺口汇入中央核心）、回环廊（左右两侧缺口对称收束）、之字道（长折返路线通往右下核心）；主界面点地图名切换，选择会保存
 - 缺口和核心所在格子不能建造；通路上只能放阵地建筑，火力和能源必须放在路外
 - 敌人从缺口淡入后沿路线逐格行走，被沙袋等阵地建筑挡住时停下攻击，撞到核心扣 1 点核心血量
 - 核心 12 点血量，扣完弹出结算面板（坚持到第几波、击碎多少），可以直接重开或回主菜单
@@ -181,12 +181,20 @@ Godot_v4.7.2-stable_win64.exe --path . res://tools/screenshot.tscn
 
 主界面背景与人物立绘（分两层）、战场底板、四类怪物、炮塔/重型炮塔分层素材，以及激光塔、沙袋、压缩塔、太阳能电板、聚能塔的场上素材都由本地 ComfyUI 的 `qwen_workflow` 生成，成品位于 `assets/ui/`。新建筑统一用现有炮塔贴图作为画风参考，提示词强调明日方舟式战术动画质感、象牙白装甲、石墨金属、信号橙点缀和严格的俯视透视；激光塔生成基盘与发射头两层，沙袋和能源建筑各生成一张透明底单体图，商店图标从场上素材裁切。
 
-三张地图的地板、出怪缺口和核心同样由 ComfyUI 生成（[generate_map_art.py](tools/generate_map_art.py)），再由 [process_map_art.py](tools/process_map_art.py) 裁成 576×672 的地板、128×192 的门洞和 256×256 的核心；路线、缺口、核心的坐标仍在 `scripts/battle_map.gd` 里定义，贴图只负责画面上的一体感：
+三张地图的地形与场上建筑已经改成 2.5D：Blender 里按 `assets/maps/maps.json` 的瓦片/路线/缺口/核心坐标搭地形，用一台固定正交相机（俯角 asin(34/48)≈45.1°、1 世界单位 = 1 像素）渲染成 624×524 的地图贴图和 160×160 的建筑贴图。三座火力塔各渲染 8 个朝向，其余建筑各 1 张，游戏里按 `aim_angle` 选图。
+
+坐标是同一份：`scripts/battle_map.gd` 定义 12×14 格、每格 48×34 像素，`tools/export_map_data.tscn` 把它导出成 `assets/maps/maps.json` 给 Blender：
 
 ```bash
-python tools/generate_map_art.py all
-python tools/process_map_art.py
+godot --headless --path . res://tools/export_map_data.tscn
+blender -b --factory-startup -P tools/build_map_3d.py -- --outdir assets/ui/25d
+blender -b --factory-startup -P tools/build_buildings_3d.py -- --outdir assets/ui/25d
+python tools/preview_25d.py                # 可选：合成一张检查比例与对位的预览
 ```
+
+![2.5D 地图与建筑](image.png)
+
+旧的 ComfyUI 地图贴图（`assets/ui/map_*.png`、`gate.png`、`core.png`）保留在仓库里作为回退素材；当前游戏读取的是 `assets/ui/25d/`。
 
 完整的 Prompt、负向词、seed、参考图、尺寸和后处理规范沉淀在 [ART_PROMPTS.md](ART_PROMPTS.md)，其他 AI 可以直接按文档出图。修改提示词时先改 [generate_ui_assets.py](tools/generate_ui_assets.py)，再运行 `python tools/render_art_prompts.py` 重新生成文档。
 
@@ -227,17 +235,17 @@ scripts/i18n.gd             i18n 单例：读取 JSON、切换语言、t(key)
 scripts/ball.gd             弹球：分步移动、圆-矩形碰撞、寿命、电击标记
 scripts/turret_visuals.gd   场上炮塔共用：导引线、锁定环、sprite 转向、炮塔/激光塔分层绘制
 scripts/blocks.gd           敌人生成与路线行走：缺口出场、波次节奏、伤害、拦截与攻击阵地
-scripts/battle_map.gd       一体式瓦片地图：12×14 格子、两条路线、缺口与核心坐标
+scripts/battle_map.gd       2.5D 瓦片地图：12×14 格子、两条路线、缺口与核心坐标
 scripts/game_over_panel.gd  核心失守的结算面板
 scripts/hit_effects.gd      命中粒子：火花、闪光、金币碎屑
 scripts/item_defs.gd        三类建筑、道具与升级曲线的数值定义
 scripts/shop_bar.gd         纯竖屏底部商店：类别切换、道具列表与拖拽手势
 scripts/item_card.gd        类别卡：当前道具、价格、图标与可购买状态
 scripts/item_chip.gd        类别上方的道具列表项
-scripts/placed_building.gd  场上建筑：朝向、圆形索敌、激光、能源、拦截、朝向直线增益与血量
+scripts/placed_building.gd  场上建筑：2.5D 贴图、朝向、圆形索敌、激光、能源、拦截与血量
 scripts/focus_panel.gd      聚焦面板：分类属性与拆除
 scripts/placement_ghost.gd  拖拽放置预览、射程格子与朝向选择
-scripts/arena.gd            一体式地图绘制：瓦片地面、敌人通路、缺口、核心与边框
+scripts/arena.gd            2.5D 地图贴图、核心血条与受击脉冲
 scripts/hud.gd              HUD、金币/核心血量与击碎数/能源读数与飘字
 scripts/palette.gd          配色
 i18n/zh_CN.json             中文翻译表（默认）
@@ -245,8 +253,8 @@ i18n/en.json                英文翻译表
 theme/game_theme.tres       全局 UI 字体（含 CJK 回退）
 tools/smoke_test.tscn/gd    无头冒烟测试
 tools/responsive_test.tscn/gd 多尺寸竖屏、宽度适配、触摸部署与控件尺寸回归测试
-tools/generate_map_art.py   用 ComfyUI 生成地图地板、缺口与核心
-tools/process_map_art.py    把地图原图裁成 576×672 地板、128×192 门洞与 256×256 核心
+tools/build_map_3d.py       用 Blender 生成 2.5D 地图贴图（地形/路线/缺口/核心）
+tools/build_buildings_3d.py 用 Blender 生成 2.5D 建筑贴图（8 朝向）
 tools/generate_ui_assets.py 用 ComfyUI 生成主界面、战场、怪物与建筑素材
 tools/screenshot.tscn/gd    游戏、设置面板与聚焦面板截图工具
 tools/menu_screenshot.tscn/gd 主界面与主界面设置截图工具

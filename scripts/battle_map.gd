@@ -5,7 +5,9 @@ extends RefCounted
 
 const COLS := 12
 const ROWS := 14
+## 地面格距（世界单位）与它在 2.5D 投影下的屏幕高度
 const TILE := 48.0
+const TILE_H := 34.0
 const ORIGIN := Vector2(72.0, 120.0)
 
 ## 阵地在通路上也能建（相当于明日方舟的近战阻挡位），火力和能源只能放在路外。
@@ -76,7 +78,7 @@ const MAPS := [
 		"gates": [Vector2i(1, 0), Vector2i(10, 0)],
 		"core": [Vector2i(5, 13), Vector2i(6, 13)],
 		"routes": [ROUTE_JUNCTION_A, ROUTE_JUNCTION_B],
-		"art": "res://assets/ui/map_junction.png",
+		"art": "res://assets/ui/25d/map_junction.png",
 	},
 	{
 		"id": "chicane",
@@ -84,7 +86,7 @@ const MAPS := [
 		"gates": [Vector2i(0, 1), Vector2i(11, 1)],
 		"core": [Vector2i(5, 13), Vector2i(6, 13)],
 		"routes": [ROUTE_CHICANE_A, ROUTE_CHICANE_B],
-		"art": "res://assets/ui/map_chicane.png",
+		"art": "res://assets/ui/25d/map_chicane.png",
 	},
 	{
 		"id": "zigzag",
@@ -92,7 +94,7 @@ const MAPS := [
 		"gates": [Vector2i(1, 0), Vector2i(10, 0)],
 		"core": [Vector2i(9, 13), Vector2i(10, 13)],
 		"routes": [ROUTE_ZIGZAG_A, ROUTE_ZIGZAG_B],
-		"art": "res://assets/ui/map_zigzag.png",
+		"art": "res://assets/ui/25d/map_zigzag.png",
 	},
 ]
 
@@ -126,19 +128,19 @@ static func art_path() -> String:
 # ---------------------------------------------------------------- 坐标换算
 
 static func field_rect() -> Rect2:
-	return Rect2(ORIGIN, Vector2(COLS, ROWS) * TILE)
+	return Rect2(ORIGIN, Vector2(COLS * TILE, ROWS * TILE_H))
 
 
 static func tile_rect(tile: Vector2i) -> Rect2:
-	return Rect2(ORIGIN + Vector2(tile) * TILE, Vector2(TILE, TILE))
+	return Rect2(ORIGIN + Vector2(tile.x * TILE, tile.y * TILE_H), Vector2(TILE, TILE_H))
 
 
 static func tile_center(tile: Vector2i) -> Vector2:
-	return ORIGIN + (Vector2(tile) + Vector2(0.5, 0.5)) * TILE
+	return ORIGIN + Vector2((tile.x + 0.5) * TILE, (tile.y + 0.5) * TILE_H)
 
 
 static func tile_at(point: Vector2) -> Vector2i:
-	var local := (point - ORIGIN) / TILE
+	var local := (point - ORIGIN) / Vector2(TILE, TILE_H)
 	return Vector2i(floori(local.x), floori(local.y))
 
 

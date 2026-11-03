@@ -28,7 +28,7 @@ func _run() -> void:
 		await _frames(4)
 		var view: Vector2 = get_viewport().get_visible_rect().size
 		var frame_top_left: Vector2 = main.world_to_screen(Vector2(48, 96))
-		var frame_bottom_right: Vector2 = main.world_to_screen(Vector2(672, 816))
+		var frame_bottom_right: Vector2 = main.world_to_screen(Vector2(672, 620))
 		var frame := Rect2(frame_top_left, frame_bottom_right - frame_top_left)
 		var hud_rect: Rect2 = main.hud.top_panel.get_global_rect()
 		var shop_rect: Rect2 = main.shop_bar.get_global_rect()
