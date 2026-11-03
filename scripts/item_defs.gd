@@ -19,6 +19,17 @@ const ITEMS_BY_CATEGORY := {
 	CATEGORY_ENERGY: ["solar", "fusion_tower"],
 }
 
+## 建筑升级曲线：低级/高级成长速度不同，激光塔按攻击与耗能翻倍成长。
+const UPGRADE_RULES := {
+	"turret": {"kind": "add", "damage": 5, "energy": 1, "cost": 20, "cost_mult": 1.35, "max": 5},
+	"heavy_turret": {"kind": "add", "damage": 30, "energy": 2, "cost": 60, "cost_mult": 1.5, "max": 5},
+	"laser_tower": {"kind": "mult", "damage": 2.0, "energy": 2.0, "cost": 120, "cost_mult": 1.8, "max": 6},
+	"sandbag": {"kind": "add", "hp": 60, "energy": 1, "cost": 10, "cost_mult": 1.3, "max": 5},
+	"compression_tower": {"kind": "add", "hp": 90, "energy": 1, "cost": 30, "cost_mult": 1.4, "max": 5},
+	"solar": {"kind": "add", "output": 1, "cost": 15, "cost_mult": 1.3, "max": 5},
+	"fusion_tower": {"kind": "add", "output": 2, "cost": 30, "cost_mult": 1.4, "max": 5},
+}
+
 const ITEMS := {
 	"turret": {
 		"id": "turret",
@@ -191,6 +202,10 @@ static func get_category_items(category: String) -> Array:
 static func get_default_item(category: String) -> Dictionary:
 	var items: Array = get_category_items(category)
 	return items[0] if not items.is_empty() else {}
+
+
+static func get_upgrade(id: String) -> Dictionary:
+	return UPGRADE_RULES.get(id, {})
 
 
 static func category_name_key(category: String) -> String:

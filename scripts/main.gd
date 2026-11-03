@@ -575,6 +575,24 @@ func clear_selection() -> void:
 		focus_panel.hide_panel()
 
 
+func upgrade_selected() -> void:
+	var building = selected_building
+	if building == null or not is_instance_valid(building):
+		return
+	var cost := int(building.get_upgrade_cost())
+	if cost < 0:
+		return
+	if coins < cost:
+		hud.toast(I18n.t("shop.not_enough"), Palette.DANGER)
+		return
+	coins -= cost
+	building.apply_upgrade(cost)
+	refresh_power()
+	if focus_panel != null and focus_panel.visible:
+		focus_panel.refresh()
+	hud.pop_coins()
+
+
 func dismantle_selected() -> void:
 	var t = selected_building
 	if t == null or not is_instance_valid(t):

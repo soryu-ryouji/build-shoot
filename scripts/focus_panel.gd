@@ -1,7 +1,7 @@
 extends Control
 
-## 点击已放置建筑后弹出的聚焦面板：按类别显示属性、形态升级与拆除。
-## 移动端使用贴底宽面板，升级按钮动态生成，保证 400×800 下仍能放下两个分支。
+## 点击已放置建筑后弹出的聚焦面板：按类别显示属性、等级升级与拆除。
+## 移动端使用贴底宽面板，升级按钮固定在拆除按钮上方。
 
 const Palette = preload("res://scripts/palette.gd")
 const NumberFont = preload("res://theme/number_font.tres")
@@ -22,6 +22,8 @@ var desc_label: Label
 var power_label: Label
 var close_button: Button
 var rule: ColorRect
+var upgrade_effect: Label
+var upgrade_button: Button
 var dismantle_button: Button
 var stat_cells: Array[VBoxContainer] = []
 var stat_names: Array[Label] = []
@@ -114,6 +116,24 @@ func _ready() -> void:
 		stat_values[i].add_theme_font_override("font", NumberFont)
 
 	column.add_child(_separator())
+
+	upgrade_effect = _make_label(column, UiMetrics.FONT_SMALL, Palette.INK_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+	upgrade_effect.custom_minimum_size.y = 20
+
+	upgrade_button = Button.new()
+	upgrade_button.focus_mode = Control.FOCUS_NONE
+	upgrade_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	upgrade_button.custom_minimum_size.y = 50
+	upgrade_button.add_theme_font_size_override("font_size", UiMetrics.FONT_BODY)
+	upgrade_button.add_theme_color_override("font_color", Palette.INK)
+	upgrade_button.add_theme_color_override("font_hover_color", Palette.INK)
+	upgrade_button.add_theme_color_override("font_disabled_color", Palette.INK_MUTED)
+	upgrade_button.add_theme_stylebox_override("normal", _button_style(Palette.ACCENT, Palette.ACCENT))
+	upgrade_button.add_theme_stylebox_override("hover", _button_style(Palette.ACCENT.lightened(0.18), Palette.ACCENT))
+	upgrade_button.add_theme_stylebox_override("pressed", _button_style(Palette.ACCENT.darkened(0.15), Palette.ACCENT))
+	upgrade_button.add_theme_stylebox_override("disabled", _button_style(Color(0.72, 0.74, 0.72, 0.65), Color(0.30, 0.33, 0.34, 0.25)))
+	upgrade_button.pressed.connect(_on_upgrade)
+	column.add_child(upgrade_button)
 
 	dismantle_button = Button.new()
 	dismantle_button.focus_mode = Control.FOCUS_NONE
@@ -216,6 +236,8 @@ func _refresh_texts() -> void:
 	if building == null or not is_instance_valid(building):
 		return
 	title_label.text = building.get_display_name()
+	if int(building.level) > 1:
+		title_label.text += " " + I18n.t("focus.level", [int(building.level)])
 	desc_label.text = building.get_display_desc()
 	power_label.text = _power_text()
 	power_label.add_theme_color_override("font_color", Palette.DANGER if not building.powered else Palette.INK_MUTED)
@@ -280,7 +302,35 @@ func _update_values() -> void:
 
 	power_label.text = _power_text()
 	power_label.add_theme_color_override("font_color", Palette.DANGER if not building.powered else Palette.INK_MUTED)
+	_refresh_upgrade()
 	dismantle_button.text = I18n.t("focus.dismantle", [building.get_refund()])
+
+
+func _refresh_upgrade() -> void:
+	if building == null or not is_instance_valid(building):
+		return
+	var cost := int(building.get_upgrade_cost())
+	var effect: Dictionary = building.get_upgrade_effect()
+	if effect.is_empty() or cost < 0:
+		upgrade_effect.text = I18n.t("focus.maxed")
+		upgrade_button.text = "—"
+		upgrade_button.disabled = true
+		return
+	upgrade_effect.text = _upgrade_effect_text(effect)
+	upgrade_button.text = I18n.t("focus.upgrade", [cost])
+	upgrade_button.disabled = int(game.coins) < cost
+
+
+func _upgrade_effect_text(effect: Dictionary) -> String:
+	if String(effect.get("kind", "add")) == "mult":
+		return I18n.t("focus.upgrade_effect_mult", [int(effect.get("damage", 1)), int(effect.get("energy", 1))])
+	if int(effect.get("damage", 0)) > 0:
+		return I18n.t("focus.upgrade_effect_damage", [int(effect.get("damage", 0)), int(effect.get("energy", 0))])
+	if int(effect.get("hp", 0)) > 0:
+		return I18n.t("focus.upgrade_effect_hp", [int(effect.get("hp", 0)), int(effect.get("energy", 0))])
+	if int(effect.get("output", 0)) > 0:
+		return I18n.t("focus.upgrade_effect_output", [int(effect.get("output", 0))])
+	return ""
 
 
 func _on_locale_changed(_locale: String) -> void:
@@ -292,6 +342,10 @@ func _on_locale_changed(_locale: String) -> void:
 
 func _on_close() -> void:
 	game.clear_selection()
+
+
+func _on_upgrade() -> void:
+	game.upgrade_selected()
 
 
 func _on_dismantle() -> void:

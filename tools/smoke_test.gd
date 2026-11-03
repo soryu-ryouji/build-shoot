@@ -62,6 +62,10 @@ func _run() -> void:
 	_check(int(ItemDefs.get_item("compression_tower").energy_demand) == 2, "compression tower drains two power")
 	_check(int(ItemDefs.get_item("compression_tower").buff_multiplier) == 2, "compression tower doubles damage")
 	_check(ItemDefs.get_item("compression_tower").desc_key != "", "all items have descriptions")
+	_check(int(ItemDefs.get_upgrade("turret").damage) == 5 and int(ItemDefs.get_upgrade("turret").energy) == 1, "basic turret grows by five damage and one power")
+	_check(int(ItemDefs.get_upgrade("heavy_turret").damage) == 30, "heavy turret grows by thirty damage")
+	_check(int(ItemDefs.get_upgrade("laser_tower").damage) == 2 and int(ItemDefs.get_upgrade("laser_tower").energy) == 2, "laser doubles damage and power per upgrade")
+	_check(int(ItemDefs.get_upgrade("laser_tower").max) > int(ItemDefs.get_upgrade("turret").max), "laser has the highest upgrade cap")
 
 	# ---------------------------------------------------------------- 商店类别与道具列表
 	_check(main.shop_bar.cards.size() == 3, "shop has three category cards")
@@ -257,6 +261,50 @@ func _run() -> void:
 	_check(int(main.balls_layer.get_child_count()) == balls_before, "laser does not spawn a ball")
 	main.blocks.blocks.erase(laser_target)
 	main.blocks.by_id.erase(int(laser_target.id))
+
+	# ---------------------------------------------------------------- 建筑等级成长
+	# 补足能源，验证低/中/高级建筑的升级爬升与能耗
+	_place("fusion_tower", Vector2(120, 480))
+	_place("fusion_tower", Vector2(200, 480))
+	main.refresh_power()
+	_check(main.power_supply == 14 and main.power_demand == 6, "extra fusion towers power the upgrade checks")
+	main.coins = 1000
+
+	main.select_building(turret)
+	_check(main.focus_panel.upgrade_button != null, "focus panel has an upgrade button")
+	_check("攻击 +5" in main.focus_panel.upgrade_effect.text, "basic turret upgrade adds five damage")
+	main.upgrade_selected()
+	_check(int(turret.level) == 2, "turret reaches level two")
+	_check(int(turret.damage) == 6, "turret gains five damage")
+	_check(int(turret.energy_demand) == 2, "turret gains one power demand")
+	_check(int(turret.invested) == 50, "turret upgrade cost is tracked")
+	main.clear_selection()
+
+	main.select_building(heavy_build)
+	_check("攻击 +30" in main.focus_panel.upgrade_effect.text, "heavy turret upgrade adds thirty damage")
+	main.upgrade_selected()
+	_check(int(heavy_build.level) == 2, "heavy turret reaches level two")
+	_check(int(heavy_build.damage) == 40, "heavy turret gains thirty damage")
+	_check(int(heavy_build.energy_demand) == 4, "heavy turret gains two power demand")
+	_check(int(heavy_build.invested) == 180, "heavy turret upgrade cost is tracked")
+	main.clear_selection()
+
+	main.select_building(laser)
+	_check("攻击 ×2" in main.focus_panel.upgrade_effect.text, "laser upgrade doubles damage")
+	main.upgrade_selected()
+	_check(int(laser.level) == 2, "laser reaches level two")
+	_check(int(laser.damage) == 10, "laser doubles damage")
+	_check(int(laser.energy_demand) == 6, "laser doubles power demand")
+	_check(int(laser.invested) == 270, "laser upgrade cost is tracked")
+	main.clear_selection()
+
+	_check(main.power_supply == 14 and main.power_demand == 12 and main.power_ok, "upgrades raise demand without going offline")
+	laser.level = int(ItemDefs.get_upgrade("laser_tower").max)
+	main.select_building(laser)
+	_check(int(laser.get_upgrade_cost()) == -1, "max level has no next upgrade")
+	_check(main.focus_panel.upgrade_button.disabled, "max level disables the upgrade button")
+	_check(main.focus_panel.upgrade_effect.text == I18n.t("focus.maxed"), "max level shows the cap")
+	main.clear_selection()
 
 	# ---------------------------------------------------------------- 波次与滚动
 	# 关掉现有火力的扳机，避免它们清掉用于滚动测试的方块

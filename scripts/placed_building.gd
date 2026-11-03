@@ -22,6 +22,8 @@ var desc_key := ""
 var category := ""
 var tier := 1
 var color := Palette.CYAN
+var level := 1
+var upgrade_rule: Dictionary = {}
 var invested := 0
 
 var energy_demand := 0
@@ -133,6 +135,7 @@ func _apply_def(def: Dictionary) -> void:
 	category = String(def.get("category", ""))
 	tier = int(def.get("tier", 1))
 	color = def.get("color", Palette.CYAN)
+	upgrade_rule = ItemDefs.get_upgrade(item_id)
 
 	energy_demand = int(def.get("energy_demand", 0))
 	energy_output = int(def.get("energy_output", 0))
@@ -160,6 +163,45 @@ func get_display_name() -> String:
 
 func get_display_desc() -> String:
 	return I18n.t(desc_key)
+
+
+func get_max_level() -> int:
+	return int(upgrade_rule.get("max", 1))
+
+
+func get_upgrade_cost() -> int:
+	if upgrade_rule.is_empty() or level >= get_max_level():
+		return -1
+	var base_cost := int(upgrade_rule.get("cost", 0))
+	var mult := float(upgrade_rule.get("cost_mult", 1.0))
+	return int(round(base_cost * pow(mult, level - 1)))
+
+
+func get_upgrade_effect() -> Dictionary:
+	if upgrade_rule.is_empty() or level >= get_max_level():
+		return {}
+	return upgrade_rule
+
+
+func apply_upgrade(cost: int) -> bool:
+	var effect := get_upgrade_effect()
+	if effect.is_empty() or cost < 0:
+		return false
+	level += 1
+	invested += cost
+	if String(effect.get("kind", "add")) == "mult":
+		damage = int(round(damage * float(effect.get("damage", 1.0))))
+		energy_demand = int(round(energy_demand * float(effect.get("energy", 1.0))))
+	else:
+		damage += int(effect.get("damage", 0))
+		energy_demand += int(effect.get("energy", 0))
+		var hp_gain := int(effect.get("hp", 0))
+		max_hp += hp_gain
+		hp += float(hp_gain)
+		energy_output += int(effect.get("output", 0))
+	_range_cells_cache.clear()
+	queue_redraw()
+	return true
 
 
 func get_refund() -> int:
