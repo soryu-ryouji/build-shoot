@@ -7,6 +7,7 @@
   "hud.coins": "COINS %d",
   "hud.energy": "POWER %d/%d",
   "hud.energy_offline": "POWER %d/%d · %d OFF",
+  "placement.confirm_hint": "DRAG TO AIM · RELEASE TO CONFIRM",
   "category.firepower": "FIREPOWER",
   "category.fortification": "FORTIFY",
   "category.energy": "ENERGY",

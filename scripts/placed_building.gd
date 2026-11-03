@@ -209,7 +209,7 @@ func _process(delta: float) -> void:
 		return
 
 	_cooldown = maxf(0.0, _cooldown - delta)
-	var target: Dictionary = game.blocks.get_nearest_target(global_position, attack_range, facing_angle, PI / 2.0)
+	var target: Dictionary = game.blocks.get_nearest_target(global_position, attack_range)
 	if target.is_empty():
 		_has_target = false
 		queue_redraw()
@@ -293,20 +293,8 @@ func _draw() -> void:
 
 func _draw_selection() -> void:
 	if is_firepower():
-		_draw_facing_range(attack_range, Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.22))
+		draw_arc(Vector2.ZERO, attack_range, 0.0, TAU, 64, Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.22), 1.5)
 	draw_arc(Vector2.ZERO, base_radius + 4.0, 0.0, TAU, 32, Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.60), 1.5)
-
-
-func _draw_facing_range(radius: float, color: Color) -> void:
-	var points := PackedVector2Array([Vector2.ZERO])
-	var steps := 24
-	for i in steps + 1:
-		var angle := facing_angle - PI / 2.0 + PI * float(i) / float(steps)
-		points.append(Vector2.from_angle(angle) * radius)
-	draw_colored_polygon(points, Color(color.r, color.g, color.b, 0.05))
-	draw_arc(Vector2.ZERO, radius, facing_angle - PI / 2.0, facing_angle + PI / 2.0, 48, color, 1.5)
-	draw_line(Vector2.ZERO, Vector2.from_angle(facing_angle - PI / 2.0) * radius, Color(color.r, color.g, color.b, 0.35), 1.0)
-	draw_line(Vector2.ZERO, Vector2.from_angle(facing_angle + PI / 2.0) * radius, Color(color.r, color.g, color.b, 0.35), 1.0)
 
 
 func _draw_firepower() -> void:

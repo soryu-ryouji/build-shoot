@@ -33,10 +33,26 @@ var item_id := "turret"
 var category := ItemDefs.CATEGORY_FIREPOWER
 var facing := -PI / 2.0
 var play_rect := Rect2()
+var range_cells: Array = []
+var hint: Label
+
+const RANGE_FILL := Color(0.42, 0.86, 0.52, 0.10)
+const RANGE_LINE := Color(0.42, 0.86, 0.52, 0.42)
 
 
 func _ready() -> void:
 	z_index = 8
+	hint = Label.new()
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hint.add_theme_font_size_override("font_size", 13)
+	hint.add_theme_color_override("font_color", Palette.INK)
+	hint.add_theme_color_override("font_outline_color", Color(1.0, 1.0, 0.98, 0.88))
+	hint.add_theme_constant_override("outline_size", 3)
+	hint.size = Vector2(220, 22)
+	hint.visible = false
+	add_child(hint)
 
 
 func begin(item: Dictionary) -> void:
@@ -49,6 +65,9 @@ func begin(item: Dictionary) -> void:
 	category = String(item.category)
 	orienting = false
 	facing = -PI / 2.0
+	range_cells.clear()
+	if hint != null:
+		hint.visible = false
 	queue_redraw()
 
 
@@ -65,6 +84,10 @@ func begin_orientation(pos: Vector2, item: Dictionary, angle: float, rect: Rect2
 	position = pos
 	facing = angle
 	play_rect = rect
+	if hint != null:
+		hint.text = I18n.t("placement.confirm_hint")
+		hint.visible = true
+		_layout_hint()
 	queue_redraw()
 
 
@@ -73,10 +96,25 @@ func set_facing(angle: float) -> void:
 	queue_redraw()
 
 
+func set_range_cells(cells: Array) -> void:
+	range_cells = cells
+	queue_redraw()
+
+
 func end() -> void:
 	active = false
 	orienting = false
+	range_cells.clear()
+	if hint != null:
+		hint.visible = false
 	queue_redraw()
+
+
+func _layout_hint() -> void:
+	if hint == null:
+		return
+	var below := play_rect.size.y > 0.0 and position.y < play_rect.position.y + 110.0
+	hint.position = Vector2(-hint.size.x * 0.5, CELL_SIZE * 0.5 + 8.0) if below else Vector2(-hint.size.x * 0.5, -CELL_SIZE * 0.5 - 100.0)
 
 
 func _draw() -> void:
@@ -89,15 +127,17 @@ func _draw() -> void:
 
 
 func _draw_placement() -> void:
-	var mark := Palette.CYAN.darkened(0.25) if valid else Palette.DANGER
+	var mark := Palette.ACCENT if valid else Palette.DANGER
 
-	# 网格单元高亮
+	_draw_range_cells()
+
+	# 当前格
 	var cell := Rect2(Vector2(-CELL_SIZE * 0.5, -CELL_SIZE * 0.5), Vector2(CELL_SIZE, CELL_SIZE))
-	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.04))
-	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.35), false, 1.0)
+	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.08))
+	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.65), false, 1.5)
 
 	if category == ItemDefs.CATEGORY_FIREPOWER:
-		_draw_range_sector(preview_range)
+		draw_arc(Vector2.ZERO, preview_range, 0.0, TAU, 64, RANGE_LINE, 1.5)
 
 	draw_circle(Vector2.ZERO, base_radius + 6.0, Color(mark.r, mark.g, mark.b, 0.08))
 	draw_circle(Vector2.ZERO, base_radius, Color(mark.r, mark.g, mark.b, 0.16))
@@ -112,9 +152,10 @@ func _draw_placement() -> void:
 
 func _draw_orientation() -> void:
 	var mark := Palette.ACCENT
+	_draw_range_cells()
 	var cell := Rect2(Vector2(-CELL_SIZE * 0.5, -CELL_SIZE * 0.5), Vector2(CELL_SIZE, CELL_SIZE))
-	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.06))
-	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.55), false, 1.5)
+	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.08))
+	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.75), false, 2.0)
 	draw_circle(Vector2.ZERO, base_radius + 6.0, Color(mark.r, mark.g, mark.b, 0.08))
 	draw_circle(Vector2.ZERO, base_radius, Color(mark.r, mark.g, mark.b, 0.12))
 	draw_arc(Vector2.ZERO, base_radius + 2.0, 0.0, TAU, 36, mark, 2.0)
@@ -122,7 +163,7 @@ func _draw_orientation() -> void:
 	_draw_body(Color(1.0, 1.0, 1.0, 0.82), facing)
 
 	if category == ItemDefs.CATEGORY_FIREPOWER:
-		_draw_range_sector(preview_range)
+		draw_arc(Vector2.ZERO, preview_range, 0.0, TAU, 64, RANGE_LINE, 1.5)
 	elif int(ItemDefs.get_item(item_id).get("buff_multiplier", 1)) > 1:
 		_draw_line_range()
 
@@ -137,16 +178,13 @@ func _draw_orientation() -> void:
 	draw_circle(Vector2.ZERO, 5.0, Color(1.0, 1.0, 1.0, 0.9))
 
 
-func _draw_range_sector(radius: float) -> void:
-	var points := PackedVector2Array([Vector2.ZERO])
-	var steps := 24
-	for i in steps + 1:
-		var angle := facing - PI / 2.0 + PI * float(i) / float(steps)
-		points.append(Vector2.from_angle(angle) * radius)
-	draw_colored_polygon(points, Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.07))
-	draw_arc(Vector2.ZERO, radius, facing - PI / 2.0, facing + PI / 2.0, 48, Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.75), 2.0)
-	draw_line(Vector2.ZERO, Vector2.from_angle(facing - PI / 2.0) * radius, Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.45), 1.5)
-	draw_line(Vector2.ZERO, Vector2.from_angle(facing + PI / 2.0) * radius, Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.45), 1.5)
+func _draw_range_cells() -> void:
+	var side := CELL_SIZE - 4.0
+	for point in range_cells:
+		var local: Vector2 = point - global_position
+		var cell := Rect2(local - Vector2.ONE * side * 0.5, Vector2(side, side))
+		draw_rect(cell, RANGE_FILL)
+		draw_rect(cell, RANGE_LINE, false, 1.0)
 
 
 func _draw_line_range() -> void:
@@ -155,8 +193,8 @@ func _draw_line_range() -> void:
 		return
 	var a: Vector2 = span[0] - global_position
 	var b: Vector2 = span[1] - global_position
-	draw_line(a, b, Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.10), 12.0)
-	draw_line(a, b, Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.75), 3.0)
+	draw_line(a, b, Color(RANGE_FILL.r, RANGE_FILL.g, RANGE_FILL.b, 0.16), 12.0)
+	draw_line(a, b, RANGE_LINE, 3.0)
 
 
 func _line_rect_span(origin: Vector2, direction: Vector2, rect: Rect2) -> Array:

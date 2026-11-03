@@ -287,6 +287,11 @@ func update_placement(pos: Vector2) -> void:
 	var snapped := snap_to_grid(pos)
 	var valid := is_valid_placement(snapped) and coins >= placing_cost
 	placement_ghost.update_preview(snapped, valid)
+	var item: Dictionary = ItemDefs.get_item(placing_id)
+	if String(item.get("category", "")) == ItemDefs.CATEGORY_FIREPOWER:
+		placement_ghost.set_range_cells(get_range_cells(snapped, float(item.get("range", 0.0))))
+	elif int(item.get("buff_multiplier", 1)) > 1:
+		placement_ghost.set_range_cells(get_line_cells(snapped, Vector2.from_angle(-PI / 2.0)))
 
 
 func finish_placement(item_id: String, pos: Vector2) -> void:
@@ -346,6 +351,10 @@ func _begin_orientation(item: Dictionary, pos: Vector2) -> void:
 	orient_pos = pos
 	orient_facing = -PI / 2.0
 	placement_ghost.begin_orientation(pos, item, orient_facing, get_play_rect())
+	if String(item.get("category", "")) == ItemDefs.CATEGORY_FIREPOWER:
+		placement_ghost.set_range_cells(get_range_cells(pos, float(item.get("range", 0.0))))
+	else:
+		placement_ghost.set_range_cells(get_line_cells(pos, Vector2.from_angle(orient_facing)))
 
 
 func _handle_orientation_input(event: InputEvent) -> void:
@@ -379,6 +388,8 @@ func _update_orientation(world_pos: Vector2) -> void:
 	var angle := offset.angle()
 	orient_facing = roundf(angle / (PI / 4.0)) * (PI / 4.0)
 	placement_ghost.set_facing(orient_facing)
+	if int(orient_item.get("buff_multiplier", 1)) > 1:
+		placement_ghost.set_range_cells(get_line_cells(orient_pos, Vector2.from_angle(orient_facing)))
 
 
 func _confirm_orientation() -> void:
@@ -421,6 +432,39 @@ func snap_to_grid(pos: Vector2) -> Vector2:
 		gy = clampf(gy, y0, y1)
 
 	return Vector2(gx, gy)
+
+
+func get_range_cells(center: Vector2, radius: float) -> Array:
+	var cells: Array = []
+	for cell in _grid_centers():
+		if cell.distance_to(center) <= radius:
+			cells.append(cell)
+	return cells
+
+
+func get_line_cells(center: Vector2, direction: Vector2) -> Array:
+	var cells: Array = []
+	for cell in _grid_centers():
+		if absf((cell - center).cross(direction)) <= 34.0:
+			cells.append(cell)
+	return cells
+
+
+func _grid_centers() -> Array:
+	var rect: Rect2 = get_play_rect()
+	var x0 := rect.position.x + 32.0
+	var y0 := rect.position.y + 32.0
+	var x1 := rect.end.x - 32.0
+	var y1 := rect.end.y - 32.0
+	var steps_x := maxi(1, int(floorf((x1 - x0) / PLACE_GRID)))
+	var steps_y := maxi(1, int(floorf((y1 - y0) / PLACE_GRID)))
+	var step_x := (x1 - x0) / float(steps_x)
+	var step_y := (y1 - y0) / float(steps_y)
+	var result: Array = []
+	for ix in steps_x + 1:
+		for iy in steps_y + 1:
+			result.append(Vector2(x0 + step_x * ix, y0 + step_y * iy))
+	return result
 
 
 func is_valid_placement(pos: Vector2) -> bool:

@@ -8,6 +8,8 @@ extends Node
 ##   -- --focus                 截取炮塔聚焦面板
 ##   -- --power                 截取能源不足、建筑置灰的状态
 ##   -- --orient                截取拖放后的朝向选择状态
+##   -- --place                 截取拖拽中的圆形射程格子预览
+##   -- --confirm               截取炮塔落格后的二次确认状态
 
 const ItemDefs = preload("res://scripts/item_defs.gd")
 
@@ -68,6 +70,19 @@ func _ready() -> void:
 		main.finish_placement("compression_tower", Vector2(500, 520))
 		main._update_orientation(Vector2(700, 520))
 
+	var show_place := "--place" in OS.get_cmdline_user_args()
+	if show_place:
+		main.coins = maxi(int(main.coins), 100)
+		main.begin_placement("turret")
+		main.update_placement(Vector2(400, 500))
+
+	var show_confirm := "--confirm" in OS.get_cmdline_user_args()
+	if show_confirm:
+		main.coins = maxi(int(main.coins), 100)
+		main.begin_placement("turret")
+		main.finish_placement("turret", Vector2(400, 500))
+		main._update_orientation(Vector2(400, 300))
+
 	await get_tree().create_timer(5.0).timeout
 	var show_settings := "--settings" in OS.get_cmdline_user_args()
 	var show_focus := "--focus" in OS.get_cmdline_user_args()
@@ -77,7 +92,7 @@ func _ready() -> void:
 		main.select_building(turret_a)
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
-	var suffix := "_settings" if show_settings else ("_focus" if show_focus else ("_power" if show_power else ("_orient" if show_orientation else "")))
+	var suffix := "_settings" if show_settings else ("_focus" if show_focus else ("_power" if show_power else ("_orient" if show_orientation else ("_place" if show_place else ("_confirm" if show_confirm else "")))))
 	var path := ""
 	if _has_size_arg():
 		path = "res://image_%dx%d%s.png" % [target_size.x, target_size.y, suffix]
@@ -89,6 +104,10 @@ func _ready() -> void:
 		path = "res://power_preview.png"
 	elif show_orientation:
 		path = "res://orientation_preview.png"
+	elif show_place:
+		path = "res://range_preview.png"
+	elif show_confirm:
+		path = "res://confirm_preview.png"
 	else:
 		path = SHOT_PATH
 	img.save_png(ProjectSettings.globalize_path(path))
