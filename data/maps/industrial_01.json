@@ -1,9 +1,8 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "industrial_01",
-  "name": "工业平台",
+  "name": "中央防线",
   "tileset": "res://assets/tilesets/industrial.tres",
-  "size": [9, 10],
   "palette": {
     "floor_a": { "source": 0, "atlas": [0, 0] },
     "floor_b": { "source": 0, "atlas": [1, 0] },
@@ -11,36 +10,21 @@
     "floor_d": { "source": 0, "atlas": [3, 0] },
     "pipe": { "source": 0, "atlas": [0, 1] },
     "vent": { "source": 0, "atlas": [1, 1] },
-    "stain": { "source": 0, "atlas": [2, 1] },
-    "crack": { "source": 0, "atlas": [3, 1] },
     "orange_mark": { "source": 0, "atlas": [4, 1] }
   },
-  "layers": {
-    "ground": [
-      ["floor_a", "floor_a", "floor_b", "floor_a", "floor_c", "floor_a", "floor_b", "floor_a", "floor_a"],
-      ["floor_a", "floor_c", "floor_a", "floor_a", "floor_a", "floor_b", "floor_a", "floor_d", "floor_a"],
-      ["floor_b", "floor_a", "floor_a", "floor_d", "floor_a", "floor_a", "floor_c", "floor_a", "floor_b"],
-      ["floor_a", "floor_a", "floor_b", "floor_a", "floor_c", "floor_a", "floor_a", "floor_a", "floor_a"],
-      ["floor_a", "floor_d", "floor_a", "floor_a", "floor_a", "floor_b", "floor_a", "floor_c", "floor_a"],
-      ["floor_c", "floor_a", "floor_a", "floor_b", "floor_a", "floor_a", "floor_d", "floor_a", "floor_a"],
-      ["floor_a", "floor_a", "floor_c", "floor_a", "floor_a", "floor_a", "floor_a", "floor_b", "floor_a"],
-      ["floor_a", "floor_b", "floor_a", "floor_a", "floor_d", "floor_a", "floor_c", "floor_a", "floor_a"],
-      ["floor_b", "floor_a", "floor_a", "floor_c", "floor_a", "floor_a", "floor_a", "floor_d", "floor_b"],
-      ["floor_a", "floor_a", "floor_b", "floor_a", "floor_a", "floor_c", "floor_a", "floor_a", "floor_a"]
-    ],
-    "decoration": [
-      ["orange_mark", null, null, null, null, null, null, null, "vent"],
-      [null, null, null, null, "stain", null, null, null, null],
-      [null, null, "crack", null, null, null, null, null, null],
-      [null, null, null, null, null, null, "pipe", null, null],
-      ["vent", null, null, null, null, null, null, null, null],
-      [null, null, null, "stain", null, null, null, "crack", null],
-      [null, null, null, null, null, "pipe", null, null, null],
-      [null, "crack", null, null, null, null, null, null, null],
-      [null, null, null, null, "stain", null, null, null, "vent"],
-      ["orange_mark", null, null, null, null, null, null, null, null]
-    ]
+  "generation": {
+    "seed": 41027,
+    "ground_tiles": ["floor_a", "floor_a", "floor_b", "floor_a", "floor_c", "floor_a", "floor_d"]
   },
-  "blocked_cells": [],
-  "enemy_spawn_cells": []
+  "base": {
+    "cell": [0, 0],
+    "size": [3, 3],
+    "hp": 1000
+  },
+  "nests": [
+    { "cell": [-5, -4], "hp": 45, "spawn_interval": 7.0, "kind": "normal", "reward": 30 },
+    { "cell": [6, -3], "hp": 65, "spawn_interval": 8.0, "kind": "swift", "reward": 40 },
+    { "cell": [-6, 5], "hp": 75, "spawn_interval": 9.0, "kind": "normal", "reward": 40 },
+    { "cell": [5, 6], "hp": 90, "spawn_interval": 10.0, "kind": "armored", "reward": 50 }
+  ]
 }

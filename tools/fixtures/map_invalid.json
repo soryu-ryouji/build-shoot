@@ -1,15 +1,21 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "map_invalid",
-  "name": "错误尺寸测试",
+  "name": "错误巢穴配置测试",
   "tileset": "res://assets/tilesets/industrial.tres",
-  "size": [2, 2],
   "palette": {
     "floor_a": { "source": 0, "atlas": [0, 0] }
   },
-  "layers": {
-    "ground": [
-      ["floor_a", "floor_a"]
-    ]
-  }
+  "generation": {
+    "seed": 1,
+    "ground_tiles": ["floor_a"]
+  },
+  "base": {
+    "cell": [0, 0],
+    "size": [3, 3],
+    "hp": 500
+  },
+  "nests": [
+    { "cell": [0, 0], "hp": 40 }
+  ]
 }

@@ -1,6 +1,6 @@
 extends Node2D
 
-## 通用战场容器。具体地面和尺寸全部来自 JSON，不再引用整张地图插画。
+## 无限战场容器。基地、巢穴和地面生成规则全部来自 JSON。
 
 const MapLoader = preload("res://scripts/map_loader.gd")
 const DEFAULT_MAP_PATH := "res://data/maps/industrial_01.json"
@@ -17,11 +17,3 @@ func _ready() -> void:
 
 func load_map(path: String) -> bool:
 	return map_loader.load_map(path)
-
-
-func get_play_rect() -> Rect2:
-	return map_loader.get_play_rect()
-
-
-func get_frame_rect() -> Rect2:
-	return map_loader.get_frame_rect()

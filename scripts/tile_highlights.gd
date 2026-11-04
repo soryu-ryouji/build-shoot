@@ -1,6 +1,6 @@
 extends Node2D
 
-## 瓦片上方、单位下方的统一交互高亮：绿色可放置、红色非法、青色范围。
+## 可见瓦片上的统一交互高亮：绿色可放置、红色非法、青色范围。
 
 const Palette = preload("res://scripts/palette.gd")
 const PLACE_FILL := Color(0.30, 0.82, 0.48, 0.12)
@@ -53,44 +53,25 @@ func clear_all() -> void:
 func _draw() -> void:
 	if map == null:
 		return
-	_draw_frame()
-	if GameSettings.show_grid and map.play_rect.size.x > 0.0:
+	if GameSettings.show_grid:
 		_draw_grid()
 	for cell in placement_cells:
 		_draw_cell(cell, PLACE_FILL, PLACE_LINE, 60.0, 1.0)
 	for cell in range_cells:
 		_draw_cell(cell, RANGE_FILL, RANGE_LINE, 56.0, 1.5)
-	if hover_active and map.is_inside(hover_cell):
+	if hover_active and map.is_cell_visible(hover_cell):
 		var color: Color = Palette.ACCENT if hover_valid else Palette.DANGER
 		if hover_valid:
 			color = Color(0.30, 0.90, 0.50, 1.0)
 		_draw_cell(hover_cell, Color(color, 0.20), Color(color, 0.95), 62.0, 2.0)
 
 
-func _draw_frame() -> void:
-	var rect: Rect2 = map.frame_rect
-	if rect.size == Vector2.ZERO:
-		return
-	var ink := Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.68)
-	var paper := Color(Palette.PAPER.r, Palette.PAPER.g, Palette.PAPER.b, 0.42)
-	draw_rect(rect, ink, false, 2.0)
-	draw_rect(rect.grow(-4.0), paper, false, 1.0)
-	var accent := Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.65)
-	for corner in [rect.position, Vector2(rect.end.x, rect.position.y), Vector2(rect.position.x, rect.end.y), rect.end]:
-		var direction := Vector2(1.0 if corner.x == rect.position.x else -1.0, 1.0 if corner.y == rect.position.y else -1.0)
-		draw_line(corner, corner + Vector2(direction.x * 30.0, 0.0), accent, 2.0)
-		draw_line(corner, corner + Vector2(0.0, direction.y * 30.0), accent, 2.0)
-
-
 func _draw_grid() -> void:
-	var color := Color(Palette.GRID.r, Palette.GRID.g, Palette.GRID.b, 0.14)
-	var rect: Rect2 = map.play_rect
-	for x in range(int(map.grid_size.x) + 1):
-		var world_x: float = rect.position.x + x * map.cell_size.x
-		draw_line(Vector2(world_x, rect.position.y), Vector2(world_x, rect.end.y), color, 1.0)
-	for y in range(int(map.grid_size.y) + 1):
-		var world_y: float = rect.position.y + y * map.cell_size.y
-		draw_line(Vector2(rect.position.x, world_y), Vector2(rect.end.x, world_y), color, 1.0)
+	var color := Color(Palette.GRID.r, Palette.GRID.g, Palette.GRID.b, 0.12)
+	for cell in map.get_visible_cells():
+		var center: Vector2 = map.cell_to_world(cell)
+		var rect := Rect2(center - Vector2(map.cell_size) * 0.5, Vector2(map.cell_size))
+		draw_rect(rect, color, false, 1.0)
 
 
 func _draw_cell(cell: Vector2i, fill: Color, line: Color, side: float, width: float) -> void:

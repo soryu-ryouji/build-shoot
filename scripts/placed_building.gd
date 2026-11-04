@@ -261,7 +261,7 @@ func covers_point(point: Vector2) -> bool:
 		return false
 	var offset := point - global_position
 	var direction := Vector2.from_angle(facing_angle)
-	return absf(offset.cross(direction)) <= 30.0 and game.get_play_rect().grow(8.0).has_point(point)
+	return absf(offset.cross(direction)) <= 30.0 and absf(offset.dot(direction)) <= game.LINE_RANGE
 
 
 func take_damage(amount: float) -> void:
@@ -291,6 +291,8 @@ func _process(delta: float) -> void:
 	_beam_hold = maxf(0.0, _beam_hold - delta)
 
 	if not alive:
+		return
+	if game.preparing or game.outcome != "playing":
 		return
 	_buffed = is_firepower() and powered and game.get_buff_multiplier(global_position) > 1
 	if buff_particles != null:
@@ -366,7 +368,7 @@ func _fire_laser(target: Dictionary) -> void:
 	var rect: Rect2 = target.rect
 	_beam_target = rect.get_center()
 	_beam_hold = maxf(interval * 1.5, 0.16)
-	game.hit_block(int(target.id), shot_damage, _beam_target, _beam_buffed)
+	game.hit_target(target, shot_damage, _beam_target, _beam_buffed)
 
 
 func _draw() -> void:
@@ -397,7 +399,7 @@ func _draw_firepower() -> void:
 		var aim_dir := Vector2.from_angle(aim_angle)
 		var local_origin := aim_dir * barrel_length
 		var global_origin := global_position + local_origin
-		var hit_global := TurretVisuals.predict(game.blocks, game.get_play_rect(), global_origin, aim_dir)
+		var hit_global := TurretVisuals.predict(game.blocks, global_origin, aim_dir, attack_range)
 		var hit := hit_global - global_position
 		TurretVisuals.draw_aim(self, local_origin, aim_dir, hit)
 		TurretVisuals.draw_lock(self, _target_pos - global_position, _time)

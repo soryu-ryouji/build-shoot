@@ -1,6 +1,6 @@
 extends Node2D
 
-## 炮弹：分步移动 + 圆-矩形碰撞。撞墙/方块都会消耗弹跳次数，弹跳次数耗尽后消失。
+## 无限地图炮弹：分步移动 + 圆-矩形碰撞，可攻击敌人与巢穴。
 
 const Palette = preload("res://scripts/palette.gd")
 
@@ -83,12 +83,8 @@ func _physics_process(delta: float) -> void:
 func _advance(dist: float) -> void:
 	position += dir * dist
 
-	if _resolve_walls():
-		_spend_bounce()
-		if not alive:
-			return
-
-	var block_list: Array = game.blocks.blocks
+	var block_list: Array = game.blocks.blocks.duplicate()
+	block_list.append_array(game.get_nest_targets())
 	var count := block_list.size()
 	for i in count:
 		if not alive:
@@ -112,7 +108,7 @@ func _advance(dist: float) -> void:
 			var absorbed := mini(damage, int(b.hp))
 			damage -= absorbed
 			_ignored[bid] = true
-			game.hit_block(bid, absorbed, position, electric)
+			game.hit_target(b, absorbed, position, electric)
 			if damage <= 0:
 				_spend_bounce()
 				return
@@ -121,38 +117,14 @@ func _advance(dist: float) -> void:
 			# 穿透不消耗弹跳次数，穿过期间忽略这块，直到完全离开
 			pierce -= 1
 			_ignored[bid] = true
-			game.hit_block(bid, damage, position, electric)
+			game.hit_target(b, damage, position, electric)
 		else:
 			var reflected := _resolve_rect(rect)
-			game.hit_block(bid, damage, position, electric)
+			game.hit_target(b, damage, position, electric)
 			if reflected:
 				_spend_bounce()
 				if not alive:
 					return
-
-
-func _resolve_walls() -> bool:
-	var r: Rect2 = game.get_play_rect()
-	var bounced := false
-	if position.x - radius < r.position.x:
-		position.x = r.position.x + radius
-		dir.x = absf(dir.x)
-		bounced = true
-	elif position.x + radius > r.end.x:
-		position.x = r.end.x - radius
-		dir.x = -absf(dir.x)
-		bounced = true
-
-	if position.y - radius < r.position.y:
-		position.y = r.position.y + radius
-		dir.y = absf(dir.y)
-		bounced = true
-	elif position.y + radius > r.end.y:
-		position.y = r.end.y - radius
-		dir.y = -absf(dir.y)
-		bounced = true
-
-	return bounced
 
 
 func _overlaps(rect: Rect2) -> bool:

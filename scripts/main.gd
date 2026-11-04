@@ -1,8 +1,10 @@
 extends Node2D
 
-## 游戏主体：滚动方块、金币经济、三类建筑布置、能源结算与界面联动。
+## 无限地图基地防守：巢穴生成敌人，建筑部署、能源、升级与镜头联动。
 
 const DEPLOY_TIME_SCALE := 0.28
+const PREP_TIME := 5.0
+const LINE_RANGE := 768.0
 
 const Palette = preload("res://scripts/palette.gd")
 const Arena = preload("res://scripts/arena.gd")
@@ -18,12 +20,13 @@ const PlacementGhost = preload("res://scripts/placement_ghost.gd")
 const TileHighlights = preload("res://scripts/tile_highlights.gd")
 const SettingsPanel = preload("res://scripts/settings_panel.gd")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
-
-const PREP_TIME := 5.0
+const BaseCore = preload("res://scripts/base_core.gd")
+const Nest = preload("res://scripts/nest.gd")
 
 var arena: Node2D
 var blocks: Node2D
-var blocks_clip: Control
+var base_core: Node2D
+var nests: Array = []
 var balls_layer: Node2D
 var items_layer: Node2D
 var effects: Node2D
@@ -33,6 +36,9 @@ var hud: Control
 var shop_bar: Control
 var focus_panel: Control
 var settings_panel: Control
+var result_panel: PanelContainer
+var result_title: Label
+var result_detail: Label
 var world_camera: Camera2D
 var dim_rect: ColorRect
 
@@ -49,13 +55,26 @@ var orient_dragging := false
 
 var preparing := true
 var prep_timer := PREP_TIME
+var elapsed := 0.0
+var outcome := "playing"
 var coins := 50
 
-## 全局能源：按建筑布置顺序供电，既有建筑优先；产能不足时只有排在后面的建筑离线。
 var power_supply := 0
 var power_demand := 0
 var power_offline := 0
 var power_ok := true
+
+var camera_center := Vector2.ZERO
+var camera_zoom := 0.6
+var _base_zoom := 0.0
+var _mouse_pan_candidate := false
+var _mouse_panning := false
+var _mouse_pan_start := Vector2.ZERO
+var _touch_points: Dictionary = {}
+var _touch_moved := false
+var _pinching := false
+var _pinch_distance := 0.0
+var _pinch_zoom := 1.0
 
 
 func _ready() -> void:
@@ -65,11 +84,15 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if not preparing:
+	_process_camera(delta)
+	if outcome != "playing":
 		return
-	prep_timer -= delta
-	if prep_timer <= 0.0:
-		_end_prep()
+	if preparing:
+		prep_timer -= delta
+		if prep_timer <= 0.0:
+			_end_prep()
+	else:
+		elapsed += delta
 
 
 func _end_prep() -> void:
@@ -83,48 +106,44 @@ func _setup_nodes() -> void:
 	arena.name = "Arena"
 	add_child(arena)
 
-	var play_rect: Rect2 = arena.get_play_rect()
-
 	highlights = TileHighlights.new()
 	highlights.name = "TileHighlights"
 	highlights.map = arena.map_loader
 	add_child(highlights)
 
-	# 用 Control 裁剪方块，滚动时从顶部边缘平滑进入
-	blocks_clip = Control.new()
-	blocks_clip.name = "BlocksClip"
-	blocks_clip.position = play_rect.position
-	blocks_clip.size = play_rect.size
-	blocks_clip.clip_contents = true
-	blocks_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(blocks_clip)
-
 	blocks = Blocks.new()
 	blocks.name = "Blocks"
 	blocks.z_index = 2
-	blocks.position = -play_rect.position
 	blocks.game = self
-	blocks_clip.add_child(blocks)
+	add_child(blocks)
 
 	items_layer = Node2D.new()
 	items_layer.name = "Items"
 	add_child(items_layer)
 
+	base_core = BaseCore.new()
+	base_core.name = "BaseCore"
+	base_core.setup(self, arena.map_loader.get_base_definition())
+	add_child(base_core)
+	for definition in arena.map_loader.get_nest_definitions():
+		var nest = Nest.new()
+		nest.name = "Nest%d" % int(definition.id)
+		nest.setup(self, definition)
+		add_child(nest)
+		nests.append(nest)
+
 	balls_layer = Node2D.new()
 	balls_layer.name = "Balls"
 	add_child(balls_layer)
-
 	effects = HitEffects.new()
 	effects.name = "HitEffects"
 	add_child(effects)
-
 	placement_ghost = PlacementGhost.new()
 	placement_ghost.name = "PlacementGhost"
 	add_child(placement_ghost)
 
 	world_camera = Camera2D.new()
 	world_camera.name = "WorldCamera"
-	world_camera.position = Vector2(360, 456)
 	add_child(world_camera)
 	world_camera.make_current()
 
@@ -132,7 +151,6 @@ func _setup_nodes() -> void:
 	hud_layer.name = "HudLayer"
 	hud_layer.layer = 1
 	add_child(hud_layer)
-
 	dim_rect = ColorRect.new()
 	dim_rect.name = "DeployDim"
 	dim_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -159,12 +177,12 @@ void fragment() {
 	hud.game = self
 	hud_layer.add_child(hud)
 	hud.settings_requested.connect(open_settings)
+	hud.base_requested.connect(center_on_base)
 
 	var ui_layer := CanvasLayer.new()
 	ui_layer.name = "UILayer"
 	ui_layer.layer = 2
 	add_child(ui_layer)
-
 	shop_bar = ShopBar.new()
 	shop_bar.name = "ShopBar"
 	shop_bar.game = self
@@ -172,35 +190,113 @@ void fragment() {
 	shop_bar.drag_started.connect(_on_shop_drag_started)
 	shop_bar.drag_moved.connect(_on_shop_drag_moved)
 	shop_bar.drag_released.connect(_on_shop_drag_released)
-
 	focus_panel = FocusPanel.new()
 	focus_panel.name = "FocusPanel"
 	focus_panel.game = self
 	ui_layer.add_child(focus_panel)
-
 	settings_panel = SettingsPanel.new()
 	settings_panel.name = "SettingsPanel"
 	ui_layer.add_child(settings_panel)
 	settings_panel.closed.connect(_on_settings_closed)
 	settings_panel.restart_requested.connect(_on_settings_restart)
 	settings_panel.menu_requested.connect(_on_settings_menu)
+	_build_result_panel(ui_layer)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 
 
+func _build_result_panel(parent: Node) -> void:
+	result_panel = PanelContainer.new()
+	result_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+	result_panel.visible = false
+	result_panel.add_theme_stylebox_override("panel", _result_style())
+	parent.add_child(result_panel)
+	var margin := MarginContainer.new()
+	for side in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
+		margin.add_theme_constant_override(side, 22)
+	result_panel.add_child(margin)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 14)
+	margin.add_child(column)
+	result_title = Label.new()
+	result_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	result_title.add_theme_font_size_override("font_size", 30)
+	result_title.add_theme_color_override("font_color", Palette.INK)
+	column.add_child(result_title)
+	result_detail = Label.new()
+	result_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	result_detail.add_theme_font_size_override("font_size", 16)
+	result_detail.add_theme_color_override("font_color", Palette.INK_MUTED)
+	column.add_child(result_detail)
+	var restart := Button.new()
+	restart.text = I18n.t("settings.restart")
+	restart.custom_minimum_size = Vector2(240, 54)
+	restart.pressed.connect(_on_settings_restart)
+	column.add_child(restart)
+	var menu := Button.new()
+	menu.text = I18n.t("settings.main_menu")
+	menu.custom_minimum_size = Vector2(240, 50)
+	menu.pressed.connect(_on_settings_menu)
+	column.add_child(menu)
+
+
+func _result_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(Palette.PAPER, 0.98)
+	style.border_color = Palette.ACCENT
+	style.set_border_width_all(2)
+	style.shadow_color = Color(0, 0, 0, 0.25)
+	style.shadow_size = 12
+	return style
+
+
 func _layout() -> void:
 	var field := ResponsiveLayout.field_rect(self)
-	var frame_rect: Rect2 = arena.get_frame_rect()
-	# 战场按 HUD 与商店之间的可用区缩放：先满足宽度，高度不够时再收紧，整张地图不会被上下栏遮住。
-	var fit_width := (field.size.x - 16.0) / frame_rect.size.x
-	var fit_height := field.size.y / frame_rect.size.y
-	var zoom := maxf(minf(fit_width, fit_height), 0.1)
-	world_camera.zoom = Vector2.ONE * zoom
+	_base_zoom = maxf(0.1, (field.size.x - 16.0) / 640.0)
+	camera_zoom = clampf(camera_zoom, _base_zoom * 0.65, _base_zoom * 2.0)
+	if world_camera.zoom == Vector2.ONE:
+		camera_zoom = _base_zoom
+	_apply_camera()
+	if result_panel != null:
+		result_panel.reset_size()
+		var size := result_panel.get_combined_minimum_size()
+		var view := ResponsiveLayout.viewport_size(self)
+		result_panel.size = size
+		result_panel.position = (view - size) * 0.5
 
-	# 相机对准可用区中心，而不是屏幕中心，上下留白因此对称。
+
+func _apply_camera() -> void:
+	if world_camera == null:
+		return
 	var view := ResponsiveLayout.viewport_size(self)
+	var field := ResponsiveLayout.field_rect(self)
 	var offset := field.get_center() - view * 0.5
-	world_camera.position = frame_rect.get_center() - offset / zoom
+	world_camera.zoom = Vector2.ONE * camera_zoom
+	world_camera.position = camera_center - offset / camera_zoom
+	arena.map_loader.update_view(camera_center, view / camera_zoom)
+	highlights.queue_redraw()
+
+
+func center_on_base() -> void:
+	camera_center = base_core.global_position
+	_apply_camera()
+
+
+func _process_camera(delta: float) -> void:
+	if placing or orienting or outcome != "playing" or get_tree().paused:
+		return
+	var direction := Vector2.ZERO
+	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
+		direction.x -= 1.0
+	if Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT):
+		direction.x += 1.0
+	if Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP):
+		direction.y -= 1.0
+	if Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN):
+		direction.y += 1.0
+	if direction != Vector2.ZERO:
+		camera_center += direction.normalized() * 420.0 * delta
+		_apply_camera()
 
 
 func screen_to_world(pos: Vector2) -> Vector2:
@@ -211,11 +307,18 @@ func world_to_screen(pos: Vector2) -> Vector2:
 	return get_viewport().get_canvas_transform() * pos
 
 
+func _visible_world_rect() -> Rect2:
+	var size := ResponsiveLayout.viewport_size(self) / camera_zoom
+	return Rect2(camera_center - size * 0.5, size)
+
+
 func _draw() -> void:
-	draw_rect(Rect2(-3000.0, -3000.0, 6000.0, 6000.0), Palette.ARENA_BG)
+	draw_rect(Rect2(-20000.0, -20000.0, 40000.0, 40000.0), Palette.ARENA_BG)
 
 
 func open_settings() -> void:
+	if outcome != "playing":
+		return
 	cancel_placement()
 	clear_selection()
 	settings_panel.open_panel(true)
@@ -251,34 +354,139 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_L:
 				I18n.toggle_locale()
 				GameSettings.save_settings()
+			KEY_HOME:
+				center_on_base()
 		return
-
+	if outcome != "playing":
+		return
 	if orienting:
 		_handle_orientation_input(event)
 		return
+	if placing:
+		return
+	if event is InputEventMouseButton:
+		if event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_zoom_at(event.position, 1.12)
+			return
+		if event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_zoom_at(event.position, 1.0 / 1.12)
+			return
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				_mouse_pan_candidate = true
+				_mouse_panning = false
+				_mouse_pan_start = event.position
+			else:
+				if _mouse_pan_candidate and not _mouse_panning:
+					_handle_world_click(screen_to_world(event.position))
+				_mouse_pan_candidate = false
+				_mouse_panning = false
+			return
+	if event is InputEventMouseMotion and _mouse_pan_candidate:
+		if not _mouse_panning and event.position.distance_to(_mouse_pan_start) > 5.0:
+			_mouse_panning = true
+		if _mouse_panning:
+			_pan_camera(event.relative)
+		return
+	if event is InputEventScreenTouch:
+		_handle_touch(event)
+	elif event is InputEventScreenDrag:
+		_handle_touch_drag(event)
 
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+
+func _pan_camera(relative: Vector2) -> void:
+	camera_center -= relative / camera_zoom
+	_apply_camera()
+
+
+func _zoom_at(screen_pos: Vector2, factor: float) -> void:
+	var before := screen_to_world(screen_pos)
+	camera_zoom = clampf(camera_zoom * factor, _base_zoom * 0.65, _base_zoom * 2.0)
+	_apply_camera()
+	var after := screen_to_world(screen_pos)
+	camera_center += before - after
+	_apply_camera()
+
+
+func _handle_touch(event: InputEventScreenTouch) -> void:
+	if event.pressed:
+		_touch_points[event.index] = event.position
+		if _touch_points.size() == 1:
+			_touch_moved = false
+			_pinching = false
+		elif _touch_points.size() == 2:
+			_begin_pinch()
+		return
+	var can_click := _touch_points.size() == 1 and _touch_points.has(event.index) and not _touch_moved and not _pinching
+	_touch_points.erase(event.index)
+	if can_click:
 		_handle_world_click(screen_to_world(event.position))
-	elif event is InputEventScreenTouch and event.pressed:
-		_handle_world_click(screen_to_world(event.position))
+	if _touch_points.size() < 2:
+		_pinching = false
+	if _touch_points.is_empty():
+		_touch_moved = false
 
 
-# ---------------------------------------------------------------- 方块 / 金币
+func _handle_touch_drag(event: InputEventScreenDrag) -> void:
+	if not _touch_points.has(event.index):
+		return
+	_touch_points[event.index] = event.position
+	if _touch_points.size() >= 2:
+		var points := _touch_points.values()
+		var distance: float = points[0].distance_to(points[1])
+		if _pinch_distance > 0.0:
+			camera_zoom = clampf(_pinch_zoom * distance / _pinch_distance, _base_zoom * 0.65, _base_zoom * 2.0)
+			_apply_camera()
+		_touch_moved = true
+	elif not _pinching:
+		_touch_moved = true
+		_pan_camera(event.relative)
+
+
+func _begin_pinch() -> void:
+	var points := _touch_points.values()
+	_pinch_distance = points[0].distance_to(points[1])
+	_pinch_zoom = camera_zoom
+	_pinching = true
+	_touch_moved = true
+
+
+# ---------------------------------------------------------------- 目标、基地与胜负
+
+func hit_target(target: Dictionary, amount: int, hit_pos: Vector2, electric: bool) -> void:
+	if String(target.get("target_type", "enemy")) == "nest":
+		hit_nest(target.get("node"), amount, hit_pos, electric)
+	else:
+		hit_block(int(target.id), amount, hit_pos, electric)
+
 
 func hit_block(id: int, amount: int, hit_pos: Vector2 = Vector2.INF, electric: bool = false) -> void:
 	var res: Dictionary = blocks.damage(id, amount)
 	if not bool(res.get("hit", false)):
 		return
-
 	var center: Vector2 = res.rect.get_center()
 	var fx_pos := center if hit_pos == Vector2.INF else hit_pos
 	var fx_color: Color = res.color
 	if electric:
 		fx_color = Color(0.68, 0.94, 1.0)
 	effects.emit_hit(fx_pos, fx_color, bool(res.destroyed))
-
 	if bool(res.destroyed):
 		_reward_block(int(res.max_hp))
+
+
+func hit_nest(nest: Node, amount: int, hit_pos: Vector2, electric: bool) -> void:
+	if nest == null or not is_instance_valid(nest) or not nest.alive:
+		return
+	var destroyed: bool = nest.take_damage(amount)
+	effects.emit_hit(hit_pos, Color(0.68, 0.94, 1.0) if electric else Palette.PINK, destroyed)
+
+
+func get_nest_targets() -> Array:
+	var targets: Array = []
+	for nest in nests:
+		if is_instance_valid(nest) and nest.alive:
+			targets.append(nest.get_target())
+	return targets
 
 
 func _reward_block(max_hp: int) -> void:
@@ -286,8 +494,41 @@ func _reward_block(max_hp: int) -> void:
 	hud.pop_coins()
 
 
-func get_play_rect() -> Rect2:
-	return arena.get_play_rect()
+func on_nest_destroyed(nest: Node) -> void:
+	nests.erase(nest)
+	arena.map_loader.release_reserved(nest.cell)
+	coins += int(nest.reward)
+	hud.pop_coins()
+	effects.emit_hit(nest.global_position, Palette.ACCENT, true)
+	check_outcome()
+
+
+func damage_base(amount: float) -> void:
+	if base_core != null and base_core.alive:
+		base_core.take_damage(amount)
+
+
+func on_base_destroyed() -> void:
+	outcome = "lost"
+	_show_result()
+
+
+func check_outcome() -> void:
+	if outcome != "playing" or preparing:
+		return
+	if nests.is_empty() and blocks.blocks.is_empty():
+		outcome = "won"
+		_show_result()
+
+
+func _show_result() -> void:
+	cancel_placement()
+	clear_selection()
+	result_title.text = I18n.t("result.won" if outcome == "won" else "result.lost")
+	result_detail.text = I18n.t("result.won_detail" if outcome == "won" else "result.lost_detail")
+	result_panel.visible = true
+	_layout()
+	get_tree().paused = true
 
 
 # ---------------------------------------------------------------- 道具布置
@@ -305,13 +546,14 @@ func _on_shop_drag_released(item_id: String, pos: Vector2) -> void:
 
 
 func begin_placement(item_id: String) -> void:
+	if outcome != "playing":
+		return
 	var item: Dictionary = ItemDefs.get_item(item_id)
 	if item.is_empty():
 		return
 	if coins < int(item.cost):
 		hud.toast(I18n.t("shop.not_enough"), Palette.DANGER)
 		return
-
 	cancel_orientation()
 	clear_selection()
 	_set_deploy_focus(true)
@@ -344,14 +586,12 @@ func finish_placement(item_id: String, pos: Vector2) -> void:
 	if not placing or item_id != placing_id:
 		cancel_placement()
 		return
-
 	var item: Dictionary = ItemDefs.get_item(placing_id)
 	var snapped := snap_to_grid(pos)
 	var valid := is_valid_placement(snapped) and coins >= int(item.cost)
 	placing = false
 	placing_id = ""
 	placing_cost = 0
-
 	if valid:
 		if _needs_direction(item):
 			_begin_orientation(item, snapped)
@@ -360,9 +600,8 @@ func finish_placement(item_id: String, pos: Vector2) -> void:
 		_place_building(item, snapped)
 	elif coins < int(item.cost):
 		hud.toast(I18n.t("shop.not_enough"), Palette.DANGER)
-	elif _inside_arena(snapped):
+	else:
 		hud.toast(I18n.t("shop.invalid"), Palette.DANGER)
-
 	_set_deploy_focus(false)
 	placement_ghost.end()
 	highlights.clear_all()
@@ -400,7 +639,6 @@ func _set_deploy_focus(active: bool) -> void:
 
 
 func _needs_direction(item: Dictionary) -> bool:
-	# 只有覆盖范围随朝向变化的建筑需要二次确认；炮塔/电力塔/沙袋直接放置。
 	return int(item.get("buff_multiplier", 1)) > 1
 
 
@@ -410,7 +648,7 @@ func _begin_orientation(item: Dictionary, pos: Vector2) -> void:
 	orient_item = item
 	orient_pos = pos
 	orient_facing = -PI / 2.0
-	placement_ghost.begin_orientation(pos, item, orient_facing, get_play_rect())
+	placement_ghost.begin_orientation(pos, item, orient_facing, _visible_world_rect())
 	highlights.clear_placement()
 	if String(item.get("category", "")) == ItemDefs.CATEGORY_FIREPOWER:
 		highlights.set_range_cells(get_range_cells(pos, float(item.get("range", 0.0))))
@@ -477,35 +715,36 @@ func _confirm_orientation() -> void:
 
 
 func snap_to_grid(pos: Vector2) -> Vector2:
-	var cell: Vector2i = arena.map_loader.world_to_cell(pos)
-	return arena.map_loader.cell_to_world(cell)
+	return arena.map_loader.cell_to_world(arena.map_loader.world_to_cell(pos))
 
 
 func get_range_cells(center: Vector2, radius: float) -> Array:
 	var cells: Array = []
-	for cell in arena.map_loader.get_all_cells():
-		if arena.map_loader.cell_to_world(cell).distance_to(center) <= radius:
-			cells.append(cell)
+	var center_cell: Vector2i = arena.map_loader.world_to_cell(center)
+	var steps := ceili(radius / 64.0) + 1
+	for y in range(-steps, steps + 1):
+		for x in range(-steps, steps + 1):
+			var cell := center_cell + Vector2i(x, y)
+			if arena.map_loader.cell_to_world(cell).distance_to(center) <= radius:
+				cells.append(cell)
 	return cells
 
 
 func get_line_cells(center: Vector2, direction: Vector2) -> Array:
 	var cells: Array = []
-	for cell in arena.map_loader.get_all_cells():
-		var point: Vector2 = arena.map_loader.cell_to_world(cell)
-		if absf((point - center).cross(direction)) <= 34.0:
-			cells.append(cell)
+	var center_cell: Vector2i = arena.map_loader.world_to_cell(center)
+	var steps := ceili(LINE_RANGE / 64.0) + 1
+	for y in range(-steps, steps + 1):
+		for x in range(-steps, steps + 1):
+			var cell := center_cell + Vector2i(x, y)
+			var offset: Vector2 = arena.map_loader.cell_to_world(cell) - center
+			if absf(offset.cross(direction)) <= 34.0 and absf(offset.dot(direction)) <= LINE_RANGE:
+				cells.append(cell)
 	return cells
 
 
 func is_valid_placement(pos: Vector2) -> bool:
-	var cell: Vector2i = arena.map_loader.world_to_cell(pos)
-	return arena.map_loader.is_buildable(cell)
-
-
-func _inside_arena(pos: Vector2) -> bool:
-	var rect: Rect2 = get_play_rect()
-	return rect.has_point(pos)
+	return arena.map_loader.is_buildable(arena.map_loader.world_to_cell(pos))
 
 
 func _place_building(item: Dictionary, pos: Vector2, facing := -PI / 2.0) -> Node:
@@ -526,20 +765,19 @@ func _handle_world_click(pos: Vector2) -> void:
 		return
 	if focus_panel != null and focus_panel.visible and focus_panel.get_global_rect().has_point(pos):
 		return
-	# 手机上炮塔贴图只有 40dp 左右，判定半径放宽到 46 世界单位并取最近的一座
 	var best: Node = null
 	var best_distance := 46.0
-	for t in placed_buildings:
-		if not is_instance_valid(t):
+	for building in placed_buildings:
+		if not is_instance_valid(building):
 			continue
-		var distance := pos.distance_to(t.global_position)
+		var distance := pos.distance_to(building.global_position)
 		if distance <= best_distance:
-			best = t
+			best = building
 			best_distance = distance
 	if best != null:
 		select_building(best)
-		return
-	clear_selection()
+	else:
+		clear_selection()
 
 
 func select_building(t: Node) -> void:
@@ -603,19 +841,16 @@ func dismantle_selected() -> void:
 	hud.pop_coins()
 
 
-## ---------------------------------------------------------------- 能源
+# ---------------------------------------------------------------- 建筑与战斗支持
 
 func refresh_power() -> void:
 	var supply := 0
 	for b in placed_buildings:
 		if is_instance_valid(b) and bool(b.alive):
 			supply += int(b.energy_output)
-
 	var remaining := supply
 	var demand := 0
 	var offline := 0
-
-	# 先到先得：按布置顺序分配能源，新建筑排在最后，缺电时由新建筑承担离线。
 	for b in placed_buildings:
 		if not is_instance_valid(b) or not bool(b.alive):
 			continue
@@ -629,14 +864,12 @@ func refresh_power() -> void:
 		else:
 			b.set_powered(false)
 			offline += 1
-
 	power_supply = supply
 	power_demand = demand
 	power_offline = offline
 	power_ok = offline == 0
 
 
-## 压缩塔的直线增益：返回 1 或 2。多个压缩塔不叠加。
 func get_buff_multiplier(point: Vector2) -> int:
 	for b in placed_buildings:
 		if is_instance_valid(b) and bool(b.powered) and int(b.buff_multiplier) > 1 and b.covers_point(point):
@@ -648,18 +881,16 @@ func is_building_buffed(point: Vector2) -> bool:
 	return get_buff_multiplier(point) > 1
 
 
-## 敌人只会被阵地建筑拦截；同一条线上取最靠上的那座。
 func get_blocking_building(rect: Rect2) -> Node:
 	var best: Node = null
-	var best_y := INF
+	var best_distance := INF
 	for b in placed_buildings:
-		if not is_instance_valid(b):
+		if not is_instance_valid(b) or not b.can_block() or not b.get_block_rect().intersects(rect):
 			continue
-		if not b.can_block():
-			continue
-		if b.get_block_rect().intersects(rect) and b.global_position.y < best_y:
+		var distance: float = b.global_position.distance_squared_to(rect.get_center())
+		if distance < best_distance:
 			best = b
-			best_y = b.global_position.y
+			best_distance = distance
 	return best
 
 
@@ -673,7 +904,6 @@ func on_building_destroyed(building: Node) -> void:
 		hud.toast(I18n.t("building.destroyed"), Palette.DANGER)
 
 
-## 场上是否还有火力建筑；exclude 用于拆除前判断拆掉后是否仍有输出。
 func has_firepower(exclude: Node = null) -> bool:
 	for b in placed_buildings:
 		if b == exclude or not is_instance_valid(b):

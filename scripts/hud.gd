@@ -1,9 +1,10 @@
 extends Control
 
-## 响应式 HUD：顶部信息面板（金币、波次、击碎数）和中居战斗提示。
+## 响应式 HUD：基地生命、巢穴数量、金币、击碎数与屏外巢穴指示。
 ## 尺寸按 400×800 移动端基线取，按钮不低于 52 逻辑像素。
 
 signal settings_requested
+signal base_requested
 
 const Palette = preload("res://scripts/palette.gd")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
@@ -18,6 +19,7 @@ var destroyed_label: Label
 var energy_label: Label
 var toast_label: Label
 var settings_button: Button
+var base_button: Button
 
 var _toast_time := 0.0
 var _coin_pop := 0.0
@@ -71,6 +73,21 @@ func _build() -> void:
 	settings_button.add_theme_stylebox_override("pressed", _button_style(Color(Palette.ACCENT, 0.28)))
 	settings_button.pressed.connect(func() -> void: settings_requested.emit())
 	main_row.add_child(settings_button)
+
+	base_button = Button.new()
+	base_button.text = "基"
+	base_button.flat = true
+	base_button.focus_mode = Control.FOCUS_NONE
+	base_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	base_button.custom_minimum_size = Vector2(UiMetrics.TOUCH, UiMetrics.TOUCH)
+	base_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	base_button.add_theme_font_size_override("font_size", 20)
+	base_button.add_theme_color_override("font_color", Palette.INK)
+	base_button.add_theme_color_override("font_hover_color", Palette.ACCENT)
+	base_button.add_theme_stylebox_override("normal", _button_style(Color(Palette.INK, 0.06)))
+	base_button.add_theme_stylebox_override("hover", _button_style(Color(Palette.ACCENT, 0.16)))
+	base_button.pressed.connect(func() -> void: base_requested.emit())
+	main_row.add_child(base_button)
 
 	var left_box := VBoxContainer.new()
 	left_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -149,6 +166,7 @@ func _refresh_static_texts() -> void:
 	mode_label.text = I18n.t("hud.mode")
 	tag_label.text = I18n.t("hud.tag")
 	settings_button.tooltip_text = I18n.t("settings.open")
+	base_button.tooltip_text = I18n.t("hud.home")
 
 
 func _on_locale_changed(_locale: String) -> void:
@@ -179,10 +197,9 @@ func _process(delta: float) -> void:
 	else:
 		energy_label.text = I18n.t("hud.energy", [demand, supply])
 		energy_label.add_theme_color_override("font_color", Palette.ACCENT)
-	var wave := int(game.blocks.wave)
-	if wave > 0:
-		var next_wave := int(ceil(float(game.blocks.next_wave_in)))
-		tag_label.text = I18n.t("hud.wave_next", [wave, next_wave]) if next_wave > 0 else I18n.t("hud.wave", [wave])
+	var hp_ratio := float(game.base_core.hp) / float(maxi(game.base_core.max_hp, 1))
+	tag_label.text = I18n.t("hud.base", [int(ceil(game.base_core.hp)), game.nests.size()])
+	tag_label.add_theme_color_override("font_color", Palette.INK_MUTED if hp_ratio > 0.3 else Palette.DANGER)
 
 	if _toast_time > 0.0:
 		_toast_time -= delta
@@ -208,3 +225,23 @@ func _draw() -> void:
 		_message_style.bg_color.a = 0.96 * toast_label.modulate.a
 		_message_style.border_color.a = 0.75 * toast_label.modulate.a
 		draw_style_box(_message_style, Rect2(toast_label.position, toast_label.size))
+	_draw_nest_indicators()
+
+
+func _draw_nest_indicators() -> void:
+	if game == null or game.nests == null:
+		return
+	var field := ResponsiveLayout.field_rect(self).grow(-24.0)
+	var center := field.get_center()
+	for nest in game.nests:
+		if not is_instance_valid(nest) or not nest.alive:
+			continue
+		var screen: Vector2 = game.world_to_screen(nest.global_position)
+		if field.has_point(screen):
+			continue
+		var point := Vector2(clampf(screen.x, field.position.x, field.end.x), clampf(screen.y, field.position.y, field.end.y))
+		var direction := (screen - center).normalized()
+		var side := direction.orthogonal()
+		var points := PackedVector2Array([point + direction * 12.0, point - direction * 8.0 + side * 7.0, point - direction * 8.0 - side * 7.0])
+		draw_colored_polygon(points, Color(Palette.PINK, 0.88))
+		draw_circle(point - direction * 14.0, 3.0, Color(Palette.PAPER, 0.9))

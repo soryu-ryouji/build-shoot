@@ -16,18 +16,16 @@ const HEAD_TEXTURE_SIZE := Vector2(320.0, 384.0)
 const HEAD_TEXTURE_PIVOT := Vector2(160.0, 320.0)
 
 
-static func predict(blocks: Node, play_rect: Rect2, origin: Vector2, direction: Vector2) -> Vector2:
+static func predict(blocks: Node, origin: Vector2, direction: Vector2, max_distance: float) -> Vector2:
 	var p := origin
 	var step := 5.0
-	for i in 320:
+	var targets: Array = blocks.blocks.duplicate()
+	targets.append_array(blocks.game.get_nest_targets())
+	for i in ceili(max_distance / step):
 		p += direction * step
-		if p.x <= play_rect.position.x or p.x >= play_rect.end.x:
-			return p
-		if p.y <= play_rect.position.y or p.y >= play_rect.end.y:
-			return p
-		for b in blocks.blocks:
-			var block_rect: Rect2 = b.rect
-			if bool(b.alive) and block_rect.has_point(p):
+		for target in targets:
+			var target_rect: Rect2 = target.rect
+			if bool(target.alive) and target_rect.has_point(p):
 				return p
 	return p
 

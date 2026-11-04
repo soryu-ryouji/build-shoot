@@ -1,25 +1,22 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "map_test_layout",
-  "name": "地图加载测试",
+  "name": "无限地图加载测试",
   "tileset": "res://assets/tilesets/industrial.tres",
-  "size": [4, 3],
   "palette": {
     "floor_a": { "source": 0, "atlas": [0, 0] },
     "vent": { "source": 0, "atlas": [1, 1] }
   },
-  "layers": {
-    "ground": [
-      ["floor_a", "floor_a", "floor_a", "floor_a"],
-      ["floor_a", "floor_a", "floor_a", null],
-      ["floor_a", "floor_a", "floor_a", "floor_a"]
-    ],
-    "decoration": [
-      [null, null, null, "vent"],
-      [null, null, null, null],
-      [null, null, null, null]
-    ]
+  "generation": {
+    "seed": 19,
+    "ground_tiles": ["floor_a"]
   },
-  "blocked_cells": [[1, 1]],
-  "enemy_spawn_cells": []
+  "base": {
+    "cell": [0, 0],
+    "size": [3, 3],
+    "hp": 500
+  },
+  "nests": [
+    { "cell": [12, -14], "hp": 40, "spawn_interval": 2.0, "kind": "normal", "reward": 20 }
+  ]
 }

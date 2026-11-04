@@ -1,6 +1,6 @@
 extends Node2D
 
-## 从上往下滚动的方块流。方块用 id 标识，方便在滚动/移除时安全引用。
+## 巢穴生成的敌人集合。敌人从任意方向接近中央基地，并攻击途中拦截建筑。
 
 const Palette = preload("res://scripts/palette.gd")
 const MONSTER_TEXTURES := {
@@ -16,50 +16,20 @@ const MONSTER_ANIMATIONS := {
 	"elite": preload("res://assets/ui/monster_elite_anim.png"),
 }
 
-var PLAY_TOP := 112.0
-var PLAY_BOTTOM := 800.0
-## 敌人走到战场底部前先淡出，避免被裁剪线从中间切断
-const EXIT_FADE := 40.0
-## 淡出提前量，保证整个贴图在碰到裁剪线之前就不可见
-const EXIT_MARGIN := 12.0
-const COLS := 11
-const CELL_SIZE := Vector2(48.0, 30.0)
-const CELL_GAP_X := 4.0
-var GRID_ORIGIN_X := 76.0
-var SPAWN_Y := PLAY_TOP - CELL_SIZE.y - 6.0
-
-## 波次节奏：开场只有一小撮，约 12 秒后第一波爆发，之后每波之间留出清场时间。
-const OPENING_CALM := 12.0
-## 两波之间的基础间隔；行数越多留的时间越长，避免波次叠在一起
-const WAVE_CALM_BASE := 18.0
-const WAVE_CALM_PER_ROW := 3.0
-## 同一波内行与行的间距，比常规行距更紧，进门时像一堵墙压下来
-const WAVE_ROW_SPACING := 36.0
-const WAVE_MAX_ROWS := 5
-## 每波血量按该系数复利增长，逼玩家把金币投进强化
-const HEALTH_GROWTH := 1.28
-
 const KIND_NORMAL := "normal"
 const KIND_SWIFT := "swift"
 const KIND_ARMORED := "armored"
 const KIND_ELITE := "elite"
+const CELL_SIZE := Vector2(48.0, 30.0)
 const HEALTH_BAR_HEIGHT := 6.0
-## 受击后血条显示的持续时间，再次受击会刷新
 const HEALTH_BAR_DURATION := 3.0
 const ANIMATION_FRAME_SIZE := 256.0
 
 var blocks: Array[Dictionary] = []
 var by_id := {}
 var destroyed := 0
-var spawned_rows := 0
-var scroll_speed := 20.0
 var active := false
 var game: Node
-
-## 当前波次；0 表示还没开始（准备阶段）
-var wave := 0
-## 距离下一波还有几秒，HUD 用它显示倒计时
-var next_wave_in := 0.0
 
 var _next_id := 1
 var _rng := RandomNumberGenerator.new()
@@ -69,12 +39,6 @@ var _animation_time := 0.0
 
 func _ready() -> void:
 	_rng.randomize()
-	var rect: Rect2 = game.get_play_rect()
-	PLAY_TOP = rect.position.y
-	PLAY_BOTTOM = rect.end.y
-	var stream_width: float = COLS * CELL_SIZE.x + (COLS - 1) * CELL_GAP_X
-	GRID_ORIGIN_X = rect.position.x + (rect.size.x - stream_width) * 0.5
-	SPAWN_Y = PLAY_TOP - CELL_SIZE.y - 6.0
 
 
 func reset_stream() -> void:
@@ -83,58 +47,95 @@ func reset_stream() -> void:
 	by_id.clear()
 	_next_id = 1
 	destroyed = 0
-	spawned_rows = 0
 	_flashing = false
 	_animation_time = 0.0
-
-	# 开场只放一小撮，给玩家布置和强化的时间；12 秒后第二波爆发
-	wave = 1
-	next_wave_in = OPENING_CALM
-	_spawn_wave()
 	queue_redraw()
 
 
+func spawn_from_nest(nest: Node) -> Dictionary:
+	if not is_instance_valid(nest) or not nest.alive:
+		return {}
+	var to_base: Vector2 = (game.base_core.global_position - nest.global_position).normalized()
+	var side := to_base.orthogonal() * _rng.randf_range(-22.0, 22.0)
+	var position: Vector2 = nest.global_position + to_base * 58.0 + side
+	var health_scale := 1.0 + minf(2.0, game.elapsed / 240.0)
+	return spawn_enemy(position, nest.kind, health_scale)
+
+
+func spawn_enemy(center: Vector2, kind := KIND_NORMAL, health_scale := 1.0) -> Dictionary:
+	var base_hp := 5
+	if kind == KIND_SWIFT:
+		base_hp = 4
+	elif kind == KIND_ARMORED:
+		base_hp = 10
+	elif kind == KIND_ELITE:
+		base_hp = 18
+	var hp := maxi(1, int(round(base_hp * health_scale)))
+	var color := Palette.CYAN
+	match kind:
+		KIND_NORMAL:
+			color = Palette.block_color(1)
+		KIND_ARMORED:
+			color = Palette.METAL.lightened(0.20)
+		KIND_ELITE:
+			color = Palette.PINK
+	var id := _next_id
+	_next_id += 1
+	var block := {
+		"id": id,
+		"target_type": "enemy",
+		"kind": kind,
+		"rect": Rect2(center - CELL_SIZE * 0.5, CELL_SIZE),
+		"hp": hp,
+		"max_hp": hp,
+		"speed_scale": _speed_for_kind(kind),
+		"color": color,
+		"flash": 0.0,
+		"hp_bar_time": 0.0,
+		"alive": true,
+		"blocked_by": null,
+		"attacking_base": false,
+		"attack_flash": 0.0,
+	}
+	blocks.append(block)
+	by_id[id] = block
+	queue_redraw()
+	return block
+
+
 func _physics_process(delta: float) -> void:
-	if not active:
+	if not active or game.outcome != "playing":
 		return
-	var dy := scroll_speed * delta
 	for b in blocks:
 		if not bool(b.alive):
 			continue
-		# 被阵地建筑挡住时停下攻击，不再前进
-		if _update_block_attack(b, delta):
-			continue
-		var step := dy * float(b.get("speed_scale", 1.0))
-		if step <= 0.0:
+		if _attack_blocker(b, delta):
 			continue
 		var rect: Rect2 = b.rect
-		rect.position.y += step
+		if game.base_core.alive and rect.intersects(game.base_core.get_rect().grow(4.0)):
+			b.attacking_base = true
+			b.attack_flash = 1.0
+			game.damage_base(_attack_dps(String(b.kind)) * delta)
+			continue
+		b.attacking_base = false
+		var direction: Vector2 = (game.base_core.global_position - rect.get_center()).normalized()
+		rect.position += direction * 24.0 * float(b.get("speed_scale", 1.0)) * delta
 		b.rect = rect
 		_try_block(b)
 
-	# 移除已经滚出底部或被击碎的方块
-	var i := blocks.size() - 1
-	while i >= 0:
-		var b: Dictionary = blocks[i]
-		var rect: Rect2 = b.rect
-		if not bool(b.alive) or rect.position.y >= PLAY_BOTTOM:
+	var index := blocks.size() - 1
+	while index >= 0:
+		var b: Dictionary = blocks[index]
+		if not bool(b.alive):
 			by_id.erase(int(b.id))
-			blocks.remove_at(i)
-		i -= 1
-
-	# 波次调度：爆发一波，留出清场时间，再爆发下一波
-	if next_wave_in > 0.0:
-		next_wave_in = maxf(0.0, next_wave_in - delta)
-	if next_wave_in <= 0.0:
-		wave += 1
-		_spawn_wave()
-		next_wave_in = _calm_for_wave(wave)
-
+			blocks.remove_at(index)
+		index -= 1
 	if not blocks.is_empty():
 		queue_redraw()
+	game.check_outcome()
 
 
-func _update_block_attack(b: Dictionary, delta: float) -> bool:
+func _attack_blocker(b: Dictionary, delta: float) -> bool:
 	var blocker = b.get("blocked_by", null)
 	if blocker == null:
 		return false
@@ -147,15 +148,9 @@ func _update_block_attack(b: Dictionary, delta: float) -> bool:
 
 
 func _try_block(b: Dictionary) -> void:
-	if game == null:
-		return
 	var blocker = game.get_blocking_building(b.rect)
 	if blocker == null:
 		return
-	var rect: Rect2 = b.rect
-	var block_rect: Rect2 = blocker.get_block_rect()
-	rect.position.y = minf(rect.position.y, block_rect.position.y - rect.size.y - 2.0)
-	b.rect = rect
 	b.blocked_by = blocker
 	b.attack_flash = 1.0
 
@@ -171,55 +166,48 @@ func _attack_dps(kind: String) -> float:
 	return 5.0
 
 
+func _speed_for_kind(kind: String) -> float:
+	match kind:
+		KIND_SWIFT:
+			return 1.35
+		KIND_ARMORED:
+			return 0.72
+		KIND_ELITE:
+			return 0.85
+	return 1.0
+
+
 func _process(delta: float) -> void:
+	if active and GameSettings.animate_monsters:
+		_animation_time += delta
 	if active:
-		if GameSettings.animate_monsters:
-			_animation_time += delta
 		queue_redraw()
-	var any_attack := false
 	for b in blocks:
 		if float(b.get("attack_flash", 0.0)) > 0.0:
 			b.attack_flash = maxf(0.0, float(b.attack_flash) - delta * 4.0)
-			any_attack = true
-	if any_attack:
-		queue_redraw()
-	var any_hp_bar := false
-	for b in blocks:
-		var bar_time := float(b.get("hp_bar_time", 0.0))
-		if bar_time > 0.0:
-			b.hp_bar_time = maxf(0.0, bar_time - delta)
-			any_hp_bar = true
-
-	if not _flashing:
-		if any_hp_bar:
-			queue_redraw()
-		return
-	var any := false
-	for b in blocks:
+		if float(b.get("hp_bar_time", 0.0)) > 0.0:
+			b.hp_bar_time = maxf(0.0, float(b.hp_bar_time) - delta)
 		if float(b.get("flash", 0.0)) > 0.0:
 			b.flash = maxf(0.0, float(b.flash) - delta * 5.0)
-			any = true
-	_flashing = any
-	queue_redraw()
 
 
-## 场上炮塔的目标：射程格子内最近的方块。
+## 炮塔的统一目标：范围内的敌人或巢穴，取距离最近者。
 func get_nearest_target(origin: Vector2, max_range: float, range_cells: Array = []) -> Dictionary:
 	var best: Dictionary = {}
 	var best_dist := INF if not range_cells.is_empty() else max_range * max_range
-	for b in blocks:
-		if not bool(b.alive):
+	var targets: Array = blocks.duplicate()
+	targets.append_array(game.get_nest_targets())
+	for target in targets:
+		if not bool(target.alive):
 			continue
-		var rect: Rect2 = b.rect
+		var rect: Rect2 = target.rect
 		var center := rect.get_center()
-		if center.y < PLAY_TOP:
-			continue
 		if not range_cells.is_empty() and not _cell_in_range(center, range_cells):
 			continue
 		var dist := center.distance_squared_to(origin)
 		if dist <= best_dist:
 			best_dist = dist
-			best = b
+			best = target
 	return best
 
 
@@ -228,39 +216,13 @@ func _cell_in_range(point: Vector2, range_cells: Array) -> bool:
 	return range_cells.has(cell)
 
 
-## 底部主炮塔的目标：优先选择最靠近底部、且还在炮塔上方的方块。
-## 同一行里选离炮塔最近的一块，方便炮塔左右扫射。
-func get_auto_target(origin: Vector2) -> Dictionary:
-	var best: Dictionary = {}
-	var best_y := -INF
-	var best_dx := INF
-	var max_y := origin.y - 12.0
-	for b in blocks:
-		if not bool(b.alive):
-			continue
-		var rect: Rect2 = b.rect
-		var c := rect.get_center()
-		if c.y < PLAY_TOP or c.y > max_y:
-			continue
-		var dx := absf(c.x - origin.x)
-		if c.y > best_y + 0.5:
-			best = b
-			best_y = c.y
-			best_dx = dx
-		elif absf(c.y - best_y) <= 0.5 and dx < best_dx:
-			best = b
-			best_dx = dx
-	return best
-
-
 func damage(id: int, amount: int) -> Dictionary:
-	var b = by_id.get(id)
-	if b == null:
+	var value = by_id.get(id)
+	if value == null:
 		return {"hit": false}
-	var block: Dictionary = b
+	var block: Dictionary = value
 	if not bool(block.alive):
 		return {"hit": false}
-
 	block.hp = int(block.hp) - amount
 	block.flash = 1.0
 	block.hp_bar_time = HEALTH_BAR_DURATION
@@ -270,145 +232,9 @@ func damage(id: int, amount: int) -> Dictionary:
 		block.hp_bar_time = 0.0
 		destroyed += 1
 		queue_redraw()
-		return {
-			"hit": true,
-			"destroyed": true,
-			"rect": block.rect,
-			"max_hp": int(block.max_hp),
-			"color": block.color,
-		}
-
+		return {"hit": true, "destroyed": true, "rect": block.rect, "max_hp": int(block.max_hp), "color": block.color}
 	queue_redraw()
-	return {
-		"hit": true,
-		"destroyed": false,
-		"rect": block.rect,
-		"max_hp": int(block.max_hp),
-		"color": block.color,
-	}
-
-
-func _base_health_for_wave(wave_number: int) -> int:
-	return int(round(3.0 * pow(HEALTH_GROWTH, maxi(wave_number, 1) - 1)))
-
-
-## 每一行铺几只：开场 3 只，之后逐波逼近满行。
-func _enemy_count_for_wave(wave_number: int) -> int:
-	if wave_number <= 1:
-		return 3
-	return clampi(8 + wave_number, 8, COLS)
-
-
-## 一波铺几行：第 2 波 3 行（30 只），第 4 波 4 行，第 6 波起 5 行。
-func _rows_for_wave(wave_number: int) -> int:
-	if wave_number <= 1:
-		return 1
-	if wave_number <= 3:
-		return 3
-	if wave_number <= 5:
-		return 4
-	return WAVE_MAX_ROWS
-
-
-## 一波打完后留给玩家清场与强化的时间。
-func _calm_for_wave(wave_number: int) -> float:
-	return WAVE_CALM_BASE + _rows_for_wave(wave_number) * WAVE_CALM_PER_ROW
-
-
-func _spawn_wave() -> void:
-	var rows := _rows_for_wave(wave)
-	var count := _enemy_count_for_wave(wave)
-	for i in rows:
-		_spawn_row(SPAWN_Y - i * WAVE_ROW_SPACING, count)
-
-
-func _pick_kind(wave_number: int) -> String:
-	var roll := _rng.randf()
-	if wave_number >= 4 and roll < 0.10:
-		return KIND_ELITE
-	if wave_number >= 3 and roll < 0.28:
-		return KIND_ARMORED
-	if wave_number >= 2 and roll < 0.55:
-		return KIND_SWIFT
-	return KIND_NORMAL
-
-
-func _health_for_kind(kind: String, base_hp: int) -> int:
-	match kind:
-		KIND_SWIFT:
-			return maxi(2, int(round(base_hp * 0.7)))
-		KIND_ARMORED:
-			return int(round(base_hp * 2.0))
-		KIND_ELITE:
-			return int(round(base_hp * 3.5))
-	return base_hp
-
-
-func _speed_for_kind(kind: String) -> float:
-	match kind:
-		KIND_SWIFT:
-			return 1.3
-		KIND_ARMORED:
-			return 0.8
-		KIND_ELITE:
-			return 0.9
-	return 1.0
-
-
-func _spawn_row(y: float, count: int) -> void:
-	var row := spawned_rows
-	spawned_rows += 1
-
-	var current_wave := wave
-	var color_index := int(row / 2) % 6 + 1
-	var hp_base := _base_health_for_wave(current_wave)
-
-	var target_count := mini(COLS, count)
-	var present: Array[bool] = []
-	present.resize(COLS)
-	present.fill(false)
-	var filled := 0
-	while filled < target_count:
-		var c := _rng.randi_range(0, COLS - 1)
-		if not present[c]:
-			present[c] = true
-			filled += 1
-
-	for c in COLS:
-		if not present[c]:
-			continue
-		var kind := _pick_kind(current_wave)
-		var hp := _health_for_kind(kind, hp_base)
-		var color := Palette.block_color(color_index)
-		match kind:
-			KIND_SWIFT:
-				color = Palette.CYAN
-			KIND_ARMORED:
-				color = Palette.METAL.lightened(0.20)
-			KIND_ELITE:
-				color = Palette.PINK
-		var rect := Rect2(
-			Vector2(GRID_ORIGIN_X + c * (CELL_SIZE.x + CELL_GAP_X), y),
-			CELL_SIZE
-		)
-		var id := _next_id
-		_next_id += 1
-		var block := {
-			"id": id,
-			"kind": kind,
-			"rect": rect,
-			"hp": hp,
-			"max_hp": hp,
-			"speed_scale": _speed_for_kind(kind),
-			"color": color,
-			"flash": 0.0,
-			"hp_bar_time": 0.0,
-			"alive": true,
-			"blocked_by": null,
-			"attack_flash": 0.0,
-		}
-		blocks.append(block)
-		by_id[id] = block
+	return {"hit": true, "destroyed": false, "rect": block.rect, "max_hp": int(block.max_hp), "color": block.color}
 
 
 func _draw_kind(inner: Rect2, kind: String, col: Color, alpha := 1.0) -> void:
@@ -416,11 +242,7 @@ func _draw_kind(inner: Rect2, kind: String, col: Color, alpha := 1.0) -> void:
 	match kind:
 		KIND_SWIFT:
 			var mark := Color(0.9, 1.0, 1.0, 0.72 * alpha)
-			draw_polyline(PackedVector2Array([
-				c + Vector2(-8.0, -5.0),
-				c + Vector2(0.0, 2.0),
-				c + Vector2(8.0, -5.0),
-			]), mark, 2.0, true)
+			draw_polyline(PackedVector2Array([c + Vector2(-8.0, -5.0), c + Vector2(0.0, 2.0), c + Vector2(8.0, -5.0)]), mark, 2.0, true)
 		KIND_ARMORED:
 			draw_rect(inner.grow(-3.0), Color(col.lightened(0.35), alpha), false, 2.0)
 			for x in [inner.position.x + 5.0, inner.end.x - 5.0]:
@@ -432,10 +254,7 @@ func _draw_kind(inner: Rect2, kind: String, col: Color, alpha := 1.0) -> void:
 
 func _draw_health_bar(inner: Rect2, hp: int, max_hp: int, alpha := 1.0) -> void:
 	var ratio := clampf(float(hp) / float(maxi(max_hp, 1)), 0.0, 1.0)
-	var back := Rect2(
-		Vector2(inner.position.x + 4.0, inner.end.y - HEALTH_BAR_HEIGHT - 2.0),
-		Vector2(inner.size.x - 8.0, HEALTH_BAR_HEIGHT)
-	)
+	var back := Rect2(Vector2(inner.position.x + 4.0, inner.end.y - HEALTH_BAR_HEIGHT - 2.0), Vector2(inner.size.x - 8.0, HEALTH_BAR_HEIGHT))
 	draw_rect(back, Color(0.01, 0.02, 0.04, 0.9 * alpha))
 	if ratio > 0.0:
 		var fill := Rect2(back.position, Vector2(back.size.x * ratio, back.size.y))
@@ -453,11 +272,7 @@ func _draw() -> void:
 		var hp: int = int(b.hp)
 		var col: Color = b.color
 		var kind := String(b.get("kind", KIND_NORMAL))
-		# 靠近底边时整体淡出，敌人不会在画面中间被裁掉
-		var alpha := clampf((PLAY_BOTTOM - EXIT_MARGIN - rect.get_center().y) / EXIT_FADE, 0.0, 1.0)
-		if alpha <= 0.0:
-			continue
-
+		var alpha := 1.0
 		var inner := rect.grow(-2.0)
 		var texture: Texture2D = MONSTER_TEXTURES.get(kind, MONSTER_TEXTURES[KIND_NORMAL])
 		var animation: Texture2D = MONSTER_ANIMATIONS.get(kind, MONSTER_ANIMATIONS[KIND_NORMAL])
@@ -479,42 +294,25 @@ func _draw() -> void:
 		elif kind == KIND_SWIFT:
 			art_size = Vector2(50, 46)
 		var art_rect := Rect2(rect.get_center() - art_size * 0.5 + Vector2(0, -3), art_size)
-
-		if animation != null or texture != null:
-			draw_circle(rect.get_center() + Vector2(0, 5), 19.0, Color(0.0, 0.0, 0.0, 0.12 * alpha))
-			draw_circle(rect.get_center(), 25.0, Color(col.r, col.g, col.b, 0.05 * alpha))
-			if animation != null:
-				draw_texture_rect_region(animation, art_rect, frame_rect, Color(1.0, 1.0, 1.0, alpha))
-			else:
-				draw_texture_rect(texture, art_rect, false, Color(1.0, 1.0, 1.0, alpha))
+		draw_circle(rect.get_center() + Vector2(0, 5), 19.0, Color(0.0, 0.0, 0.0, 0.12))
+		draw_circle(rect.get_center(), 25.0, Color(col.r, col.g, col.b, 0.05))
+		if animation != null:
+			draw_texture_rect_region(animation, art_rect, frame_rect, Color.WHITE)
+		elif texture != null:
+			draw_texture_rect(texture, art_rect, false, Color.WHITE)
 		else:
-			# 素材缺失时仍能显示可辨识的敌人，不影响战斗逻辑。
 			draw_rect(rect, Color(col.darkened(0.72), alpha))
-			draw_rect(inner, Color(col.darkened(0.30), alpha))
 			_draw_kind(inner, kind, col, alpha)
-
-		if hp < max_hp:
-			var c := rect.get_center() + Vector2(0, -3)
-			draw_line(c + Vector2(-7, -6), c + Vector2(5, 5), Color(0.0, 0.0, 0.0, 0.55 * alpha), 1.5)
-			draw_line(c + Vector2(-4, 6), c + Vector2(6, -4), Color(0.0, 0.0, 0.0, 0.45 * alpha), 1.5)
-
 		var flash := float(b.get("flash", 0.0))
-		if flash > 0.0:
-			if animation != null:
-				draw_texture_rect_region(animation, art_rect, frame_rect, Color(2.0, 2.0, 2.0, 0.65 * flash * alpha))
-			elif texture != null:
-				draw_texture_rect(texture, art_rect, false, Color(2.0, 2.0, 2.0, 0.65 * flash * alpha))
-			else:
-				draw_rect(inner, Color(1.0, 1.0, 1.0, 0.45 * flash * alpha))
-
-		# 正在啃食阵地建筑时，在方块底部画出抓挠痕迹
+		if flash > 0.0 and animation != null:
+			draw_texture_rect_region(animation, art_rect, frame_rect, Color(2.0, 2.0, 2.0, 0.65 * flash))
+		elif flash > 0.0 and texture != null:
+			draw_texture_rect(texture, art_rect, false, Color(2.0, 2.0, 2.0, 0.65 * flash))
 		var attack_flash := float(b.get("attack_flash", 0.0))
-		if attack_flash > 0.0 and b.get("blocked_by", null) != null:
+		if attack_flash > 0.0 and (b.get("blocked_by", null) != null or bool(b.get("attacking_base", false))):
 			var claw := rect.get_center() + Vector2(0.0, rect.size.y * 0.42)
 			for k in 3:
 				var x := claw.x - 8.0 + k * 8.0
-				draw_line(Vector2(x, claw.y), Vector2(x - 3.0, claw.y + 9.0), Color(0.95, 0.32, 0.28, 0.8 * attack_flash * alpha), 2.0)
-
-		# 血条只在受击后的短时间内显示，避免长时间占满屏幕
+				draw_line(Vector2(x, claw.y), Vector2(x - 3.0, claw.y + 9.0), Color(0.95, 0.32, 0.28, 0.8 * attack_flash), 2.0)
 		if float(b.get("hp_bar_time", 0.0)) > 0.0 and hp < max_hp:
 			_draw_health_bar(inner, hp, max_hp, alpha)
