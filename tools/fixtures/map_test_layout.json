@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "id": "map_test_layout",
+  "name": "地图加载测试",
+  "tileset": "res://assets/tilesets/industrial.tres",
+  "size": [4, 3],
+  "palette": {
+    "floor_a": { "source": 0, "atlas": [0, 0] },
+    "exterior_a": { "source": 0, "atlas": [4, 0] },
+    "vent": { "source": 0, "atlas": [1, 1] }
+  },
+  "layers": {
+    "ground": [
+      ["floor_a", "floor_a", "floor_a", "floor_a"],
+      ["floor_a", "floor_a", "floor_a", null],
+      ["floor_a", "floor_a", "floor_a", "floor_a"]
+    ],
+    "decoration": [
+      [null, null, null, "vent"],
+      [null, null, null, null],
+      [null, null, null, null]
+    ]
+  },
+  "blocked_cells": [[1, 1]],
+  "enemy_spawn_cells": []
+}

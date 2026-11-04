@@ -15,11 +15,11 @@ const ShopBar = preload("res://scripts/shop_bar.gd")
 const FocusPanel = preload("res://scripts/focus_panel.gd")
 const PlacedBuilding = preload("res://scripts/placed_building.gd")
 const PlacementGhost = preload("res://scripts/placement_ghost.gd")
+const TileHighlights = preload("res://scripts/tile_highlights.gd")
 const SettingsPanel = preload("res://scripts/settings_panel.gd")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
 
 const PREP_TIME := 5.0
-const PLACE_GRID := 64.0
 
 var arena: Node2D
 var blocks: Node2D
@@ -27,6 +27,7 @@ var blocks_clip: Control
 var balls_layer: Node2D
 var items_layer: Node2D
 var effects: Node2D
+var highlights: Node2D
 var placement_ghost: Node2D
 var hud: Control
 var shop_bar: Control
@@ -84,6 +85,11 @@ func _setup_nodes() -> void:
 
 	var play_rect: Rect2 = arena.get_play_rect()
 
+	highlights = TileHighlights.new()
+	highlights.name = "TileHighlights"
+	highlights.map = arena.map_loader
+	add_child(highlights)
+
 	# 用 Control 裁剪方块，滚动时从顶部边缘平滑进入
 	blocks_clip = Control.new()
 	blocks_clip.name = "BlocksClip"
@@ -95,6 +101,7 @@ func _setup_nodes() -> void:
 
 	blocks = Blocks.new()
 	blocks.name = "Blocks"
+	blocks.z_index = 2
 	blocks.position = -play_rect.position
 	blocks.game = self
 	blocks_clip.add_child(blocks)
@@ -183,16 +190,17 @@ void fragment() {
 
 func _layout() -> void:
 	var field := ResponsiveLayout.field_rect(self)
+	var frame_rect: Rect2 = arena.get_frame_rect()
 	# 战场按 HUD 与商店之间的可用区缩放：先满足宽度，高度不够时再收紧，整张地图不会被上下栏遮住。
-	var fit_width := (field.size.x - 16.0) / Arena.FRAME_RECT.size.x
-	var fit_height := field.size.y / Arena.FRAME_RECT.size.y
+	var fit_width := (field.size.x - 16.0) / frame_rect.size.x
+	var fit_height := field.size.y / frame_rect.size.y
 	var zoom := maxf(minf(fit_width, fit_height), 0.1)
 	world_camera.zoom = Vector2.ONE * zoom
 
 	# 相机对准可用区中心，而不是屏幕中心，上下留白因此对称。
 	var view := ResponsiveLayout.viewport_size(self)
 	var offset := field.get_center() - view * 0.5
-	world_camera.position = Arena.FRAME_RECT.get_center() - offset / zoom
+	world_camera.position = frame_rect.get_center() - offset / zoom
 
 
 func screen_to_world(pos: Vector2) -> Vector2:
@@ -311,6 +319,7 @@ func begin_placement(item_id: String) -> void:
 	placing_id = item_id
 	placing_cost = int(item.cost)
 	placement_ghost.begin(item)
+	highlights.clear_range()
 	update_placement(screen_to_world(get_viewport().get_mouse_position()))
 
 
@@ -320,13 +329,15 @@ func update_placement(pos: Vector2) -> void:
 	var snapped := snap_to_grid(pos)
 	var valid := is_valid_placement(snapped) and coins >= placing_cost
 	placement_ghost.update_preview(snapped, valid)
+	var hover_cell: Vector2i = arena.map_loader.world_to_cell(snapped)
+	highlights.show_placement(arena.map_loader.get_buildable_cells(), hover_cell, valid)
 	var item: Dictionary = ItemDefs.get_item(placing_id)
 	if String(item.get("category", "")) == ItemDefs.CATEGORY_FIREPOWER:
-		placement_ghost.set_range_cells(get_range_cells(snapped, float(item.get("range", 0.0))))
+		highlights.set_range_cells(get_range_cells(snapped, float(item.get("range", 0.0))))
 	elif _needs_direction(item):
-		placement_ghost.set_range_cells(get_line_cells(snapped, Vector2.from_angle(-PI / 2.0)))
+		highlights.set_range_cells(get_line_cells(snapped, Vector2.from_angle(-PI / 2.0)))
 	else:
-		placement_ghost.set_range_cells([])
+		highlights.set_range_cells([])
 
 
 func finish_placement(item_id: String, pos: Vector2) -> void:
@@ -354,6 +365,7 @@ func finish_placement(item_id: String, pos: Vector2) -> void:
 
 	_set_deploy_focus(false)
 	placement_ghost.end()
+	highlights.clear_all()
 
 
 func cancel_placement() -> void:
@@ -364,6 +376,8 @@ func cancel_placement() -> void:
 	cancel_orientation()
 	if placement_ghost != null:
 		placement_ghost.end()
+	if highlights != null:
+		highlights.clear_all()
 	if shop_bar != null:
 		shop_bar.cancel_drag()
 
@@ -375,6 +389,8 @@ func cancel_orientation() -> void:
 	orient_pos = Vector2.ZERO
 	if placement_ghost != null:
 		placement_ghost.end()
+	if highlights != null:
+		highlights.clear_all()
 
 
 func _set_deploy_focus(active: bool) -> void:
@@ -395,12 +411,13 @@ func _begin_orientation(item: Dictionary, pos: Vector2) -> void:
 	orient_pos = pos
 	orient_facing = -PI / 2.0
 	placement_ghost.begin_orientation(pos, item, orient_facing, get_play_rect())
+	highlights.clear_placement()
 	if String(item.get("category", "")) == ItemDefs.CATEGORY_FIREPOWER:
-		placement_ghost.set_range_cells(get_range_cells(pos, float(item.get("range", 0.0))))
+		highlights.set_range_cells(get_range_cells(pos, float(item.get("range", 0.0))))
 	elif _needs_direction(item):
-		placement_ghost.set_range_cells(get_line_cells(pos, Vector2.from_angle(orient_facing)))
+		highlights.set_range_cells(get_line_cells(pos, Vector2.from_angle(orient_facing)))
 	else:
-		placement_ghost.set_range_cells([])
+		highlights.set_range_cells([])
 
 
 func _handle_orientation_input(event: InputEvent) -> void:
@@ -435,7 +452,7 @@ func _update_orientation(world_pos: Vector2) -> void:
 	orient_facing = roundf(angle / (PI / 4.0)) * (PI / 4.0)
 	placement_ghost.set_facing(orient_facing)
 	if _needs_direction(orient_item):
-		placement_ghost.set_range_cells(get_line_cells(orient_pos, Vector2.from_angle(orient_facing)))
+		highlights.set_range_cells(get_line_cells(orient_pos, Vector2.from_angle(orient_facing)))
 
 
 func _confirm_orientation() -> void:
@@ -455,77 +472,35 @@ func _confirm_orientation() -> void:
 	orient_pos = Vector2.ZERO
 	_set_deploy_focus(false)
 	placement_ghost.end()
+	highlights.clear_all()
 	_place_building(item, pos, facing)
 
 
 func snap_to_grid(pos: Vector2) -> Vector2:
-	var rect: Rect2 = get_play_rect()
-	var x0 := rect.position.x + 32.0
-	var y0 := rect.position.y + 32.0
-	var x1 := rect.end.x - 32.0
-	var y1 := rect.end.y - 32.0
-
-	# 用 64px 的单元铺满四边，最外侧格子中心距边缘 32px，底座刚好放得下
-	var steps_x := maxi(1, int(floorf((x1 - x0) / PLACE_GRID)))
-	var steps_y := maxi(1, int(floorf((y1 - y0) / PLACE_GRID)))
-	var step_x := (x1 - x0) / float(steps_x)
-	var step_y := (y1 - y0) / float(steps_y)
-
-	var gx := x0 + roundf((pos.x - x0) / step_x) * step_x
-	var gy := y0 + roundf((pos.y - y0) / step_y) * step_y
-
-	# 在场地及边框附近拖动时，把最外侧的格子夹到可用范围内，避免边缘一直判红
-	if rect.grow(16.0).has_point(pos):
-		gx = clampf(gx, x0, x1)
-		gy = clampf(gy, y0, y1)
-
-	return Vector2(gx, gy)
+	var cell: Vector2i = arena.map_loader.world_to_cell(pos)
+	return arena.map_loader.cell_to_world(cell)
 
 
 func get_range_cells(center: Vector2, radius: float) -> Array:
 	var cells: Array = []
-	for cell in _grid_centers():
-		if cell.distance_to(center) <= radius:
+	for cell in arena.map_loader.get_all_cells():
+		if arena.map_loader.cell_to_world(cell).distance_to(center) <= radius:
 			cells.append(cell)
 	return cells
 
 
 func get_line_cells(center: Vector2, direction: Vector2) -> Array:
 	var cells: Array = []
-	for cell in _grid_centers():
-		if absf((cell - center).cross(direction)) <= 34.0:
+	for cell in arena.map_loader.get_all_cells():
+		var point: Vector2 = arena.map_loader.cell_to_world(cell)
+		if absf((point - center).cross(direction)) <= 34.0:
 			cells.append(cell)
 	return cells
 
 
-func _grid_centers() -> Array:
-	var rect: Rect2 = get_play_rect()
-	var x0 := rect.position.x + 32.0
-	var y0 := rect.position.y + 32.0
-	var x1 := rect.end.x - 32.0
-	var y1 := rect.end.y - 32.0
-	var steps_x := maxi(1, int(floorf((x1 - x0) / PLACE_GRID)))
-	var steps_y := maxi(1, int(floorf((y1 - y0) / PLACE_GRID)))
-	var step_x := (x1 - x0) / float(steps_x)
-	var step_y := (y1 - y0) / float(steps_y)
-	var result: Array = []
-	for ix in steps_x + 1:
-		for iy in steps_y + 1:
-			result.append(Vector2(x0 + step_x * ix, y0 + step_y * iy))
-	return result
-
-
 func is_valid_placement(pos: Vector2) -> bool:
-	var rect: Rect2 = get_play_rect()
-	var margin := 32.0
-	if pos.x < rect.position.x + margin or pos.x > rect.end.x - margin:
-		return false
-	if pos.y < rect.position.y + margin or pos.y > rect.end.y - margin:
-		return false
-	for t in placed_buildings:
-		if is_instance_valid(t) and pos.distance_to(t.global_position) < 62.0:
-			return false
-	return true
+	var cell: Vector2i = arena.map_loader.world_to_cell(pos)
+	return arena.map_loader.is_buildable(cell)
 
 
 func _inside_arena(pos: Vector2) -> bool:
@@ -534,11 +509,14 @@ func _inside_arena(pos: Vector2) -> bool:
 
 
 func _place_building(item: Dictionary, pos: Vector2, facing := -PI / 2.0) -> Node:
+	var cell: Vector2i = arena.map_loader.world_to_cell(pos)
 	var building = PlacedBuilding.new()
 	building.setup(self, item, facing)
-	building.position = pos
+	building.cell = cell
+	building.position = arena.map_loader.cell_to_world(cell)
 	items_layer.add_child(building)
 	placed_buildings.append(building)
+	arena.map_loader.set_occupied(cell, building)
 	refresh_power()
 	return building
 
@@ -571,6 +549,12 @@ func select_building(t: Node) -> void:
 	for other in placed_buildings:
 		if is_instance_valid(other):
 			other.selected = (other == t)
+	if t.is_firepower():
+		highlights.set_range_cells(get_range_cells(t.global_position, t.attack_range))
+	elif bool(t.buff_line):
+		highlights.set_range_cells(get_line_cells(t.global_position, Vector2.from_angle(t.facing_angle)))
+	else:
+		highlights.clear_range()
 	focus_panel.show_building(t)
 
 
@@ -578,6 +562,8 @@ func clear_selection() -> void:
 	if selected_building != null and is_instance_valid(selected_building):
 		selected_building.selected = false
 	selected_building = null
+	if highlights != null:
+		highlights.clear_range()
 	if focus_panel != null:
 		focus_panel.hide_panel()
 
@@ -595,6 +581,8 @@ func upgrade_selected() -> void:
 	coins -= cost
 	building.apply_upgrade(cost)
 	refresh_power()
+	if building.is_firepower():
+		highlights.set_range_cells(get_range_cells(building.global_position, building.attack_range))
 	if focus_panel != null and focus_panel.visible:
 		focus_panel.refresh()
 	hud.pop_coins()
@@ -607,6 +595,7 @@ func dismantle_selected() -> void:
 		return
 	coins += int(t.get_refund())
 	placed_buildings.erase(t)
+	arena.map_loader.clear_occupied(t.cell)
 	t.alive = false
 	t.queue_free()
 	clear_selection()
@@ -676,6 +665,7 @@ func get_blocking_building(rect: Rect2) -> Node:
 
 func on_building_destroyed(building: Node) -> void:
 	placed_buildings.erase(building)
+	arena.map_loader.clear_occupied(building.cell)
 	if selected_building == building:
 		clear_selection()
 	refresh_power()

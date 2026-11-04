@@ -30,6 +30,16 @@ func _run() -> void:
 	_check(main.power_supply == 0 and main.power_demand == 0, "no power demand at start")
 	_check(main.power_ok, "power is stable with no buildings")
 
+	# ---------------------------------------------------------------- JSON 地图与统一格子
+	_check(main.arena.map_loader.map_id == "industrial_01", "default JSON map loads")
+	_check(main.arena.map_loader.grid_size == Vector2i(9, 10), "default map keeps nine by ten cells")
+	_check(main.arena.map_loader.cell_size == Vector2i(64, 64), "map cells are exactly 64 pixels")
+	_check(main.arena.map_loader.get_buildable_cells().size() == 90, "all default ground cells start available")
+	_check(main.arena.map_loader.ground_layer.tile_set != null, "JSON creates a TileMapLayer")
+	var origin_cell := Vector2i(4, 5)
+	var origin_point: Vector2 = main.arena.map_loader.cell_to_world(origin_cell)
+	_check(main.arena.map_loader.world_to_cell(origin_point) == origin_cell, "cell and world coordinates round trip")
+
 	# ---------------------------------------------------------------- i18n
 	_check(I18n.locale == "zh_CN", "default locale is Chinese")
 	_check(I18n.t("hud.mode") == "无尽模式", "Chinese translation loaded")
@@ -114,16 +124,16 @@ func _run() -> void:
 	_check(main.placed_buildings.is_empty(), "sandbag removed after refund check")
 	_check(int(main.coins) == 50, "full refund restores the starting coins")
 
-	# 只有压缩塔需要二次确认，部署时显示施法绿格；确认后隐藏
+	# 只有压缩塔需要二次确认，部署时显示施法青格；确认后隐藏
 	main.coins = 100
 	main.begin_placement("compression_tower")
 	main.finish_placement("compression_tower", Vector2(400, 500))
 	_check(main.orienting, "compression tower enters orientation step")
-	_check(main.placement_ghost.range_cells.size() > 0, "compression shows green cast cells")
+	_check(main.highlights.range_cells.size() > 0, "compression shows cyan cast cells")
 	main._update_orientation(Vector2(500, 500))
 	_check(is_equal_approx(main.orient_facing, 0.0), "compression drag sets the cast direction")
 	main._confirm_orientation()
-	_check(main.placement_ghost.range_cells.is_empty(), "compression cast cells hide after confirmation")
+	_check(main.highlights.range_cells.is_empty(), "compression cast cells hide after confirmation")
 	_check(main.placed_buildings.size() == 1, "compression tower placed after confirmation")
 	_check(int(main.coins) == 40, "compression tower costs 60")
 	var preview_compression: Node = main.placed_buildings[0]
@@ -136,8 +146,11 @@ func _run() -> void:
 	main.begin_placement("turret")
 	_check(main.placing, "placement begins")
 	main.update_placement(Vector2(400, 400))
+	_check(main.highlights.placement_cells.size() == 90, "drag marks every currently available tile green")
+	_check(main.highlights.hover_valid, "hovered empty tile is valid")
 	main.finish_placement("turret", Vector2(400, 400))
-	_check(main.placement_ghost.range_cells.is_empty(), "turret range cells hide after placement")
+	_check(main.highlights.range_cells.is_empty(), "turret range cells hide after placement")
+	_check(main.highlights.placement_cells.is_empty(), "placement highlights hide after placement")
 	_check(not main.orienting, "turret has no attack direction and places immediately")
 	_check(main.placed_buildings.size() == 1, "basic turret placed")
 	_check(int(main.coins) == 20, "basic turret costs 30")
@@ -147,6 +160,8 @@ func _run() -> void:
 	_check(is_equal_approx(turret.facing_angle, -PI / 2.0), "turret keeps the default facing")
 	_check(int(turret.damage) == 1, "basic turret base damage")
 	_check(int(turret.attack_range) == 300, "basic turret short range")
+	_check(main.arena.map_loader.get_occupied_building(turret.cell) == turret, "placed building occupies its map cell")
+	_check(not main.arena.map_loader.is_buildable(turret.cell), "occupied cell cannot be built on")
 	_check(absf(float(turret.interval) - 0.3) < 0.001, "basic turret interval")
 	_check(main.power_supply == 0 and main.power_demand == 1, "turret alone demands power")
 	_check(not main.power_ok, "power deficit without an energy building")
@@ -155,6 +170,9 @@ func _run() -> void:
 	_check(int(turret.shots) == 0, "paralyzed turret cannot fire")
 
 	main.begin_placement("solar")
+	main.update_placement(turret.global_position)
+	_check(not main.highlights.hover_valid, "occupied tile shows an invalid red hover")
+	_check(not main.highlights.placement_cells.has(turret.cell), "occupied tile is not marked available")
 	main.update_placement(Vector2(250, 400))
 	main.finish_placement("solar", Vector2(250, 400))
 	_check(not main.orienting, "static energy building skips orientation")
@@ -177,21 +195,24 @@ func _run() -> void:
 	_check(main.focus_panel.visible, "focus panel opens for energy building")
 	main.clear_selection()
 
-	# 网格吸附边缘
-	var left: Vector2 = main.snap_to_grid(Vector2(65, 400))
-	var right: Vector2 = main.snap_to_grid(Vector2(655, 400))
-	var top: Vector2 = main.snap_to_grid(Vector2(416, 113))
-	var bottom: Vector2 = main.snap_to_grid(Vector2(416, 790))
-	var corner: Vector2 = main.snap_to_grid(Vector2(660, 805))
-	_check(is_equal_approx(left.x, 96.0), "left edge snaps")
-	_check(is_equal_approx(right.x, 624.0), "right edge snaps")
-	_check(is_equal_approx(top.y, 144.0), "top edge snaps")
-	_check(is_equal_approx(bottom.y, 768.0), "bottom edge snaps")
-	_check(is_equal_approx(corner.x, 624.0) and is_equal_approx(corner.y, 768.0), "frame edge clamps")
+	# 网格吸附边缘：格子不再被拉伸，场地外也不会夹到边缘格
+	var left: Vector2 = main.arena.map_loader.cell_to_world(Vector2i(0, 4))
+	var right: Vector2 = main.arena.map_loader.cell_to_world(Vector2i(8, 4))
+	var top: Vector2 = main.arena.map_loader.cell_to_world(Vector2i(4, 0))
+	var bottom: Vector2 = main.arena.map_loader.cell_to_world(Vector2i(4, 9))
+	var corner: Vector2 = main.arena.map_loader.cell_to_world(Vector2i(8, 9))
+	_check(main.snap_to_grid(left + Vector2(20, 20)) == left, "left edge snaps to its own cell")
+	_check(main.snap_to_grid(right + Vector2(-20, 20)) == right, "right edge snaps to its own cell")
+	_check(main.snap_to_grid(top + Vector2(20, 20)) == top, "top edge snaps to its own cell")
+	_check(main.snap_to_grid(bottom + Vector2(-20, -20)) == bottom, "bottom edge snaps to its own cell")
+	_check(is_equal_approx(left.x, 104.0) and is_equal_approx(right.x, 616.0), "horizontal cells use exact 64 pixel spacing")
+	_check(is_equal_approx(top.y, 168.0) and is_equal_approx(bottom.y, 744.0), "vertical cells use exact 64 pixel spacing")
+	_check(main.snap_to_grid(corner) == corner, "corner cell keeps exact coordinates")
 	_check(main.is_valid_placement(left), "left edge cell is placeable")
 	_check(main.is_valid_placement(right), "right edge cell is placeable")
 	_check(main.is_valid_placement(top), "top edge cell is placeable")
 	_check(main.is_valid_placement(bottom), "bottom edge cell is placeable")
+	_check(not main.is_valid_placement(main.snap_to_grid(Vector2(10, 10))), "outside position is not clamped into the map")
 
 	# 金币不足 / 非法位置
 	main.coins = 0
@@ -570,6 +591,19 @@ func _run() -> void:
 	_check(not menu.settings_panel.visible, "main menu settings close")
 	menu.queue_free()
 
+	# ---------------------------------------------------------------- 第二地图只换 JSON
+	var loader: Node2D = load("res://scripts/map_loader.gd").new()
+	add_child(loader)
+	_check(loader.load_map("res://tools/fixtures/map_test_layout.json"), "second map loads without scene or code changes")
+	_check(loader.grid_size == Vector2i(4, 3), "second map changes dimensions through JSON")
+	_check(loader.get_all_cells().size() == 11, "null ground cell creates a map hole")
+	_check(loader.get_buildable_cells().size() == 10, "blocked cell is excluded from available cells")
+	_check(not loader.is_buildable(Vector2i(1, 1)), "JSON blocked cell rejects placement")
+	_check(not loader.is_buildable(Vector2i(3, 1)), "empty ground rejects placement")
+	_check(not loader.load_map("res://tools/fixtures/map_invalid.json"), "invalid JSON dimensions are rejected")
+	_check(not loader.load_error.is_empty(), "invalid map reports a validation error")
+	loader.queue_free()
+
 	_finish()
 
 
@@ -593,6 +627,7 @@ func _clear_buildings() -> void:
 		main.clear_selection()
 	for b in main.placed_buildings:
 		if is_instance_valid(b):
+			main.arena.map_loader.clear_occupied(b.cell)
 			b.queue_free()
 	main.placed_buildings.clear()
 	main.refresh_power()

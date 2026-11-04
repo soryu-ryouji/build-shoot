@@ -16,6 +16,7 @@ const LOCK_TOLERANCE := 0.08
 const OFFLINE_MODULATE := Color(0.52, 0.54, 0.57, 1.0)
 
 var game: Node
+var cell := Vector2i.ZERO
 var item_id := ""
 var name_key := ""
 var desc_key := ""
@@ -387,17 +388,7 @@ func _draw() -> void:
 
 
 func _draw_selection() -> void:
-	if is_firepower():
-		_draw_range_cells()
 	draw_arc(Vector2.ZERO, base_radius + 4.0, 0.0, TAU, 32, Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.60), 1.5)
-
-
-func _draw_range_cells() -> void:
-	for point in game.get_range_cells(global_position, attack_range):
-		var local: Vector2 = point - global_position
-		var cell := Rect2(local - Vector2(30.0, 30.0), Vector2(60.0, 60.0))
-		draw_rect(cell, Color(0.42, 0.86, 0.52, 0.10))
-		draw_rect(cell, Color(0.42, 0.86, 0.52, 0.42), false, 1.0)
 
 
 func _draw_firepower() -> void:

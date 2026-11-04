@@ -8,7 +8,7 @@ extends Node
 ##   -- --focus                 截取炮塔聚焦面板
 ##   -- --power                 截取能源不足、建筑置灰的状态
 ##   -- --orient                截取拖放后的朝向选择状态
-##   -- --place                 截取拖拽中的圆形射程格子预览
+##   -- --place                 截取绿色可放置格与青色圆形射程预览
 
 const ItemDefs = preload("res://scripts/item_defs.gd")
 

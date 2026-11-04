@@ -1,7 +1,7 @@
 extends Node2D
 
 ## 拖拽道具时跟随指针的放置预览；落下后再显示朝向选择。
-## 火力显示 180° 扇形射界，压缩塔显示沿朝向的直线覆盖范围。
+## 可放置格与范围格由 TileHighlights 统一绘制。
 
 const Palette = preload("res://scripts/palette.gd")
 const ItemDefs = preload("res://scripts/item_defs.gd")
@@ -32,11 +32,7 @@ var item_id := "turret"
 var category := ItemDefs.CATEGORY_FIREPOWER
 var facing := -PI / 2.0
 var play_rect := Rect2()
-var range_cells: Array = []
 var hint: Label
-
-const RANGE_FILL := Color(0.42, 0.86, 0.52, 0.10)
-const RANGE_LINE := Color(0.42, 0.86, 0.52, 0.42)
 
 
 func _ready() -> void:
@@ -63,7 +59,6 @@ func begin(item: Dictionary) -> void:
 	category = String(item.category)
 	orienting = false
 	facing = -PI / 2.0
-	range_cells.clear()
 	if hint != null:
 		hint.visible = false
 	queue_redraw()
@@ -94,15 +89,9 @@ func set_facing(angle: float) -> void:
 	queue_redraw()
 
 
-func set_range_cells(cells: Array) -> void:
-	range_cells = cells
-	queue_redraw()
-
-
 func end() -> void:
 	active = false
 	orienting = false
-	range_cells.clear()
 	if hint != null:
 		hint.visible = false
 	queue_redraw()
@@ -127,8 +116,6 @@ func _draw() -> void:
 func _draw_placement() -> void:
 	var mark := Palette.ACCENT if valid else Palette.DANGER
 
-	_draw_range_cells()
-
 	# 当前格
 	var cell := Rect2(Vector2(-CELL_SIZE * 0.5, -CELL_SIZE * 0.5), Vector2(CELL_SIZE, CELL_SIZE))
 	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.08))
@@ -147,7 +134,6 @@ func _draw_placement() -> void:
 
 func _draw_orientation() -> void:
 	var mark := Palette.ACCENT
-	_draw_range_cells()
 	var cell := Rect2(Vector2(-CELL_SIZE * 0.5, -CELL_SIZE * 0.5), Vector2(CELL_SIZE, CELL_SIZE))
 	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.08))
 	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.75), false, 2.0)
@@ -166,15 +152,6 @@ func _draw_orientation() -> void:
 	draw_line(tip, tip - left * 18.0, Color(mark.r, mark.g, mark.b, 0.95), 4.0)
 	draw_line(tip, tip - right * 18.0, Color(mark.r, mark.g, mark.b, 0.95), 4.0)
 	draw_circle(Vector2.ZERO, 5.0, Color(1.0, 1.0, 1.0, 0.9))
-
-
-func _draw_range_cells() -> void:
-	var side := CELL_SIZE - 4.0
-	for point in range_cells:
-		var local: Vector2 = point - global_position
-		var cell := Rect2(local - Vector2.ONE * side * 0.5, Vector2(side, side))
-		draw_rect(cell, RANGE_FILL)
-		draw_rect(cell, RANGE_LINE, false, 1.0)
 
 
 func _draw_body(tint: Color, angle := -PI / 2.0) -> void:

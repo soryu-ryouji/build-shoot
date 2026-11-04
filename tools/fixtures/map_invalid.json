@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "id": "map_invalid",
+  "name": "错误尺寸测试",
+  "tileset": "res://assets/tilesets/industrial.tres",
+  "size": [2, 2],
+  "palette": {
+    "floor_a": { "source": 0, "atlas": [0, 0] }
+  },
+  "layers": {
+    "ground": [
+      ["floor_a", "floor_a"]
+    ]
+  }
+}

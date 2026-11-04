@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "id": "industrial_01",
+  "name": "工业平台",
+  "tileset": "res://assets/tilesets/industrial.tres",
+  "size": [9, 10],
+  "palette": {
+    "floor_a": { "source": 0, "atlas": [0, 0] },
+    "floor_b": { "source": 0, "atlas": [1, 0] },
+    "floor_c": { "source": 0, "atlas": [2, 0] },
+    "floor_d": { "source": 0, "atlas": [3, 0] },
+    "exterior_a": { "source": 0, "atlas": [4, 0] },
+    "exterior_b": { "source": 0, "atlas": [5, 0] },
+    "pipe": { "source": 0, "atlas": [0, 1] },
+    "vent": { "source": 0, "atlas": [1, 1] },
+    "stain": { "source": 0, "atlas": [2, 1] },
+    "crack": { "source": 0, "atlas": [3, 1] },
+    "orange_mark": { "source": 0, "atlas": [4, 1] }
+  },
+  "layers": {
+    "ground": [
+      ["floor_a", "floor_a", "floor_b", "floor_a", "floor_c", "floor_a", "floor_b", "floor_a", "floor_a"],
+      ["floor_a", "floor_c", "floor_a", "floor_a", "floor_a", "floor_b", "floor_a", "floor_d", "floor_a"],
+      ["floor_b", "floor_a", "floor_a", "floor_d", "floor_a", "floor_a", "floor_c", "floor_a", "floor_b"],
+      ["floor_a", "floor_a", "floor_b", "floor_a", "floor_c", "floor_a", "floor_a", "floor_a", "floor_a"],
+      ["floor_a", "floor_d", "floor_a", "floor_a", "floor_a", "floor_b", "floor_a", "floor_c", "floor_a"],
+      ["floor_c", "floor_a", "floor_a", "floor_b", "floor_a", "floor_a", "floor_d", "floor_a", "floor_a"],
+      ["floor_a", "floor_a", "floor_c", "floor_a", "floor_a", "floor_a", "floor_a", "floor_b", "floor_a"],
+      ["floor_a", "floor_b", "floor_a", "floor_a", "floor_d", "floor_a", "floor_c", "floor_a", "floor_a"],
+      ["floor_b", "floor_a", "floor_a", "floor_c", "floor_a", "floor_a", "floor_a", "floor_d", "floor_b"],
+      ["floor_a", "floor_a", "floor_b", "floor_a", "floor_a", "floor_c", "floor_a", "floor_a", "floor_a"]
+    ],
+    "decoration": [
+      ["orange_mark", null, null, null, null, null, null, null, "vent"],
+      [null, null, null, null, "stain", null, null, null, null],
+      [null, null, "crack", null, null, null, null, null, null],
+      [null, null, null, null, null, null, "pipe", null, null],
+      ["vent", null, null, null, null, null, null, null, null],
+      [null, null, null, "stain", null, null, null, "crack", null],
+      [null, null, null, null, null, "pipe", null, null, null],
+      [null, "crack", null, null, null, null, null, null, null],
+      [null, null, null, null, "stain", null, null, null, "vent"],
+      ["orange_mark", null, null, null, null, null, null, null, null]
+    ]
+  },
+  "blocked_cells": [],
+  "enemy_spawn_cells": []
+}

@@ -16,8 +16,8 @@ const MONSTER_ANIMATIONS := {
 	"elite": preload("res://assets/ui/monster_elite_anim.png"),
 }
 
-const PLAY_TOP := 112.0
-const PLAY_BOTTOM := 800.0
+var PLAY_TOP := 112.0
+var PLAY_BOTTOM := 800.0
 ## 敌人走到战场底部前先淡出，避免被裁剪线从中间切断
 const EXIT_FADE := 40.0
 ## 淡出提前量，保证整个贴图在碰到裁剪线之前就不可见
@@ -25,8 +25,8 @@ const EXIT_MARGIN := 12.0
 const COLS := 11
 const CELL_SIZE := Vector2(48.0, 30.0)
 const CELL_GAP_X := 4.0
-const GRID_ORIGIN_X := 76.0
-const SPAWN_Y := PLAY_TOP - CELL_SIZE.y - 6.0
+var GRID_ORIGIN_X := 76.0
+var SPAWN_Y := PLAY_TOP - CELL_SIZE.y - 6.0
 
 ## 波次节奏：开场只有一小撮，约 12 秒后第一波爆发，之后每波之间留出清场时间。
 const OPENING_CALM := 12.0
@@ -69,6 +69,12 @@ var _animation_time := 0.0
 
 func _ready() -> void:
 	_rng.randomize()
+	var rect: Rect2 = game.get_play_rect()
+	PLAY_TOP = rect.position.y
+	PLAY_BOTTOM = rect.end.y
+	var stream_width: float = COLS * CELL_SIZE.x + (COLS - 1) * CELL_GAP_X
+	GRID_ORIGIN_X = rect.position.x + (rect.size.x - stream_width) * 0.5
+	SPAWN_Y = PLAY_TOP - CELL_SIZE.y - 6.0
 
 
 func reset_stream() -> void:
@@ -218,11 +224,8 @@ func get_nearest_target(origin: Vector2, max_range: float, range_cells: Array = 
 
 
 func _cell_in_range(point: Vector2, range_cells: Array) -> bool:
-	var cell: Vector2 = game.snap_to_grid(point)
-	for allowed in range_cells:
-		if cell.distance_to(allowed) < 0.5:
-			return true
-	return false
+	var cell: Vector2i = game.arena.map_loader.world_to_cell(point)
+	return range_cells.has(cell)
 
 
 ## 底部主炮塔的目标：优先选择最靠近底部、且还在炮塔上方的方块。
