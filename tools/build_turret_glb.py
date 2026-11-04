@@ -15,6 +15,7 @@ import bpy
 from mathutils import Vector
 
 ROOT = Path(__file__).resolve().parents[1]
+TEXTURE = ROOT / "assets" / "ui" / "tiles" / "panel_texture_00001.png"
 
 
 def reset_scene() -> None:
@@ -25,13 +26,26 @@ def reset_scene() -> None:
             block.remove(item)
 
 
-def material(name, color, roughness=0.45, metallic=0.4, emission=None, strength=0.0):
+def material(name, color, roughness=0.45, metallic=0.4, emission=None, strength=0.0, textured=False):
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
     bsdf = mat.node_tree.nodes.get("Principled BSDF")
-    bsdf.inputs["Base Color"].default_value = (*color, 1.0)
     bsdf.inputs["Roughness"].default_value = roughness
     bsdf.inputs["Metallic"].default_value = metallic
+    if textured and TEXTURE.exists():
+        image = bpy.data.images.load(str(TEXTURE), check_existing=True)
+        tex = mat.node_tree.nodes.new("ShaderNodeTexImage")
+        tex.image = image
+        tex.location = (-420, 220)
+        mix = mat.node_tree.nodes.new("ShaderNodeMixRGB")
+        mix.blend_type = "MULTIPLY"
+        mix.inputs["Fac"].default_value = 1.0
+        mix.inputs["Color2"].default_value = (*color, 1.0)
+        mix.location = (-180, 220)
+        mat.node_tree.links.new(tex.outputs["Color"], mix.inputs["Color1"])
+        mat.node_tree.links.new(mix.outputs["Color"], bsdf.inputs["Base Color"])
+    else:
+        bsdf.inputs["Base Color"].default_value = (*color, 1.0)
     if emission is not None:
         bsdf.inputs["Emission Color"].default_value = (*emission, 1.0)
         bsdf.inputs["Emission Strength"].default_value = strength
@@ -80,10 +94,10 @@ def cylinder(name, center, radius, depth, mat, vertices=24, rotation=(0.0, 0.0, 
 
 def make_materials() -> dict:
     return {
-        "dark": material("MAT-dark", (0.10, 0.11, 0.12), roughness=0.4, metallic=0.6),
+        "dark": material("MAT-dark", (0.55, 0.57, 0.59), roughness=0.4, metallic=0.6, textured=True),
         "steel": material("MAT-steel", (0.34, 0.36, 0.37), roughness=0.32, metallic=0.9),
         "grey": material("MAT-grey", (0.21, 0.23, 0.25), roughness=0.45, metallic=0.55),
-        "cream": material("MAT-cream", (0.60, 0.59, 0.55), roughness=0.5, metallic=0.2),
+        "cream": material("MAT-cream", (1.25, 1.22, 1.12), roughness=0.5, metallic=0.2, textured=True),
         "amber": material("MAT-amber", (0.88, 0.55, 0.14), roughness=0.35,
                           emission=(0.88, 0.55, 0.14), strength=0.25),
     }
@@ -162,6 +176,21 @@ def animate(barrel) -> None:
     barrel.keyframe_insert("location", frame=40)
 
 
+def add_uvs() -> None:
+    for obj in bpy.data.objects:
+        if obj.type != "MESH":
+            continue
+        if not obj.data.uv_layers:
+            obj.data.uv_layers.new(name="UVMap")
+        bpy.ops.object.select_all(action="DESELECT")
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_all(action="SELECT")
+        bpy.ops.uv.smart_project(angle_limit=math.radians(66.0), island_margin=0.02)
+        bpy.ops.object.mode_set(mode="OBJECT")
+
+
 def export_glb(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.export_scene.gltf(
@@ -186,6 +215,7 @@ def main() -> None:
     mats = make_materials()
     root, head, barrel = build_turret(mats)
     animate(barrel)
+    add_uvs()
     export_glb(outdir / "turret_construct.glb")
     print("EXPORTED", outdir / "turret_construct.glb", flush=True)
 

@@ -198,38 +198,48 @@ func _decorate_tile(p: Vector3, variant: int) -> void:
 			_add_box(p + Vector3(-4.0, y + 0.7, 8.0), Vector3(26.0, 1.2, 7.0), _materials["side"])
 			_add_box(p + Vector3(-13.0, y + 0.7, -3.0), Vector3(7.0, 1.2, 16.0), _materials["side"])
 
-## 场地外的低模装饰：货箱、管线、通风机，按格子坐标固定散开
+## 场地外的装饰：Blender 建模的构成主义物件（铆接货箱 / 斜碑 / 管束）
+const PROP_SCENES := [
+	"res://assets/models/prop_crate.glb",
+	"res://assets/models/prop_monolith.glb",
+	"res://assets/models/prop_pipes.glb",
+]
+
+
 func _build_props() -> void:
 	for row in range(-3, BattleMap.ROWS + 3):
 		for col in range(-3, BattleMap.COLS + 3):
 			if col >= -1 and col <= BattleMap.COLS and row >= -1 and row <= BattleMap.ROWS:
 				continue
-			if absi(col * 31 + row * 17 + col * row * 5) % 100 >= 24:
+			if absi(col * 31 + row * 17 + col * row * 5) % 100 >= 26:
 				continue
 			var p := tile_position(Vector2i(col, row))
-			match absi(col * 13 + row * 29) % 3:
-				0:
-					_crate(_root, p + Vector3(-6.0, 6.0, -4.0), Vector3(16.0, 12.0, 14.0), _materials["deck"])
-					_crate(_root, p + Vector3(8.0, 5.0, 3.0), Vector3(13.0, 10.0, 12.0), _materials["deck_alt"])
-					_crate(_root, p + Vector3(-5.0, 12.5, -4.0), Vector3(12.0, 1.0, 10.0), _materials["cream"])
-				1:
-					for i in 2:
-						var pipe := CylinderMesh.new()
-						pipe.top_radius = 4.0
-						pipe.bottom_radius = 4.0
-						pipe.height = 30.0
-						pipe.radial_segments = 12
-						var node := MeshInstance3D.new()
-						node.mesh = pipe
-						node.material_override = _materials["steel"]
-						node.position = p + Vector3(0.0, 6.0, -5.0 + i * 9.0)
-						node.rotation_degrees = Vector3(0.0, 0.0, 90.0)
-						_root.add_child(node)
-				2:
-					_crate(_root, p + Vector3(0.0, 5.0, 0.0), Vector3(24.0, 10.0, 18.0), _materials["deck"])
-					for i in 3:
-						_crate(_root, p + Vector3(-8.0 + i * 8.0, 11.0, 0.0), Vector3(4.0, 2.0, 12.0), _materials["steel"])
+			var index := absi(col * 13 + row * 29) % PROP_SCENES.size()
+			var packed: PackedScene = load(PROP_SCENES[index])
+			if packed == null:
+				continue
+			var prop := packed.instantiate()
+			prop.position = Vector3(p.x, 0.0, p.z)
+			prop.rotation_degrees = Vector3(0.0, (absi(col * 7 + row * 11) % 4) * 90.0, 0.0)
+			_root.add_child(prop)
 
+	# 边框矮墙顶上再摆几件，让画面的上下边缘也有东西
+	for row in range(-1, BattleMap.ROWS + 1):
+		for col in range(-1, BattleMap.COLS + 1):
+			var on_edge := col == -1 or col == BattleMap.COLS or row == -1 or row == BattleMap.ROWS
+			if not on_edge:
+				continue
+			if absi(col * 19 + row * 23) % 100 >= 34:
+				continue
+			var packed: PackedScene = load(PROP_SCENES[absi(col * 11 + row * 7) % PROP_SCENES.size()])
+			if packed == null:
+				continue
+			var edge_prop := packed.instantiate()
+			var p2 := tile_position(Vector2i(col, row))
+			edge_prop.position = Vector3(p2.x, RIM_HEIGHT, p2.z)
+			edge_prop.scale = Vector3.ONE * 0.8
+			edge_prop.rotation_degrees = Vector3(0.0, (absi(col * 5 + row * 3) % 4) * 90.0, 0.0)
+			_root.add_child(edge_prop)
 
 func _build_rim() -> void:
 	var w := (BattleMap.COLS + 2) * TILE
@@ -300,35 +310,13 @@ func _build_gates() -> void:
 
 
 func _build_core() -> void:
-	var center := BattleMap.core_center()
-	var p := _world_from_screen(center)
-	var disc := CylinderMesh.new()
-	disc.top_radius = 40.0
-	disc.bottom_radius = 40.0
-	disc.height = 8.0
-	var node := MeshInstance3D.new()
-	node.mesh = disc
-	node.material_override = _materials["side"]
-	node.position = Vector3(p.x, TILE_TOP + 4.0, p.z)
-	_root.add_child(node)
-	var inner := CylinderMesh.new()
-	inner.top_radius = 24.0
-	inner.bottom_radius = 24.0
-	inner.height = 3.0
-	var glow := MeshInstance3D.new()
-	glow.mesh = inner
-	glow.material_override = _materials["cyan"]
-	glow.position = Vector3(p.x, TILE_TOP + 8.5, p.z)
-	_root.add_child(glow)
-	# 核心的蓝色透明框
-	var core_span := BattleMap.core_tiles()
-	var width := 42.0
-	if core_span.size() > 1:
-		width = float(core_span.size()) * TILE - 6.0
-	_build_cage(Vector3(p.x, TILE_TOP + 16.0, p.z), Vector3(width, 32.0, 42.0), Color(0.25, 0.62, 1.0))
+	# 每格一个蓝色透明框，框里不再放圆盘
+	for tile in BattleMap.core_tiles():
+		var p := tile_position(tile)
+		_build_cage(p + Vector3(0.0, TILE_TOP + 15.0, 0.0), Vector3(42.0, 30.0, 42.0), Color(0.25, 0.62, 1.0))
 
 
-## 2D 世界坐标（设计稿像素）→ 3D 地面坐标
+## 设计稿像素坐标 → 3D 地面坐标（正交相机下 x 不变，z 按 cos45 折算）
 func _world_from_screen(pos: Vector2) -> Vector3:
 	var field := BattleMap.field_rect()
 	var center := field.get_center()
