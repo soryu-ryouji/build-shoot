@@ -149,7 +149,7 @@ Godot_v4.7.2-stable_win64.exe --headless --fixed-fps 60 --path . res://tools/res
 
 ## JSON 瓦片地图
 
-战场只有一个 `scenes/main.tscn`。启动时 `scripts/arena.gd` 加载 `data/maps/industrial_01.json`，`scripts/map_loader.gd` 校验数据并生成 Ground、Edge、Decoration 三个 `TileMapLayer`。第一张地图保持 9×10 个建筑格，所有格子严格为 64×64px，放置吸附、建筑占用、射程、高亮和索敌共用 `Vector2i` 瓦片坐标。
+战场只有一个 `scenes/main.tscn`。启动时 `scripts/arena.gd` 加载 `data/maps/industrial_01.json`，`scripts/map_loader.gd` 校验数据并生成 Ground、Decoration 两个 `TileMapLayer`。战斗区内外共用连续地面，外围继续铺设同款瓦片至镜头外，只增加工业装饰，不使用深色外圈或独立背景板。第一张地图保持 9×10 个建筑格，所有格子严格为 64×64px，放置吸附、建筑占用、射程、高亮和索敌共用 `Vector2i` 瓦片坐标。
 
 新增地图时复制一个 JSON，修改 `size`、`palette`、按行排列的 `layers.ground`、可选 `layers.decoration` 和 `blocked_cells` 即可，不需要新增场景或修改战斗脚本。地面中的 `null` 表示空格；空格、阻挡格与已占用格不能建造。地图数据格式与加载流程详见 [战场瓦片化与 JSON 地图数据改造方案](docs/map_system_refactor_proposal.md)。
 

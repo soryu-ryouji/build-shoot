@@ -4,6 +4,8 @@ extends Node2D
 
 const MAP_CENTER := Vector2(360.0, 456.0)
 const REQUIRED_CELL_SIZE := Vector2i(64, 64)
+## 向外连续铺设，覆盖当前支持的长屏镜头，避免露出纯色背景。
+const SURROUND_RADIUS := 8
 
 var map_data: Dictionary = {}
 var map_id := ""
@@ -15,7 +17,6 @@ var frame_rect := Rect2()
 var load_error := ""
 
 var ground_layer: TileMapLayer
-var edge_layer: TileMapLayer
 var decoration_layer: TileMapLayer
 
 var _tile_set: TileSet
@@ -137,10 +138,6 @@ func _ensure_layers() -> void:
 	ground_layer.name = "GroundLayer"
 	ground_layer.z_index = 0
 	add_child(ground_layer)
-	edge_layer = TileMapLayer.new()
-	edge_layer.name = "EdgeLayer"
-	edge_layer.z_index = 0
-	add_child(edge_layer)
 	decoration_layer = TileMapLayer.new()
 	decoration_layer.name = "DecorationLayer"
 	decoration_layer.z_index = 0
@@ -240,13 +237,10 @@ func _rebuild_buildable() -> void:
 
 func _draw_layers() -> void:
 	ground_layer.clear()
-	edge_layer.clear()
 	decoration_layer.clear()
 	ground_layer.tile_set = _tile_set
-	edge_layer.tile_set = _tile_set
 	decoration_layer.tile_set = _tile_set
 	ground_layer.position = origin
-	edge_layer.position = origin
 	decoration_layer.position = origin
 	for cell in _ground_cells:
 		_set_tile(ground_layer, cell, _ground_cells[cell])
@@ -258,16 +252,26 @@ func _draw_layers() -> void:
 			if alias != null:
 				_set_tile(decoration_layer, Vector2i(x, y), String(alias))
 
-	# 外围沿用同一材质，只显示在战场边框附近，不再是另一张背景插画。
-	for y in range(-1, grid_size.y + 1):
-		for x in range(-1, grid_size.x + 1):
+	# 战斗区内外是一张连续地面；可建造边界不参与材质分区。
+	var floor_aliases: Array = []
+	for alias in _ground_cells.values():
+		if not floor_aliases.has(alias):
+			floor_aliases.append(alias)
+	for y in range(-SURROUND_RADIUS, grid_size.y + SURROUND_RADIUS):
+		for x in range(-SURROUND_RADIUS, grid_size.x + SURROUND_RADIUS):
 			var cell := Vector2i(x, y)
 			if is_inside(cell):
 				continue
-			var exterior := "exterior_a" if _palette.has("exterior_a") else String(_ground_cells.values()[0])
-			_set_tile(edge_layer, cell, exterior)
-			if _palette.has("vent") and posmod(x * 7 + y * 11, 13) == 0:
+			var index := posmod(x * 7 + y * 11, floor_aliases.size())
+			_set_tile(ground_layer, cell, String(floor_aliases[index]))
+			# 外围只逐渐增加工业装饰，不改变地面明度或材质。
+			var decoration_hash := posmod(x * 13 + y * 17, 41)
+			if _palette.has("pipe") and decoration_hash == 0:
+				_set_tile(decoration_layer, cell, "pipe")
+			elif _palette.has("vent") and decoration_hash == 3:
 				_set_tile(decoration_layer, cell, "vent")
+			elif _palette.has("orange_mark") and decoration_hash == 7:
+				_set_tile(decoration_layer, cell, "orange_mark")
 
 
 func _set_tile(layer: TileMapLayer, cell: Vector2i, alias: String) -> void:

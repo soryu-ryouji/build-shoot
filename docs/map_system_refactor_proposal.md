@@ -68,8 +68,7 @@ assets/tilesets/
 
 ```text
 Battlefield
-├── GroundLayer        TileMapLayer：地面与外围工业地面
-├── EdgeLayer          TileMapLayer：边界、拐角和地面过渡
+├── GroundLayer        TileMapLayer：连续铺满镜头内外的统一地面
 ├── DecorationLayer    TileMapLayer：管线、裂缝等装饰
 ├── HighlightLayer     Node2D：放置和范围高亮
 └── Actors             现有怪物、建筑、炮弹与特效
@@ -146,7 +145,7 @@ Battlefield
 - 瓦片尺寸直接读取 TileSet，统一为 64 × 64px，不在每张 JSON 中重复配置。
 - 可放置格必须满足：位于地图内、地面非空、不在 `blocked_cells` 中、当前没有建筑。
 - 战斗边界由 `size` 和 TileSet 瓦片尺寸计算，不再使用硬编码的 `PLAY_RECT`。
-- 外围边框和工业地面由加载器使用同一 TileSet 绘制，相机根据地图实际尺寸自动适配。
+- 战斗区内外由加载器连续铺设同一组地面瓦片，外围只增加装饰；相机根据地图实际尺寸自动适配。
 
 ## 7. 地图加载流程
 
@@ -156,7 +155,7 @@ Battlefield
 2. 读取 `res://data/maps/industrial_01.json`。
 3. 解析 JSON 并校验版本、字段类型、地图尺寸、数组长度和瓦片名称。
 4. 加载 JSON 指定的 TileSet。
-5. 清空并重新填充 Ground、Edge、Decoration 三个 `TileMapLayer`。
+5. 清空并重新填充 Ground、Decoration 两个 `TileMapLayer`。
 6. 建立世界边界、瓦片坐标缓存和可建造格集合。
 7. 初始化怪物、建筑、高亮和交互系统。
 8. 相机根据地图实际尺寸缩放，继续保证完整地图位于 HUD 与商店之间。
@@ -316,7 +315,7 @@ get_occupied_building(cell)
 ## 16. 实施与验证结果
 
 - 默认地图 `data/maps/industrial_01.json` 已接入，保持 9×10、64×64px 建筑格。
-- 地面、外围和装饰由 JSON 与同一工业 TileSet 生成，不再引用整张战场背景。
+- 战斗区与外围由 JSON 和同一工业 TileSet 连续生成，不再使用深色外圈或独立背景板。
 - 放置、拆除、摧毁、射程、索敌和压缩塔已迁移到统一瓦片坐标与占用数据。
 - 绿色可放置、红色非法、青色射程与施法高亮已接入统一 `TileHighlights`。
 - ComfyUI 工业源材质已处理为无缝图集；处理脚本保留在 `tools/generate_map_art.py` 和 `tools/process_map_tiles.py`。

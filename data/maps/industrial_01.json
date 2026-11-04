@@ -9,8 +9,6 @@
     "floor_b": { "source": 0, "atlas": [1, 0] },
     "floor_c": { "source": 0, "atlas": [2, 0] },
     "floor_d": { "source": 0, "atlas": [3, 0] },
-    "exterior_a": { "source": 0, "atlas": [4, 0] },
-    "exterior_b": { "source": 0, "atlas": [5, 0] },
     "pipe": { "source": 0, "atlas": [0, 1] },
     "vent": { "source": 0, "atlas": [1, 1] },
     "stain": { "source": 0, "atlas": [2, 1] },
