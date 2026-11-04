@@ -13,7 +13,7 @@ import bpy
 from mathutils import Vector
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXTURE = ROOT / "assets" / "ui" / "tiles" / "panel_texture_00001.png"
+TEXTURE = ROOT / "assets" / "ui" / "tiles" / "panel_texture_bright.png"
 
 
 def reset_scene() -> None:

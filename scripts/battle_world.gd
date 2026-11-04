@@ -165,38 +165,28 @@ func _build_map() -> void:
 	_build_props()
 
 
-## 地坪装饰：构成主义色块，大部分格子留白，少量格子用一条粗线/一块色块/一个十字
+## 地坪装饰：Blender 建模的构成主义浮雕贴片，按格子坐标固定散开
+const INLAY_SCENES := [
+	"res://assets/models/inlays/inlay_diag.glb",
+	"res://assets/models/inlays/inlay_step.glb",
+	"res://assets/models/inlays/inlay_l.glb",
+	"res://assets/models/inlays/inlay_split.glb",
+	"res://assets/models/inlays/inlay_corner.glb",
+]
+
+
 func _decorate_tile(p: Vector3, variant: int) -> void:
-	if variant < 58:
+	if variant < 62:
 		return
-	var y := TILE_TOP
-	match (variant - 58) % 5:
-		0:
-			# 细斜条
-			var bar := _add_box(p + Vector3(0.0, y + 0.6, 0.0), Vector3(38.0, 0.8, 5.0), _materials["lane_edge"], false)
-			bar.rotation.y = deg_to_rad(38.0)
-		1:
-			# 米白偏置块
-			_add_box(p + Vector3(-7.0, y + 0.7, 5.0), Vector3(20.0, 1.0, 16.0), _materials["cream"])
-		2:
-			# 细十字
-			_add_box(p + Vector3(0.0, y + 0.5, 0.0), Vector3(28.0, 0.6, 2.0), _materials["lane_edge"])
-			_add_box(p + Vector3(0.0, y + 0.5, 0.0), Vector3(2.0, 0.6, 28.0), _materials["lane_edge"])
-		3:
-			# 圆形嵌槽
-			var disc := CylinderMesh.new()
-			disc.top_radius = 9.0
-			disc.bottom_radius = 9.0
-			disc.height = 0.8
-			var node := MeshInstance3D.new()
-			node.mesh = disc
-			node.material_override = _materials["base"]
-			node.position = p + Vector3(0.0, y + 0.4, 0.0)
-			_root.add_child(node)
-		4:
-			# L 形深色块
-			_add_box(p + Vector3(-4.0, y + 0.7, 8.0), Vector3(26.0, 1.2, 7.0), _materials["side"])
-			_add_box(p + Vector3(-13.0, y + 0.7, -3.0), Vector3(7.0, 1.2, 16.0), _materials["side"])
+	var index := (variant - 62) % INLAY_SCENES.size()
+	var packed: PackedScene = load(INLAY_SCENES[index])
+	if packed == null:
+		return
+	var inlay := packed.instantiate()
+	inlay.position = Vector3(p.x, TILE_TOP, p.z)
+	inlay.scale = Vector3.ONE * 0.92
+	inlay.rotation_degrees = Vector3(0.0, float((variant * 3) % 4) * 90.0, 0.0)
+	_root.add_child(inlay)
 
 ## 场地外的装饰：Blender 建模的构成主义物件（铆接货箱 / 斜碑 / 管束）
 const PROP_SCENES := [
