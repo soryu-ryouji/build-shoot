@@ -8,7 +8,9 @@ const BattleMap = preload("res://scripts/battle_map.gd")
 
 const DESIGN_SIZE := Vector2i(720, 960)
 const TILE := 48.0
-const COS45 := 0.70710678
+const ELEV_DEG := 35.0
+## 地面沿 Z 方向 1 单位在屏幕上的投影长度（sin35°）
+const SIN_ELEV := 0.57357644
 const TILE_TOP := 5.0
 const HIGH_TOP := 18.0
 const RIM_HEIGHT := 30.0
@@ -114,8 +116,10 @@ func _build_camera() -> void:
 	_cam.keep_aspect = Camera3D.KEEP_HEIGHT
 	_cam.near = 200.0
 	_cam.far = 4000.0
-	_cam.position = Vector3(0.0, 1200.0, 1200.0)
-	_cam.rotation_degrees = Vector3(-45.0, 0.0, 0.0)
+	var distance := 1700.0
+	var rad := deg_to_rad(ELEV_DEG)
+	_cam.position = Vector3(0.0, distance * sin(rad), distance * cos(rad))
+	_cam.rotation_degrees = Vector3(-ELEV_DEG, 0.0, 0.0)
 	_root.add_child(_cam)
 	_cam.current = true
 
@@ -310,7 +314,7 @@ func _build_core() -> void:
 func _world_from_screen(pos: Vector2) -> Vector3:
 	var field := BattleMap.field_rect()
 	var center := field.get_center()
-	return Vector3(pos.x - center.x, 0.0, (pos.y - center.y) / COS45)
+	return Vector3(pos.x - center.x, 0.0, (pos.y - center.y) / SIN_ELEV)
 
 
 ## 2D 世界位置 → 3D 地面坐标（给建筑和敌人用）

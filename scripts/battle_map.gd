@@ -5,9 +5,9 @@ extends RefCounted
 
 const COLS := 7
 const ROWS := 13
-## 地面格距（世界单位）与它在 2.5D 投影下的屏幕高度
+## 地面格距（世界单位）与它在 35° 俯角下的屏幕高度（48·sin35°≈27.53）
 const TILE := 48.0
-const TILE_H := 34.0
+const TILE_H := 27.53
 const ORIGIN := Vector2(72.0, 120.0)
 ## 高台比低地高出的世界单位，用于把高台上的建筑往上抬同样的投影高度
 const HIGH_LIFT := 12.0

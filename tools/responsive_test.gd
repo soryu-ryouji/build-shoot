@@ -3,6 +3,8 @@ extends Node
 ## 动态调整窗口，验证 HUD、商店、菜单、设置与战场坐标换算。
 ## 同时回归移动端可读性：可点击控件不小于 48 逻辑像素，正文不小于 15。
 
+const BattleMap = preload("res://scripts/battle_map.gd")
+
 const SIZES := [
 	Vector2i(720, 960),
 	Vector2i(1000, 2000),
@@ -27,8 +29,9 @@ func _run() -> void:
 		get_window().size = target
 		await _frames(4)
 		var view: Vector2 = get_viewport().get_visible_rect().size
-		var frame_top_left: Vector2 = main.world_to_screen(Vector2(60, 108))
-		var frame_bottom_right: Vector2 = main.world_to_screen(Vector2(420, 574))
+		var map_rect: Rect2 = BattleMap.field_rect()
+		var frame_top_left: Vector2 = main.world_to_screen(map_rect.position)
+		var frame_bottom_right: Vector2 = main.world_to_screen(map_rect.end)
 		var frame := Rect2(frame_top_left, frame_bottom_right - frame_top_left)
 		var hud_rect: Rect2 = main.hud.top_panel.get_global_rect()
 		var shop_rect: Rect2 = main.shop_bar.get_global_rect()
