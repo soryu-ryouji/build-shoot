@@ -374,9 +374,16 @@ func _build_sandbag(root: Node3D) -> void:
 
 
 func _build_solar(root: Node3D) -> void:
-	_crate(root, Vector3(0.0, 3.0, 0.0), Vector3(40.0, 5.0, 30.0), _materials["side"])
-	var panel := _crate(root, Vector3(0.0, 12.0, 0.0), Vector3(38.0, 2.0, 28.0), _materials["cream"])
-	panel.rotation.x = deg_to_rad(-18.0)
+	_crate(root, Vector3(0.0, 2.0, 0.0), Vector3(40.0, 4.0, 32.0), _materials["plate"])
+	for sx in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			_crate(root, Vector3(sx * 15.0, 8.0, sz * 11.0), Vector3(3.0, 12.0, 3.0), _materials["steel"])
+	var panel := _crate(root, Vector3(0.0, 19.0, 0.0), Vector3(44.0, 2.4, 34.0), _materials["cream"])
+	panel.rotation.x = deg_to_rad(-24.0)
+	var glass := _crate(root, Vector3(0.0, 20.6, 0.0), Vector3(38.0, 0.8, 28.0), _materials["plate"])
+	glass.rotation.x = deg_to_rad(-24.0)
+	_crate(root, Vector3(0.0, 6.0, 14.0), Vector3(40.0, 1.6, 2.4), _materials["amber"])
+	_crate(root, Vector3(0.0, 19.0, 17.0), Vector3(44.0, 1.6, 1.6), _materials["amber"])
 
 
 func _build_compression(root: Node3D) -> void:
@@ -471,3 +478,64 @@ func prune_enemies(alive_ids: Array) -> void:
 			(entry["sprite"] as Node).queue_free()
 			(entry["shadow"] as Node).queue_free()
 			_enemies.erase(id)
+
+# ---------------------------------------------------------------- 部署高亮与预览
+
+var _highlight_nodes: Array[Node3D] = []
+var _preview: Node3D = null
+var _preview_id := ""
+
+
+## 铺在地砖上的高亮方块（不是空中的 2D 框）
+func add_highlight(screen_pos: Vector2, valid: bool, strong := true) -> void:
+	var tile := BattleMap.tile_at(screen_pos)
+	var p := tile_position(tile)
+	var quad := PlaneMesh.new()
+	quad.size = Vector2(44.0, 44.0)
+	var node := MeshInstance3D.new()
+	node.mesh = quad
+	var color := Color(0.45, 0.88, 0.55) if valid else Color(0.92, 0.26, 0.20)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(color.r, color.g, color.b, 0.34 if strong else 0.09)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	node.material_override = mat
+	node.position = Vector3(p.x, TILE_TOP + 0.6, p.z)
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_root.add_child(node)
+	_highlight_nodes.append(node)
+
+
+func clear_highlights() -> void:
+	for node in _highlight_nodes:
+		if is_instance_valid(node):
+			node.queue_free()
+	_highlight_nodes.clear()
+
+
+## 拖拽时在格子上显示部署后的 3D 实体（半透明）
+func show_preview(item_id: String, screen_pos: Vector2, angle: float) -> void:
+	var p := _world_from_screen(screen_pos)
+	if _preview == null or not is_instance_valid(_preview) or _preview_id != item_id:
+		hide_preview()
+		_preview = create_building(item_id, screen_pos)
+		_preview_id = item_id
+		_set_preview_alpha(_preview)
+	_preview.position = Vector3(p.x, TILE_TOP, p.z)
+	_preview.rotation.y = -(angle + PI / 2.0)
+
+
+func hide_preview() -> void:
+	if _preview != null and is_instance_valid(_preview):
+		_preview.queue_free()
+	_preview = null
+	_preview_id = ""
+
+
+func _set_preview_alpha(node: Node) -> void:
+	for child in node.get_children():
+		if child is MeshInstance3D:
+			child.transparency = 0.45
+			child.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_set_preview_alpha(child)

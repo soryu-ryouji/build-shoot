@@ -181,6 +181,7 @@ func _setup_nodes() -> void:
 
 	placement_ghost = PlacementGhost.new()
 	placement_ghost.name = "PlacementGhost"
+	placement_ghost.game = self
 	add_child(placement_ghost)
 
 	world_camera = Camera2D.new()

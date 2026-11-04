@@ -33,6 +33,7 @@ var sprite_scale := 1.0
 var item_id := "turret"
 var category := ItemDefs.CATEGORY_FIREPOWER
 var facing := -PI / 2.0
+var game: Node
 var play_rect := Rect2()
 var range_cells: Array = []
 var hint: Label
@@ -74,7 +75,26 @@ func begin(item: Dictionary) -> void:
 func update_preview(pos: Vector2, is_valid: bool) -> void:
 	position = pos
 	valid = is_valid
+	_sync_3d()
 	queue_redraw()
+
+
+## 3D 战场上的部署高亮与实体预览
+func _sync_3d() -> void:
+	if game == null or game.battle_world == null:
+		return
+	var world: Node = game.battle_world
+	world.clear_highlights()
+	for point in range_cells:
+		world.add_highlight(point, valid, false)
+	world.add_highlight(position, valid, true)
+	world.show_preview(item_id, position, facing if orienting else facing)
+
+
+func _clear_3d() -> void:
+	if game != null and game.battle_world != null:
+		game.battle_world.clear_highlights()
+		game.battle_world.hide_preview()
 
 
 func begin_orientation(pos: Vector2, item: Dictionary, angle: float, rect: Rect2) -> void:
@@ -93,11 +113,13 @@ func begin_orientation(pos: Vector2, item: Dictionary, angle: float, rect: Rect2
 
 func set_facing(angle: float) -> void:
 	facing = angle
+	_sync_3d()
 	queue_redraw()
 
 
 func set_range_cells(cells: Array) -> void:
 	range_cells = cells
+	_sync_3d()
 	queue_redraw()
 
 
@@ -105,6 +127,7 @@ func end() -> void:
 	active = false
 	orienting = false
 	range_cells.clear()
+	_clear_3d()
 	if hint != null:
 		hint.visible = false
 	queue_redraw()
@@ -119,6 +142,8 @@ func _layout_hint() -> void:
 
 func _draw() -> void:
 	if not active:
+		return
+	if game != null and game.battle_world != null:
 		return
 	if orienting:
 		_draw_orientation()
