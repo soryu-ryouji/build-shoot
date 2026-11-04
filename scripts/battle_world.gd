@@ -159,45 +159,44 @@ func _build_map() -> void:
 					_materials["deck"] if variant < 55 else _materials["deck_alt"])
 				_decorate_tile(p, variant)
 
-	_build_road()
 	_build_rim()
 	_build_gates()
 	_build_core()
 	_build_props()
 
 
-## 地坪上的装饰性方格：面板、米白块、琥珀边、通风格栅、检修口、导轨、角灯
+## 地坪装饰：构成主义色块，大部分格子留白，少量格子用一条粗线/一块色块/一个十字
 func _decorate_tile(p: Vector3, variant: int) -> void:
+	if variant < 58:
+		return
 	var y := TILE_TOP
-	if variant < 14:
-		_add_box(p + Vector3(0.0, y + 0.6, 0.0), Vector3(32.0, 1.2, 32.0), _materials["plate"])
-	elif variant < 26:
-		_add_box(p + Vector3(0.0, y + 0.7, 0.0), Vector3(26.0, 1.4, 26.0), _materials["cream"])
-	elif variant < 38:
-		_add_box(p + Vector3(0.0, y + 0.5, 18.0), Vector3(34.0, 0.8, 2.4), _materials["amber"])
-	elif variant < 50:
-		# 通风格栅
-		_add_box(p + Vector3(0.0, y + 0.5, 0.0), Vector3(28.0, 1.0, 20.0), _materials["base"])
-		for i in 3:
-			_add_box(p + Vector3(-8.0 + i * 8.0, y + 1.1, 0.0), Vector3(4.0, 0.8, 16.0), _materials["steel"])
-	elif variant < 62:
-		# 检修口 + 琥珀标记
-		_add_box(p + Vector3(0.0, y + 1.2, 0.0), Vector3(22.0, 2.4, 18.0), _materials["plate"])
-		_add_box(p + Vector3(0.0, y + 2.6, -6.0), Vector3(14.0, 0.8, 2.0), _materials["amber"])
-	elif variant < 74:
-		# 两条导轨
-		for i in 2:
-			_add_box(p + Vector3(0.0, y + 1.0, -7.0 + i * 14.0), Vector3(38.0, 1.6, 2.4), _materials["steel"])
-	elif variant < 86:
-		# 四角指示灯
-		for sx in [-1.0, 1.0]:
-			for sz in [-1.0, 1.0]:
-				_add_box(p + Vector3(sx * 16.0, y + 0.7, sz * 16.0), Vector3(5.0, 1.0, 5.0), _materials["amber"])
-	else:
-		# 小平台 + 米白顶
-		_add_box(p + Vector3(0.0, y + 2.0, 0.0), Vector3(26.0, 4.0, 26.0), _materials["side"])
-		_add_box(p + Vector3(0.0, y + 4.4, 0.0), Vector3(20.0, 1.2, 20.0), _materials["cream"])
-
+	match (variant - 58) % 5:
+		0:
+			# 细斜条
+			var bar := _add_box(p + Vector3(0.0, y + 0.6, 0.0), Vector3(38.0, 0.8, 5.0), _materials["lane_edge"], false)
+			bar.rotation.y = deg_to_rad(38.0)
+		1:
+			# 米白偏置块
+			_add_box(p + Vector3(-7.0, y + 0.7, 5.0), Vector3(20.0, 1.0, 16.0), _materials["cream"])
+		2:
+			# 细十字
+			_add_box(p + Vector3(0.0, y + 0.5, 0.0), Vector3(28.0, 0.6, 2.0), _materials["lane_edge"])
+			_add_box(p + Vector3(0.0, y + 0.5, 0.0), Vector3(2.0, 0.6, 28.0), _materials["lane_edge"])
+		3:
+			# 圆形嵌槽
+			var disc := CylinderMesh.new()
+			disc.top_radius = 9.0
+			disc.bottom_radius = 9.0
+			disc.height = 0.8
+			var node := MeshInstance3D.new()
+			node.mesh = disc
+			node.material_override = _materials["base"]
+			node.position = p + Vector3(0.0, y + 0.4, 0.0)
+			_root.add_child(node)
+		4:
+			# L 形深色块
+			_add_box(p + Vector3(-4.0, y + 0.7, 8.0), Vector3(26.0, 1.2, 7.0), _materials["side"])
+			_add_box(p + Vector3(-13.0, y + 0.7, -3.0), Vector3(7.0, 1.2, 16.0), _materials["side"])
 
 ## 场地外的低模装饰：货箱、管线、通风机，按格子坐标固定散开
 func _build_props() -> void:
@@ -232,60 +231,6 @@ func _build_props() -> void:
 						_crate(_root, p + Vector3(-8.0 + i * 8.0, 11.0, 0.0), Vector3(4.0, 2.0, 12.0), _materials["steel"])
 
 
-## 路径：比地坪略亮的走道 + 琥珀虚线，不用黑色
-func _build_road() -> void:
-	var half := 14.0
-	for segment in BattleMap.segments():
-		var a: Vector2 = segment[0]
-		var b: Vector2 = segment[1]
-		var pa := _world_from_screen(a)
-		var pb := _world_from_screen(b)
-		var center := (pa + pb) * 0.5
-		var length := pa.distance_to(pb)
-		var angle := atan2(pb.z - pa.z, pb.x - pa.x)
-		var mesh := BoxMesh.new()
-		mesh.size = Vector3(length + 28.0, 0.7, half * 2.0)
-		var node := MeshInstance3D.new()
-		node.mesh = mesh
-		node.material_override = _materials["lane"]
-		node.position = Vector3(center.x, TILE_TOP + 0.35, center.z)
-		node.rotation.y = -angle
-		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_root.add_child(node)
-
-		# 走道两侧的琥珀细边，比黑带更接近工业地坪的分道线
-		for side: float in [-1.0, 1.0]:
-			var normal: Vector2 = Vector2(-(pb.z - pa.z), pb.x - pa.x).normalized() * (half - 1.5) * side
-			var edge := BoxMesh.new()
-			edge.size = Vector3(length + 26.0, 0.4, 1.1)
-			var edge_node := MeshInstance3D.new()
-			edge_node.mesh = edge
-			edge_node.material_override = _materials["lane_edge"]
-			edge_node.position = Vector3(center.x + normal.x, TILE_TOP + 0.75, center.z + normal.y)
-			edge_node.rotation.y = -angle
-			edge_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			_root.add_child(edge_node)
-
-		# 中线琥珀虚线
-		var dir := Vector2(pb.x - pa.x, pb.z - pa.z)
-		var dash_len := 7.0
-		var gap := 46.0
-		var travelled := gap * 0.5
-		while travelled + dash_len < length:
-			var t := (travelled + dash_len * 0.5) / length
-			var pos := pa + Vector3(dir.x, 0.0, dir.y) * t
-			var dash := BoxMesh.new()
-			dash.size = Vector3(dash_len, 0.4, 1.8)
-			var dash_node := MeshInstance3D.new()
-			dash_node.mesh = dash
-			dash_node.material_override = _materials["amber"]
-			dash_node.position = Vector3(pos.x, TILE_TOP + 0.85, pos.z)
-			dash_node.rotation.y = -angle
-			dash_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			_root.add_child(dash_node)
-			travelled += gap
-
-
 func _build_rim() -> void:
 	var w := (BattleMap.COLS + 2) * TILE
 	var h := (BattleMap.ROWS + 2) * TILE
@@ -302,10 +247,56 @@ func _build_rim() -> void:
 			_add_box(p + Vector3(0.0, RIM_HEIGHT + 1.2, 0.0), Vector3(46.0, 2.4, 46.0), _materials["plate"])
 
 
+## 半透明线框笼子：红色出怪口、蓝色核心，参考明日方舟的透明框
+func _build_cage(center: Vector3, size: Vector3, tint: Color) -> void:
+	var glass := BoxMesh.new()
+	glass.size = size
+	var node := MeshInstance3D.new()
+	node.mesh = glass
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(tint.r, tint.g, tint.b, 0.10)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	node.material_override = mat
+	node.position = center
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_root.add_child(node)
+
+	var edge_mat := StandardMaterial3D.new()
+	edge_mat.albedo_color = tint
+	edge_mat.emission_enabled = true
+	edge_mat.emission = tint
+	edge_mat.emission_energy_multiplier = 0.8
+	edge_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var hx := size.x * 0.5
+	var hz := size.z * 0.5
+	var hy := size.y * 0.5
+	for sx in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			_add_bar(center + Vector3(sx * hx, 0.0, sz * hz), Vector3(1.2, size.y, 1.2), edge_mat)
+	for sy in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			_add_bar(center + Vector3(0.0, sy * hy, sz * hz), Vector3(size.x, 1.2, 1.2), edge_mat)
+		for sx in [-1.0, 1.0]:
+			_add_bar(center + Vector3(sx * hx, sy * hy, 0.0), Vector3(1.2, 1.2, size.z), edge_mat)
+
+
+func _add_bar(pos: Vector3, size: Vector3, mat: StandardMaterial3D) -> void:
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	var node := MeshInstance3D.new()
+	node.mesh = mesh
+	node.material_override = mat
+	node.position = pos
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_root.add_child(node)
+
+
 func _build_gates() -> void:
 	for gate in BattleMap.gates():
 		var p := tile_position(gate)
-		_add_box(p + Vector3(0.0, TILE_TOP + 0.8, 0.0), Vector3(36.0, 1.6, 36.0), _materials["red"])
+		_build_cage(p + Vector3(0.0, TILE_TOP + 15.0, 0.0), Vector3(42.0, 30.0, 42.0), Color(0.95, 0.22, 0.16))
 
 
 func _build_core() -> void:
@@ -329,6 +320,12 @@ func _build_core() -> void:
 	glow.material_override = _materials["cyan"]
 	glow.position = Vector3(p.x, TILE_TOP + 8.5, p.z)
 	_root.add_child(glow)
+	# 核心的蓝色透明框
+	var core_span := BattleMap.core_tiles()
+	var width := 42.0
+	if core_span.size() > 1:
+		width = float(core_span.size()) * TILE - 6.0
+	_build_cage(Vector3(p.x, TILE_TOP + 16.0, p.z), Vector3(width, 32.0, 42.0), Color(0.25, 0.62, 1.0))
 
 
 ## 2D 世界坐标（设计稿像素）→ 3D 地面坐标
