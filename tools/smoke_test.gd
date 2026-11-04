@@ -105,7 +105,7 @@ func _run() -> void:
 	# ---------------------------------------------------------------- 布置与能源
 	# 场上没有火力时拆除全额返还，保证不会因为花光金币而无法重建
 	main.begin_placement("sandbag")
-	main.finish_placement("sandbag", BattleMap.tile_center(Vector2i(7, 10)))
+	main.finish_placement("sandbag", BattleMap.tile_center(Vector2i(6, 10)))
 	_check(main.placed_buildings.size() == 1, "sandbag placed before firepower")
 	var first_sandbag: Node = main.placed_buildings[0]
 	_check(int(first_sandbag.get_refund()) == 15, "no-firepower dismantle refunds in full")
@@ -180,15 +180,15 @@ func _run() -> void:
 
 	# 网格吸附边缘
 	var left: Vector2 = main.snap_to_grid(Vector2(65, 400))
-	var right: Vector2 = main.snap_to_grid(Vector2(470, 400))
+	var right: Vector2 = main.snap_to_grid(Vector2(430, 400))
 	var top: Vector2 = main.snap_to_grid(Vector2(416, 113))
 	var bottom: Vector2 = main.snap_to_grid(Vector2(416, 580))
-	var corner: Vector2 = main.snap_to_grid(Vector2(470, 580))
+	var corner: Vector2 = main.snap_to_grid(Vector2(430, 580))
 	_check(is_equal_approx(left.x, 96.0), "left edge snaps")
-	_check(is_equal_approx(right.x, 432.0), "right edge snaps")
+	_check(is_equal_approx(right.x, 384.0), "right edge snaps")
 	_check(is_equal_approx(top.y, 137.0), "top edge snaps")
 	_check(is_equal_approx(bottom.y, 545.0), "bottom edge snaps")
-	_check(is_equal_approx(corner.x, 432.0) and is_equal_approx(corner.y, 545.0), "frame edge clamps")
+	_check(is_equal_approx(corner.x, 384.0) and is_equal_approx(corner.y, 545.0), "frame edge clamps")
 	_check(main.is_valid_placement(left), "left edge cell is placeable")
 	_check(main.is_valid_placement(right), "right edge cell is placeable")
 	_check(main.is_valid_placement(top), "top edge cell is placeable")
@@ -209,7 +209,7 @@ func _run() -> void:
 		var problems: Array = BattleMap.validate(i)
 		_check(problems.is_empty(), "map %d data is valid: %s" % [i, str(problems)])
 	BattleMap.use(0)
-	var road_tile := Vector2i(5, 8)
+	var road_tile := Vector2i(4, 8)
 	_check(BattleMap.is_path(road_tile), "road tile is part of the route")
 	_check(BattleMap.is_buildable(road_tile, "fortification"), "fortification may block the road")
 	_check(not BattleMap.is_buildable(road_tile, "firepower"), "firepower stays off the road")
@@ -239,7 +239,7 @@ func _run() -> void:
 
 	var coins_before := int(main.coins)
 	main.begin_placement("heavy_turret")
-	main.finish_placement("heavy_turret", BattleMap.tile_center(Vector2i(7, 11)))
+	main.finish_placement("heavy_turret", BattleMap.tile_center(Vector2i(6, 11)))
 	_check(not main.orienting, "heavy turret has no attack direction and places immediately")
 	_check(main.placed_buildings.size() == 3, "heavy turret placed as its own item")
 	_check(int(main.coins) == coins_before - 120, "heavy turret costs 120")
@@ -255,7 +255,7 @@ func _run() -> void:
 	main.clear_selection()
 
 	main.begin_placement("fusion_tower")
-	main.finish_placement("fusion_tower", BattleMap.tile_center(Vector2i(7, 4)))
+	main.finish_placement("fusion_tower", BattleMap.tile_center(Vector2i(6, 4)))
 	_check(not main.orienting, "fusion tower skips orientation")
 	_check(int(main.coins) == coins_before - 180, "fusion tower costs 60 after heavy")
 	var fusion: Node = main.placed_buildings[3]
@@ -266,7 +266,7 @@ func _run() -> void:
 
 	# ---------------------------------------------------------------- 激光塔
 	main.begin_placement("laser_tower")
-	main.finish_placement("laser_tower", BattleMap.tile_center(Vector2i(7, 9)))
+	main.finish_placement("laser_tower", BattleMap.tile_center(Vector2i(6, 9)))
 	_check(not main.orienting, "laser tower has no attack direction and places immediately")
 	_check(int(main.coins) == coins_before - 330, "laser tower costs 150 after heavy and fusion")
 	var laser: Node = main.placed_buildings[4]
@@ -414,13 +414,13 @@ func _run() -> void:
 	_clear_buildings()
 	main.coins = 2000
 	_place_at(1, 12, "fusion_tower")
-	_place_at(7, 12, "fusion_tower")
+	_place_at(6, 12, "fusion_tower")
 	_place_at(5, 12, "solar")
 	var row_turret: Node = _place_at(2, 10, "turret")
 	var off_turret: Node = _place_at(2, 12, "turret")
-	var heavy: Node = _place_at(7, 11, "heavy_turret")
-	var compression: Node = _place_at(7, 10, "compression_tower", PI)
-	var sandbag: Node = _place_at(5, 10, "sandbag")
+	var heavy: Node = _place_at(6, 11, "heavy_turret")
+	var compression: Node = _place_at(6, 10, "compression_tower", PI)
+	var sandbag: Node = _place_at(4, 10, "sandbag")
 	main.refresh_power()
 	_check(main.power_supply == 10, "controlled field has ten power")
 	_check(main.power_demand == 7, "controlled field demand is seven")
@@ -458,9 +458,9 @@ func _run() -> void:
 	main.blocks.blocks.clear()
 	main.blocks.by_id.clear()
 	var attacker := _add_test_block(
-		BattleMap.tile_center(Vector2i(5, 9)),
+		BattleMap.tile_center(Vector2i(4, 9)),
 		30,
-		[Vector2i(5, 9), Vector2i(5, 10), Vector2i(5, 11)],
+		[Vector2i(4, 9), Vector2i(4, 10), Vector2i(4, 11)],
 	)
 	attacker.speed_scale = 1.0
 	for i in 18:
@@ -508,7 +508,7 @@ func _run() -> void:
 	_check(int(heavy.get_refund()) == 120, "offline building can be dismantled for full refund")
 
 	# 新布置的建筑在缺电时直接离线，但既有建筑继续工作
-	var new_turret: Node = _place_at(7, 8, "turret")
+	var new_turret: Node = _place_at(6, 8, "turret")
 	_check(not new_turret.powered, "new building is offline when power is short")
 	_check(new_turret.modulate != Color.WHITE, "new offline building icon is grayed out")
 	_check(row_turret.powered, "existing turret keeps running after a new building is placed")
@@ -521,9 +521,9 @@ func _run() -> void:
 	new_turret._process(0.2)
 	_check(int(new_turret.shots) == shots_during_deficit, "offline new turret cannot fire")
 
-	var restored_a: Node = _place_at(6, 11, "solar")
-	var restored_b: Node = _place_at(6, 10, "solar")
-	var restored_c: Node = _place_at(0, 12, "solar")
+	var restored_a: Node = _place_at(0, 11, "solar")
+	var restored_b: Node = _place_at(1, 11, "solar")
+	var restored_c: Node = _place_at(0, 10, "solar")
 	main.refresh_power()
 	_check(
 		int(restored_a.energy_output) == 2 and int(restored_b.energy_output) == 2 and int(restored_c.energy_output) == 2,

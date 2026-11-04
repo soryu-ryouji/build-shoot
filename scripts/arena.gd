@@ -7,7 +7,7 @@ const Palette = preload("res://scripts/palette.gd")
 const BattleMap = preload("res://scripts/battle_map.gd")
 
 ## 相机取景范围：8×13 瓦片区（384×442）四周各留 24 像素
-const FRAME_RECT := Rect2(48.0, 96.0, 432.0, 490.0)
+const FRAME_RECT := Rect2(60.0, 108.0, 360.0, 466.0)
 
 var core_ratio := 1.0
 var core_flash := 0.0

@@ -279,7 +279,7 @@ func world_to_screen(pos: Vector2) -> Vector2:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(-3000.0, -3000.0, 6000.0, 6000.0), Palette.ARENA_BG)
+	draw_rect(Rect2(-3000.0, -3000.0, 6000.0, 6000.0), Palette.BG)
 
 
 func open_settings() -> void:
