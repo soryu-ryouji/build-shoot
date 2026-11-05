@@ -16,6 +16,7 @@ const KIND_SWIFT := "swift"
 const KIND_ARMORED := "armored"
 const KIND_ELITE := "elite"
 const CELL_SIZE := Vector2(48.0, 30.0)
+const ENEMY_CONTACT_RADIUS := 18.0
 const HEALTH_BAR_HEIGHT := 6.0
 const HEALTH_BAR_DURATION := 3.0
 const ENEMY_BATCH_CAPACITY := 2048
@@ -302,7 +303,8 @@ func _physics_process(delta: float) -> void:
 		if _attack_blocker(b, delta):
 			continue
 		var rect: Rect2 = b.rect
-		if game.base_core.alive and rect.intersects(game.base_core.get_rect().grow(4.0)):
+		var base_contact: float = ENEMY_CONTACT_RADIUS + game.base_core.get_contact_radius()
+		if game.base_core.alive and rect.get_center().distance_squared_to(game.base_core.global_position) <= base_contact * base_contact:
 			b.attacking_base = true
 			b.attack_flash = 1.0
 			game.damage_base(_attack_dps(String(b.kind)) * delta)

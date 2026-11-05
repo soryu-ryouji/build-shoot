@@ -959,7 +959,10 @@ func get_blocking_building(rect: Rect2) -> Node:
 	for x in range(minimum.x, maximum.x + 1):
 		for y in range(minimum.y, maximum.y + 1):
 			for b in _buildings_by_cell.get(Vector2i(x, y), []):
-				if not is_instance_valid(b) or not b.can_block() or not b.get_block_rect().intersects(rect):
+				if not is_instance_valid(b) or not b.can_block():
+					continue
+				var contact: float = Blocks.ENEMY_CONTACT_RADIUS + b.get_contact_radius()
+				if b.global_position.distance_squared_to(rect.get_center()) > contact * contact:
 					continue
 				var distance: float = b.global_position.distance_squared_to(rect.get_center())
 				if distance < best_distance:

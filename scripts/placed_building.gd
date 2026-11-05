@@ -312,7 +312,12 @@ func get_block_rect() -> Rect2:
 	return Rect2(global_position - Vector2(30.0, 30.0), Vector2(60.0, 60.0))
 
 
-## 压缩塔的覆盖范围：穿过本塔、沿朝向延伸的整条直线。
+func get_contact_radius() -> float:
+	# 按可见机体估算圆形接触范围，避免矩形角部在斜向留下空隙。
+	return base_radius * 0.85
+
+
+## 光环覆盖由每座建筑的 aura 形状定义。
 func covers_point(point: Vector2) -> bool:
 	for aura in auras:
 		if covers_aura_point(point, aura):

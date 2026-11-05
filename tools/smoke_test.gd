@@ -192,6 +192,12 @@ func _run() -> void:
 	for i in 8:
 		main.blocks._physics_process(0.1)
 	_check(attacker.get("blocked_by") == sandbag, "sandbag intercepts base-bound enemy")
+	var diagonal: Dictionary = main.blocks.spawn_enemy(Vector2(48, -240), "normal")
+	for i in 20:
+		main.blocks._physics_process(0.1)
+	_check(diagonal.get("blocked_by") == sandbag, "diagonal enemy is intercepted by circular contact")
+	var building_contact: float = 18.0 + sandbag.get_contact_radius()
+	_check(diagonal.rect.get_center().distance_to(sandbag.global_position) <= building_contact + 1.0, "diagonal contact has no rectangular-corner gap")
 	var sandbag_hp := float(sandbag.hp)
 	main.blocks._physics_process(0.5)
 	_check(sandbag.hp < sandbag_hp, "sandbag absorbs attacks")
@@ -199,6 +205,12 @@ func _run() -> void:
 	main.blocks._physics_process(0.5)
 	_check(not sandbag.alive, "fortification can be destroyed")
 	_check(main.arena.map_loader.is_buildable(Vector2i(0, -3)), "destroyed fortification releases cell")
+	var base_attacker: Dictionary = main.blocks.spawn_enemy(Vector2(0, -160), "normal")
+	for i in 35:
+		main.blocks._physics_process(0.1)
+	_check(bool(base_attacker.get("attacking_base", false)), "enemy attacks base on circular contact")
+	var base_contact: float = 18.0 + main.base_core.get_contact_radius()
+	_check(base_attacker.rect.get_center().length() <= base_contact + 1.0, "base contact stays close to visible core")
 
 	# ---------------------------------------------------------------- 升级、能源与增益
 	_clear_buildings()

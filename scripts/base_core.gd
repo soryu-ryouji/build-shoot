@@ -40,6 +40,10 @@ func get_rect() -> Rect2:
 	return Rect2(global_position - body_size * 0.42, body_size * 0.84)
 
 
+func get_contact_radius() -> float:
+	return minf(body_size.x, body_size.y) * 0.42
+
+
 func take_damage(amount: float) -> void:
 	if not alive or amount <= 0.0 or game.outcome != "playing":
 		return
