@@ -27,7 +27,7 @@ func _ready() -> void:
 	_place("turret", Vector2i(4, 0))
 	_place("heavy_turret", Vector2i(-4, -4))
 	_place("laser_tower", Vector2i(4, -4))
-	_place("compression_tower", Vector2i(-3, 4), -PI / 2.0)
+	_place("compression_tower", Vector2i(-3, 1), -PI / 2.0)
 	_place("sandbag", Vector2i(0, -3))
 	_place("sandbag", Vector2i(0, 3))
 	main.refresh_power()
@@ -45,10 +45,10 @@ func _ready() -> void:
 		main.refresh_power()
 	var show_orientation := "--orient" in OS.get_cmdline_user_args()
 	if show_orientation:
+		# 兼容旧参数名：现在展示压缩塔直接放置时的两格圆形范围。
 		main.coins = maxi(int(main.coins), 100)
 		main.begin_placement("compression_tower")
-		main.finish_placement("compression_tower", _world(Vector2i(2, 4)))
-		main._update_orientation(main.orient_pos + Vector2(120, 0))
+		main.update_placement(_world(Vector2i(2, 4)))
 	var show_place := "--place" in OS.get_cmdline_user_args()
 	if show_place:
 		main.coins = maxi(int(main.coins), 100)

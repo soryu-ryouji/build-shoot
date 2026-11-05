@@ -263,11 +263,15 @@ func _update_values() -> void:
 
 	var names: Array = []
 	var values: Array = []
+	var damage_boosted := false
 	match String(building.category):
 		ItemDefs.CATEGORY_FIREPOWER:
+			var base_damage := int(building.damage)
+			var effective_damage := int(building.get_effective_damage())
+			damage_boosted = effective_damage != base_damage
 			names = FIREPOWER_STATS
 			values = [
-				str(int(building.get_effective_damage())),
+				"%d → %d" % [base_damage, effective_damage] if damage_boosted else str(effective_damage),
 				I18n.t("focus.rate_value", [String.num(float(building.get_effective_rate()), 2)]),
 				str(int(building.attack_range)),
 				"∞" if int(building.pierce) < 0 else str(int(building.pierce)),
@@ -278,9 +282,9 @@ func _update_values() -> void:
 			values = [
 				"%d/%d" % [int(ceil(float(building.hp))), int(building.max_hp)],
 				I18n.t("focus.yes") if bool(building.blocks_enemies) else I18n.t("focus.no"),
-				"×%d" % int(building.buff_multiplier) if int(building.buff_multiplier) > 1 else "—",
+				"×%d" % int(round(building.get_primary_aura_output_multiplier())) if int(building.buff_multiplier) > 1 else "—",
 				str(int(building.energy_demand)),
-				I18n.t("focus.line_row") if bool(building.buff_line) else "—",
+				building.get_aura_coverage_text(),
 				I18n.t("focus.powered") if bool(building.powered) else I18n.t("focus.paralyzed"),
 			]
 		ItemDefs.CATEGORY_ENERGY:
@@ -298,7 +302,10 @@ func _update_values() -> void:
 		if used:
 			stat_names[i].text = I18n.t(String(names[i]))
 			stat_values[i].text = String(values[i])
-			stat_values[i].add_theme_color_override("font_color", Palette.DANGER if values[i] == I18n.t("focus.paralyzed") else Palette.INK)
+			var value_color: Color = Palette.DANGER if values[i] == I18n.t("focus.paralyzed") else Palette.INK
+			if i == 0 and damage_boosted:
+				value_color = Palette.CYAN.darkened(0.25)
+			stat_values[i].add_theme_color_override("font_color", value_color)
 
 	power_label.text = _power_text()
 	power_label.add_theme_color_override("font_color", Palette.DANGER if not building.powered else Palette.INK_MUTED)

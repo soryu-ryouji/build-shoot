@@ -23,6 +23,7 @@ const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
 const BaseCore = preload("res://scripts/base_core.gd")
 const Nest = preload("res://scripts/nest.gd")
 const BuildingBuffs = preload("res://scripts/building_buffs.gd")
+const EnergyLinks = preload("res://scripts/energy_links.gd")
 
 var arena: Node2D
 var blocks: Node2D
@@ -32,6 +33,7 @@ var balls_layer: Node2D
 var items_layer: Node2D
 var effects: Node2D
 var highlights: Node2D
+var energy_links: Node2D
 var placement_ghost: Node2D
 var hud: Control
 var shop_bar: Control
@@ -60,7 +62,7 @@ var preparing := true
 var prep_timer := PREP_TIME
 var elapsed := 0.0
 var outcome := "playing"
-var coins := 50
+var coins := 150
 
 var power_supply := 0
 var power_demand := 0
@@ -114,6 +116,10 @@ func _setup_nodes() -> void:
 	highlights.name = "TileHighlights"
 	highlights.map = arena.map_loader
 	add_child(highlights)
+
+	energy_links = EnergyLinks.new()
+	energy_links.name = "EnergyLinks"
+	add_child(energy_links)
 
 	blocks = Blocks.new()
 	blocks.name = "Blocks"
@@ -590,10 +596,8 @@ func update_placement(pos: Vector2) -> void:
 	var item: Dictionary = ItemDefs.get_item(placing_id)
 	if String(item.get("category", "")) == ItemDefs.CATEGORY_FIREPOWER:
 		highlights.set_range_cells(get_range_cells(snapped, float(item.get("range", 0.0))))
-	elif _needs_direction(item):
-		highlights.set_range_cells(get_line_cells(snapped, Vector2.from_angle(-PI / 2.0)))
 	else:
-		highlights.set_range_cells([])
+		highlights.set_range_cells(get_aura_cells(item, snapped))
 
 
 func finish_placement(item_id: String, pos: Vector2) -> void:
@@ -748,6 +752,23 @@ func get_range_cells(center: Vector2, radius: float) -> Array:
 	return cells
 
 
+func get_aura_cells(item: Dictionary, center: Vector2) -> Array:
+	var cells: Array = []
+	var seen: Dictionary = {}
+	for aura in item.get("auras", []):
+		var aura_cells: Array = []
+		var shape := String(aura.get("shape", "none"))
+		if shape == "circle":
+			aura_cells = get_range_cells(center, float(aura.get("radius", 0.0)))
+		elif shape == "line":
+			aura_cells = get_line_cells(center, Vector2.from_angle(float(item.get("facing", -PI / 2.0))))
+		for cell in aura_cells:
+			if not seen.has(cell):
+				seen[cell] = true
+				cells.append(cell)
+	return cells
+
+
 func get_line_cells(center: Vector2, direction: Vector2) -> Array:
 	var cells: Array = []
 	var center_cell: Vector2i = arena.map_loader.world_to_cell(center)
@@ -807,10 +828,8 @@ func select_building(t: Node) -> void:
 			other.selected = (other == t)
 	if t.is_firepower():
 		highlights.set_range_cells(get_range_cells(t.global_position, t.attack_range))
-	elif bool(t.buff_line):
-		highlights.set_range_cells(get_line_cells(t.global_position, Vector2.from_angle(t.facing_angle)))
 	else:
-		highlights.clear_range()
+		highlights.set_range_cells(get_aura_cells({"auras": t.auras, "facing": t.facing_angle}, t.global_position))
 	focus_panel.show_building(t)
 
 

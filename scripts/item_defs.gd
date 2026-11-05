@@ -140,8 +140,12 @@ const ITEMS := {
 		"buff_multiplier": 2,
 		"auras": [{
 			"id": "compression_damage",
-			"shape": "line",
+			"shape": "circle",
+			"radius": 128.0,
 			"target_categories": [CATEGORY_FIREPOWER],
+			"target_items": ["compression_tower"],
+			"propagate": true,
+			"show_links": true,
 			"stack_group": "compression_damage",
 			"stack_rule": "max",
 			"modifiers": [{"stat": "damage", "op": "mul", "value": 2.0}],

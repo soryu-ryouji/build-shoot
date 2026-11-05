@@ -20,7 +20,7 @@ func _run() -> void:
 	# ---------------------------------------------------------------- 初始状态与无限地图
 	_check(main.blocks.blocks.is_empty(), "no enemies during preparation")
 	_check(main.preparing and float(main.prep_timer) > 4.5, "five second preparation")
-	_check(int(main.coins) == 50, "starting coins")
+	_check(int(main.coins) == 150, "starting coins")
 	_check(main.base_core.max_hp == 1000 and main.base_core.hp == 1000.0, "base starts intact")
 	_check(main.base_core.global_position == Vector2.ZERO, "base is the world origin")
 	_check(main.nests.size() == 4, "JSON nests are instantiated")
@@ -73,17 +73,16 @@ func _run() -> void:
 	_check(int(refund_building.get_refund()) == 15, "full refund without firepower")
 	main.select_building(refund_building)
 	main.dismantle_selected()
-	_check(main.placed_buildings.is_empty() and main.coins == 50, "dismantle releases building and coins")
+	_check(main.placed_buildings.is_empty() and main.coins == 150, "dismantle releases building and coins")
 	_check(main.arena.map_loader.is_buildable(Vector2i(-3, 3)), "dismantle releases cell")
 
 	main.coins = 100
 	main.begin_placement("compression_tower")
+	main.update_placement(_world(3, 3))
+	_check(not main.highlights.range_cells.is_empty(), "compression shows two-cell aura preview")
 	main.finish_placement("compression_tower", _world(3, 3))
-	_check(main.orienting, "compression needs orientation")
-	_check(not main.highlights.range_cells.is_empty(), "compression shows cast cells")
-	main._update_orientation(main.orient_pos + Vector2(100, 0))
-	main._confirm_orientation()
-	_check(not main.orienting and main.highlights.range_cells.is_empty(), "orientation confirms and hides range")
+	_check(not main.orienting, "compression places directly without orientation")
+	_check(main.highlights.range_cells.is_empty(), "placement confirms and hides aura range")
 	main.select_building(main.placed_buildings[0])
 	main.dismantle_selected()
 	main.coins = 50
@@ -199,13 +198,23 @@ func _run() -> void:
 	_check(upgraded.energy_demand == 2, "upgrade raises power demand")
 	main.clear_selection()
 	_check(heavy.item_id == "heavy_turret" and upgraded_laser.attack_style == "laser", "advanced building definitions")
-	var buffed: Node = _place("turret", Vector2i(0, -4))
+	var buffed: Node = _place("turret", Vector2i(0, 6))
 	var compression: Node = _place("compression_tower", Vector2i(0, 4), -PI / 2.0)
 	_place("solar", Vector2i(-2, 4))
 	main.refresh_power()
-	_check(compression.covers_point(buffed.global_position), "compression covers infinite-map line")
+	_check(compression.covers_point(buffed.global_position), "compression covers a target two cells away")
+	_check(not compression.covers_point(_world(0, 7)), "compression excludes targets three cells away")
 	_check(main.get_buff_multiplier(buffed.global_position) == 2, "compression buff applies")
+	var initial_link: Dictionary = _find_link(compression, buffed)
+	_check(not initial_link.is_empty(), "active aura creates an energy link")
+	if not initial_link.is_empty():
+		var link_direction: Vector2 = initial_link.end - initial_link.start
+		var target_direction: Vector2 = buffed.global_position - compression.global_position
+		_check(link_direction.dot(target_direction) > 0.0, "energy link flows from source toward target")
 	_check(int(buffed.get_effective_damage()) == 2, "buff cache drives effective damage")
+	main.select_building(buffed)
+	_check(main.focus_panel.stat_values[0].text == "1 → 2", "focus panel shows base and buffed damage")
+	main.clear_selection()
 	var balls_before_buff: int = main.balls_layer.get_child_count()
 	buffed._fire_projectile()
 	_check(main.balls_layer.get_child_count() == balls_before_buff + 1, "buffed turret fires")
@@ -217,6 +226,9 @@ func _run() -> void:
 	var stronger_def: Dictionary = ItemDefs.get_item("compression_tower").duplicate(true)
 	stronger_def["id"] = "test_stronger_compression"
 	stronger_def["energy_demand"] = 0
+	stronger_def["auras"][0]["propagate"] = false
+	stronger_def["auras"][0]["target_categories"] = [ItemDefs.CATEGORY_FIREPOWER]
+	stronger_def["auras"][0]["target_items"] = []
 	stronger_def["auras"][0]["modifiers"][0]["value"] = 3.0
 	var stronger: Node = main._place_building(stronger_def, _world(0, 5), -PI / 2.0)
 	_check(int(buffed.get_effective_damage()) == 3, "same aura group takes highest multiplier")
@@ -239,7 +251,7 @@ func _run() -> void:
 	_check(int(buffed.get_effective_damage()) == 6, "different aura groups multiply")
 	_check(int(upgraded.get_effective_damage()) == 18, "global aura applies to upgraded base damage")
 	main.select_building(buffed)
-	_check(main.focus_panel.stat_values[0].text == "6", "focus panel shows effective damage")
+	_check(main.focus_panel.stat_values[0].text == "1 → 6", "focus panel shows effective damage")
 	main.clear_selection()
 	main.select_building(amplifier)
 	main.dismantle_selected()
@@ -247,9 +259,46 @@ func _run() -> void:
 	compression.set_powered(false)
 	main.recompute_buffs()
 	_check(int(buffed.get_effective_damage()) == 1, "offline aura stops affecting damage")
+	_check(main.energy_links.link_count() == 0, "offline aura removes energy links")
 	compression.set_powered(true)
 	main.recompute_buffs()
 	_check(int(buffed.get_effective_damage()) == 2, "restored power restores aura")
+	_check(main.energy_links.link_count() == 1, "restored power restores the energy link")
+
+	# 圆形可传递光环：A(0,4) → B(2,4) → C(2,2) → D(0,2) → 炮塔(-2,2)。
+	# 只按建造顺序向前传递，D 验证不封顶继续到 ×16。
+	var chain_def: Dictionary = ItemDefs.get_item("compression_tower").duplicate(true)
+	chain_def["energy_demand"] = 0
+	var chain_b: Node = main._place_building(chain_def, _world(2, 4))
+	var chain_c: Node = main._place_building(chain_def, _world(2, 2))
+	var chain_d: Node = main._place_building(chain_def, _world(0, 2))
+	var chain_tower_def: Dictionary = ItemDefs.get_item("turret").duplicate(true)
+	chain_tower_def["energy_demand"] = 0
+	var chain_target: Node = main._place_building(chain_tower_def, _world(-2, 2))
+	_check(is_equal_approx(compression.get_primary_aura_output_multiplier(), 2.0), "chain source keeps base multiplier")
+	_check(is_equal_approx(chain_b.get_primary_aura_output_multiplier(), 4.0), "second compression propagates x4")
+	_check(is_equal_approx(chain_c.get_primary_aura_output_multiplier(), 8.0), "third compression propagates x8")
+	_check(is_equal_approx(chain_d.get_primary_aura_output_multiplier(), 16.0), "propagation continues without a multiplier cap")
+	_check(int(chain_target.get_effective_damage()) == 16, "firepower receives uncapped propagated multiplier")
+	_check(not _find_link(chain_d, chain_target).is_empty(), "propagated aura links the final compression to firepower")
+	main.select_building(chain_d)
+	_check(main.focus_panel.stat_values[2].text == "×16", "compression panel shows uncapped propagated output")
+	_check(main.focus_panel.stat_values[4].text == "周围 2 格", "compression panel shows two-cell coverage")
+	main.clear_selection()
+
+	# 圆形范围内即使互相覆盖，也只允许旧塔向新塔传递，不产生递归。
+	var cycle_source: Node = main._place_building(chain_def, _world(-6, -8))
+	var cycle_a: Node = main._place_building(chain_def, _world(-6, -6))
+	var cycle_b: Node = main._place_building(chain_def, _world(-4, -6))
+	var cycle_target: Node = main._place_building(chain_tower_def, _world(-2, -6))
+	_check(is_equal_approx(cycle_source.get_primary_aura_output_multiplier(), 2.0), "newer towers cannot amplify their older source")
+	_check(is_equal_approx(cycle_a.get_primary_aura_output_multiplier(), 4.0), "older source buffs a newer tower in two cells")
+	_check(is_equal_approx(cycle_b.get_primary_aura_output_multiplier(), 8.0), "mutual circular coverage still follows build order")
+	_check(int(cycle_target.get_effective_damage()) == 8, "ordered circular network reaches firepower")
+	for tower in [chain_b, chain_c, chain_d, chain_target, cycle_a, cycle_b, cycle_target, cycle_source]:
+		main.select_building(tower)
+		main.dismantle_selected()
+	_check(int(buffed.get_effective_damage()) == 2, "removing propagation network restores original aura")
 
 	# ---------------------------------------------------------------- 镜头
 	var old_center: Vector2 = main.camera_center
@@ -323,6 +372,13 @@ func _clear_buildings() -> void:
 func _frames(count: int) -> void:
 	for i in count:
 		await get_tree().process_frame
+
+
+func _find_link(source: Node, target: Node) -> Dictionary:
+	for segment in main.energy_links.get_segments():
+		if segment.source == source and segment.target == target:
+			return segment
+	return {}
 
 
 func _check(condition: bool, message: String) -> void:

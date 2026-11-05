@@ -37,6 +37,7 @@ var blocks_enemies := false
 var buff_multiplier := 1
 var buff_line := false
 var auras: Array = []
+var aura_output_multipliers: Dictionary = {}
 var buff_damage_multiplier := 1.0
 
 var attack_style := "none"
@@ -150,11 +151,14 @@ func _apply_def(def: Dictionary) -> void:
 	blocks_enemies = bool(def.get("blocks_enemies", false))
 	buff_multiplier = int(def.get("buff_multiplier", 1))
 	auras = def.get("auras", [])
+	aura_output_multipliers.clear()
 	buff_line = false
 	for aura in auras:
 		if String(aura.get("shape", "")) == "line":
 			buff_line = true
-			break
+		for modifier in aura.get("modifiers", []):
+			if String(modifier.get("stat", "")) == "damage" and String(modifier.get("op", "mul")) == "mul":
+				aura_output_multipliers[String(aura.get("id", "aura"))] = float(modifier.get("value", 1.0))
 
 	attack_style = String(def.get("attack_style", "none"))
 	damage = int(def.get("damage", 1))
@@ -234,6 +238,40 @@ func set_buff_damage_multiplier(value: float) -> void:
 		return
 	buff_damage_multiplier = next
 	queue_redraw()
+
+
+func get_aura_output_multiplier(aura: Dictionary) -> float:
+	var id := String(aura.get("id", "aura"))
+	if aura_output_multipliers.has(id):
+		return float(aura_output_multipliers[id])
+	for modifier in aura.get("modifiers", []):
+		if String(modifier.get("stat", "")) == "damage":
+			return float(modifier.get("value", 1.0))
+	return 1.0
+
+
+func set_aura_output_multiplier(aura: Dictionary, value: float) -> void:
+	aura_output_multipliers[String(aura.get("id", "aura"))] = maxf(value, 0.0)
+
+
+func get_primary_aura_output_multiplier() -> float:
+	if auras.is_empty():
+		return float(buff_multiplier)
+	return get_aura_output_multiplier(auras[0])
+
+
+func get_aura_coverage_text() -> String:
+	if auras.is_empty():
+		return "—"
+	var aura: Dictionary = auras[0]
+	match String(aura.get("shape", "none")):
+		"circle":
+			return I18n.t("focus.aura_circle_value", [int(round(float(aura.get("radius", 0.0)) / 64.0))])
+		"global":
+			return I18n.t("focus.aura_global")
+		"line":
+			return I18n.t("focus.line_row")
+	return "—"
 
 
 func get_effective_rate() -> float:
@@ -332,7 +370,7 @@ func _process(delta: float) -> void:
 	if buff_particles != null:
 		buff_particles.emitting = _buffed
 	if not is_firepower():
-		if buff_line or is_energy() or hurt_flash > 0.0:
+		if not auras.is_empty() or is_energy() or hurt_flash > 0.0:
 			queue_redraw()
 		return
 	if not powered:
