@@ -165,8 +165,7 @@ func _run() -> void:
 	_check(main.blocks.destroyed == destroyed_before + 1, "enemy destruction counted")
 
 	# ---------------------------------------------------------------- 阵地拦截
-	main.blocks.blocks.clear()
-	main.blocks.by_id.clear()
+	main.blocks.clear_enemies()
 	_clear_buildings()
 	main.coins = 2000
 	_place("fusion_tower", Vector2i(3, 0))
@@ -185,8 +184,7 @@ func _run() -> void:
 
 	# ---------------------------------------------------------------- 升级、能源与增益
 	_clear_buildings()
-	main.blocks.blocks.clear()
-	main.blocks.by_id.clear()
+	main.blocks.clear_enemies()
 	main.coins = 3000
 	var upgraded: Node = _place("turret", Vector2i(-4, 0))
 	_place("fusion_tower", Vector2i(-4, 2))
@@ -207,6 +205,51 @@ func _run() -> void:
 	main.refresh_power()
 	_check(compression.covers_point(buffed.global_position), "compression covers infinite-map line")
 	_check(main.get_buff_multiplier(buffed.global_position) == 2, "compression buff applies")
+	_check(int(buffed.get_effective_damage()) == 2, "buff cache drives effective damage")
+	var balls_before_buff: int = main.balls_layer.get_child_count()
+	buffed._fire_projectile()
+	_check(main.balls_layer.get_child_count() == balls_before_buff + 1, "buffed turret fires")
+	var buffed_ball: Node = main.balls_layer.get_child(main.balls_layer.get_child_count() - 1)
+	_check(int(buffed_ball.damage) == 2, "projectile reads effective damage")
+	buffed_ball._vanish()
+
+	# 同组取最高，不同组叠乘；拆除后剩余光环立即重算。
+	var stronger_def: Dictionary = ItemDefs.get_item("compression_tower").duplicate(true)
+	stronger_def["id"] = "test_stronger_compression"
+	stronger_def["energy_demand"] = 0
+	stronger_def["auras"][0]["modifiers"][0]["value"] = 3.0
+	var stronger: Node = main._place_building(stronger_def, _world(0, 5), -PI / 2.0)
+	_check(int(buffed.get_effective_damage()) == 3, "same aura group takes highest multiplier")
+	main.select_building(stronger)
+	main.dismantle_selected()
+	_check(int(buffed.get_effective_damage()) == 2, "removing stronger aura restores base compression")
+
+	var amplifier_def: Dictionary = ItemDefs.get_item("compression_tower").duplicate(true)
+	amplifier_def["id"] = "test_amplifier"
+	amplifier_def["energy_demand"] = 0
+	amplifier_def["auras"] = [{
+		"id": "test_amplifier",
+		"shape": "global",
+		"target_categories": [ItemDefs.CATEGORY_FIREPOWER],
+		"stack_group": "test_amplifier",
+		"stack_rule": "max",
+		"modifiers": [{"stat": "damage", "op": "mul", "value": 3.0}],
+	}]
+	var amplifier: Node = main._place_building(amplifier_def, _world(1, 5))
+	_check(int(buffed.get_effective_damage()) == 6, "different aura groups multiply")
+	_check(int(upgraded.get_effective_damage()) == 18, "global aura applies to upgraded base damage")
+	main.select_building(buffed)
+	_check(main.focus_panel.stat_values[0].text == "6", "focus panel shows effective damage")
+	main.clear_selection()
+	main.select_building(amplifier)
+	main.dismantle_selected()
+	_check(int(buffed.get_effective_damage()) == 2 and int(upgraded.get_effective_damage()) == 6, "aura removal restores remaining stats")
+	compression.set_powered(false)
+	main.recompute_buffs()
+	_check(int(buffed.get_effective_damage()) == 1, "offline aura stops affecting damage")
+	compression.set_powered(true)
+	main.recompute_buffs()
+	_check(int(buffed.get_effective_damage()) == 2, "restored power restores aura")
 
 	# ---------------------------------------------------------------- 镜头
 	var old_center: Vector2 = main.camera_center
@@ -223,8 +266,7 @@ func _run() -> void:
 		main.hit_nest(nest, 9999, nest.global_position, false)
 	for enemy_value in main.blocks.blocks.duplicate():
 		main.hit_block(int(enemy_value.id), 9999)
-	main.blocks.blocks.clear()
-	main.blocks.by_id.clear()
+	main.blocks.clear_enemies()
 	main.check_outcome()
 	_check(main.outcome == "won", "all nests and enemies cleared wins")
 	_check(main.result_panel.visible and get_tree().paused, "victory shows result panel")

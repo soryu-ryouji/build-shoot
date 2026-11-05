@@ -13,6 +13,7 @@ const FusionTexture = preload("res://assets/ui/fusion_tower_field.png")
 
 const TURN_SPEED := 10.0
 const LOCK_TOLERANCE := 0.08
+const TARGET_REFRESH_INTERVAL := 0.12
 const OFFLINE_MODULATE := Color(0.52, 0.54, 0.57, 1.0)
 
 var game: Node
@@ -35,6 +36,8 @@ var hp := 1.0
 var blocks_enemies := false
 var buff_multiplier := 1
 var buff_line := false
+var auras: Array = []
+var buff_damage_multiplier := 1.0
 
 var attack_style := "none"
 var damage := 1
@@ -65,6 +68,8 @@ var _beam_hold := 0.0
 var _beam_target := Vector2.ZERO
 var _beam_buffed := false
 var _range_cells_cache: Array = []
+var _target_refresh := 0.0
+var _target_cache: Dictionary = {}
 var _buffed := false
 var buff_particles: CPUParticles2D
 
@@ -79,6 +84,7 @@ func setup(g: Node, def: Dictionary, facing := -PI / 2.0) -> void:
 	max_hp = maxi(1, int(def.get("hp", 1)))
 	hp = float(max_hp)
 	_ensure_buff_particles()
+	_target_refresh = float(get_instance_id() % 8) / 8.0 * TARGET_REFRESH_INTERVAL
 	queue_redraw()
 
 
@@ -143,7 +149,12 @@ func _apply_def(def: Dictionary) -> void:
 
 	blocks_enemies = bool(def.get("blocks_enemies", false))
 	buff_multiplier = int(def.get("buff_multiplier", 1))
-	buff_line = buff_multiplier > 1
+	auras = def.get("auras", [])
+	buff_line = false
+	for aura in auras:
+		if String(aura.get("shape", "")) == "line":
+			buff_line = true
+			break
 
 	attack_style = String(def.get("attack_style", "none"))
 	damage = int(def.get("damage", 1))
@@ -214,7 +225,15 @@ func get_refund() -> int:
 
 
 func get_effective_damage() -> int:
-	return damage
+	return maxi(0, int(round(float(damage) * buff_damage_multiplier)))
+
+
+func set_buff_damage_multiplier(value: float) -> void:
+	var next := maxf(value, 0.0)
+	if is_equal_approx(buff_damage_multiplier, next):
+		return
+	buff_damage_multiplier = next
+	queue_redraw()
 
 
 func get_effective_rate() -> float:
@@ -257,9 +276,24 @@ func get_block_rect() -> Rect2:
 
 ## 压缩塔的覆盖范围：穿过本塔、沿朝向延伸的整条直线。
 func covers_point(point: Vector2) -> bool:
-	if not buff_line or not powered:
+	for aura in auras:
+		if covers_aura_point(point, aura):
+			return true
+	return false
+
+
+func covers_aura_point(point: Vector2, aura: Dictionary) -> bool:
+	if not powered or not alive:
 		return false
+	var shape := String(aura.get("shape", "none"))
+	if shape == "global":
+		return true
 	var offset := point - global_position
+	if shape == "circle":
+		var radius := float(aura.get("radius", 0.0))
+		return offset.length_squared() <= radius * radius
+	if shape != "line":
+		return false
 	var direction := Vector2.from_angle(facing_angle)
 	return absf(offset.cross(direction)) <= 30.0 and absf(offset.dot(direction)) <= game.LINE_RANGE
 
@@ -294,7 +328,7 @@ func _process(delta: float) -> void:
 		return
 	if game.preparing or game.outcome != "playing":
 		return
-	_buffed = is_firepower() and powered and game.get_buff_multiplier(global_position) > 1
+	_buffed = is_firepower() and powered and buff_damage_multiplier > 1.0
 	if buff_particles != null:
 		buff_particles.emitting = _buffed
 	if not is_firepower():
@@ -304,13 +338,22 @@ func _process(delta: float) -> void:
 	if not powered:
 		_has_target = false
 		_beam_hold = 0.0
+		_target_cache = {}
+		_target_refresh = 0.0
 		queue_redraw()
 		return
 
 	_cooldown = maxf(0.0, _cooldown - delta)
 	if _range_cells_cache.is_empty():
 		_range_cells_cache = game.get_range_cells(global_position, attack_range)
-	var target: Dictionary = game.blocks.get_nearest_target(global_position, attack_range, _range_cells_cache)
+	_target_refresh -= delta
+	if _target_refresh <= 0.0:
+		_target_refresh = TARGET_REFRESH_INTERVAL
+		_target_cache = game.blocks.get_nearest_target(global_position, attack_range, _range_cells_cache)
+	if not _target_cache.is_empty() and not _target_is_valid(_target_cache):
+		_target_cache = {}
+		_target_refresh = 0.0
+	var target := _target_cache
 	if target.is_empty():
 		_has_target = false
 		queue_redraw()
@@ -335,6 +378,15 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
+func _target_is_valid(target: Dictionary) -> bool:
+	if target.is_empty() or not bool(target.get("alive", false)):
+		return false
+	if String(target.get("target_type", "enemy")) == "nest":
+		var node = target.get("node")
+		return node != null and is_instance_valid(node) and bool(node.alive)
+	return true
+
+
 func get_muzzle() -> Vector2:
 	return global_position + Vector2.from_angle(aim_angle) * barrel_length
 
@@ -343,8 +395,8 @@ func _fire_projectile() -> void:
 	_cooldown = get_effective_interval()
 	_recoil = 1.0
 	shots += 1
-	var buffed: bool = game.get_buff_multiplier(global_position) > 1
-	var shot_damage := damage * (2 if buffed else 1)
+	var buffed := buff_damage_multiplier > 1.0
+	var shot_damage := get_effective_damage()
 	var dir := Vector2.from_angle(aim_angle)
 	game.fire_item_ball(
 		self,
@@ -363,8 +415,8 @@ func _fire_laser(target: Dictionary) -> void:
 	_cooldown = get_effective_interval()
 	_recoil = 1.0
 	shots += 1
-	_beam_buffed = game.get_buff_multiplier(global_position) > 1
-	var shot_damage := damage * (2 if _beam_buffed else 1)
+	_beam_buffed = buff_damage_multiplier > 1.0
+	var shot_damage := get_effective_damage()
 	var rect: Rect2 = target.rect
 	_beam_target = rect.get_center()
 	_beam_hold = maxf(interval * 1.5, 0.16)
@@ -394,8 +446,8 @@ func _draw_selection() -> void:
 
 
 func _draw_firepower() -> void:
-	var buffed: bool = game.get_buff_multiplier(global_position) > 1
-	if _has_target and GameSettings.show_aim:
+	var buffed := buff_damage_multiplier > 1.0
+	if _has_target and GameSettings.show_aim and selected:
 		var aim_dir := Vector2.from_angle(aim_angle)
 		var local_origin := aim_dir * barrel_length
 		var global_origin := global_position + local_origin

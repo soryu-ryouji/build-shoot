@@ -63,7 +63,8 @@
 - 炮塔升级：攻击 +5、耗能 +1；重型炮塔：攻击 +30、耗能 +2；激光塔：攻击和耗能 ×2。
 - 阵地升级提高生命；能源升级提高产能。升级费用随等级递增。
 - 拆除返还总投入的 50%；未供电建筑或拆除后将没有火力时全额返还。
-- 压缩塔覆盖自身朝向两侧各 768 世界单位，多个压缩塔不叠加。
+- 压缩塔覆盖自身朝向两侧各 768 世界单位；同种光环取最高，不同种攻击光环可叠乘。
+- 建筑保留基础攻击与有效攻击：建造、升级、拆除和供电变化时重算，炮弹、激光和聚焦面板统一读取有效攻击。
 - 射程和施法范围按格子计算，显示与实际索敌使用同一组格子。
 
 ### 放置与范围高亮
@@ -141,11 +142,16 @@ Godot_v4.7.2-stable_win64.exe --path .
 ```bash
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path . res://tools/smoke_test.tscn
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path . res://tools/responsive_test.tscn
+Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path . res://tools/stress_test.tscn -- --enemies=1000 --seconds=10
 ```
 
-冒烟测试覆盖：无限正负坐标、远距离地面加载、基地/巢穴占用、放置与拆除、能源和升级、炮塔/激光/炮弹攻击巢穴、巢穴独立生成、怪物向基地移动、阵地拦截、镜头移动缩放、清场胜利、基地失败和第二 JSON 校验。
+冒烟测试覆盖：无限正负坐标、远距离地面加载、基地/巢穴占用、放置与拆除、能源和升级、炮塔/激光/炮弹攻击巢穴、巢穴独立生成、怪物向基地移动、阵地拦截、同种光环取最高、异种光环叠乘、拆除恢复、有效攻击面板、镜头移动缩放、清场胜利、基地失败和第二 JSON 校验。
 
 响应式测试覆盖 720×960、1000×2000、1080×1920、1080×2400，以及 HUD、商店、触摸部署、设置面板、主界面和镜头坐标转换。
+
+压力测试固定生成 1000 只高生命怪物、16 座火力塔和充足供电，保留巢穴与基地战斗，预热 1 秒后采样 10 秒。输出敌人数量、节点数、draw call、帧时间和实测 FPS，不设置跨硬件通用的帧率门槛。无头结果只代表逻辑吞吐；去掉 `--headless` 可在目标设备上测量真实 2D 渲染。
+
+千怪路径使用 64px 稀疏空间哈希处理索敌、炮弹和阵地查询，炮塔每 0.12 秒错帧刷新目标，完整瞄准预测仅给选中建筑绘制。怪物本体按类型使用 MultiMeshInstance2D 合批，动画、阴影、光圈、受击和攻击效果在 shader 内完成，父节点只绘制受伤后限时显示的血条。命中火花、金币和中心闪光也分别使用 MultiMeshInstance2D 合批。
 
 ## 更新截图
 
@@ -186,15 +192,19 @@ assets/tilesets/            工业瓦片与 TileSet
 assets/ui/base_core.png     中央基地
 assets/ui/nest.png          怪物巢穴
 scripts/main.gd             游戏状态、镜头、放置、能源与胜负
+scripts/building_buffs.gd   建筑光环、叠乘组和有效攻击缓存
+scripts/enemy_spatial_index.gd 无限地图敌人空间哈希
 scripts/map_loader.gd       稀疏坐标、局部地面和占用
 scripts/base_core.gd        基地生命与受击
 scripts/nest.gd             巢穴生命、生成计时与摧毁
-scripts/blocks.gd           敌人生成、基地导向移动与统一索敌
-scripts/ball.gd             无限地图炮弹与敌人/巢穴碰撞
+scripts/blocks.gd           敌人生成、基地导向移动、空间索引与 MultiMesh2D 绘制
+scripts/ball.gd             无限地图炮弹与局部敌人/巢穴碰撞
+scripts/hit_effects.gd      火花、金币与闪光的 MultiMesh2D 合批
 scripts/placed_building.gd  建筑行为、升级、拦截和攻击
 scripts/tile_highlights.gd  放置与范围高亮
 scripts/hud.gd              基地状态、能源和屏外巢穴指示
 tools/smoke_test.gd         玩法冒烟测试
+tools/stress_test.gd        1000 怪物与 16 火力塔压力测试
 tools/responsive_test.gd    多分辨率与操作测试
 tools/screenshot.gd         战斗状态截图
 ```

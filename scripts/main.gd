@@ -22,6 +22,7 @@ const SettingsPanel = preload("res://scripts/settings_panel.gd")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
 const BaseCore = preload("res://scripts/base_core.gd")
 const Nest = preload("res://scripts/nest.gd")
+const BuildingBuffs = preload("res://scripts/building_buffs.gd")
 
 var arena: Node2D
 var blocks: Node2D
@@ -43,6 +44,8 @@ var world_camera: Camera2D
 var dim_rect: ColorRect
 
 var placed_buildings: Array = []
+var buff_system: RefCounted
+var _buildings_by_cell: Dictionary = {}
 var selected_building: Node = null
 var placing := false
 var placing_id := ""
@@ -80,6 +83,7 @@ var _pinch_zoom := 1.0
 func _ready() -> void:
 	randomize()
 	Engine.time_scale = 1.0
+	buff_system = BuildingBuffs.new(self)
 	_setup_nodes()
 
 
@@ -489,6 +493,16 @@ func get_nest_targets() -> Array:
 	return targets
 
 
+func get_target_by_id(id: int) -> Dictionary:
+	var enemy = blocks.by_id.get(id)
+	if enemy != null:
+		return enemy
+	for nest in nests:
+		if is_instance_valid(nest) and 100000 + int(nest.id) == id:
+			return nest.get_target()
+	return {}
+
+
 func _reward_block(max_hp: int) -> void:
 	coins += maxi(1, max_hp)
 	hud.pop_coins()
@@ -639,7 +653,11 @@ func _set_deploy_focus(active: bool) -> void:
 
 
 func _needs_direction(item: Dictionary) -> bool:
-	return int(item.get("buff_multiplier", 1)) > 1
+	# 只有直线光环需要朝向；圆形和全局光环直接部署。
+	for aura in item.get("auras", []):
+		if String(aura.get("shape", "")) == "line":
+			return true
+	return false
 
 
 func _begin_orientation(item: Dictionary, pos: Vector2) -> void:
@@ -868,29 +886,54 @@ func refresh_power() -> void:
 	power_demand = demand
 	power_offline = offline
 	power_ok = offline == 0
+	_rebuild_building_index()
+	recompute_buffs()
+	if focus_panel != null and focus_panel.visible:
+		focus_panel.refresh()
 
 
-func get_buff_multiplier(point: Vector2) -> int:
-	for b in placed_buildings:
-		if is_instance_valid(b) and bool(b.powered) and int(b.buff_multiplier) > 1 and b.covers_point(point):
-			return int(b.buff_multiplier)
-	return 1
+func recompute_buffs() -> void:
+	if buff_system != null:
+		buff_system.recompute()
+
+
+## 坐标查询保留给部署和测试；场上塔使用重算后的有效属性缓存。
+func get_buff_multiplier(point: Vector2) -> float:
+	if buff_system == null:
+		return 1.0
+	return buff_system.get_multiplier_at(point)
 
 
 func is_building_buffed(point: Vector2) -> bool:
 	return get_buff_multiplier(point) > 1
 
 
+func _rebuild_building_index() -> void:
+	_buildings_by_cell.clear()
+	for b in placed_buildings:
+		if not is_instance_valid(b) or not b.can_block():
+			continue
+		var cell: Vector2i = arena.map_loader.world_to_cell(b.global_position)
+		if not _buildings_by_cell.has(cell):
+			_buildings_by_cell[cell] = []
+		_buildings_by_cell[cell].append(b)
+
+
 func get_blocking_building(rect: Rect2) -> Node:
 	var best: Node = null
 	var best_distance := INF
-	for b in placed_buildings:
-		if not is_instance_valid(b) or not b.can_block() or not b.get_block_rect().intersects(rect):
-			continue
-		var distance: float = b.global_position.distance_squared_to(rect.get_center())
-		if distance < best_distance:
-			best = b
-			best_distance = distance
+	var query_rect := rect.grow(30.0)
+	var minimum: Vector2i = arena.map_loader.world_to_cell(query_rect.position)
+	var maximum: Vector2i = arena.map_loader.world_to_cell(query_rect.end - Vector2.ONE * 0.001)
+	for x in range(minimum.x, maximum.x + 1):
+		for y in range(minimum.y, maximum.y + 1):
+			for b in _buildings_by_cell.get(Vector2i(x, y), []):
+				if not is_instance_valid(b) or not b.can_block() or not b.get_block_rect().intersects(rect):
+					continue
+				var distance: float = b.global_position.distance_squared_to(rect.get_center())
+				if distance < best_distance:
+					best = b
+					best_distance = distance
 	return best
 
 

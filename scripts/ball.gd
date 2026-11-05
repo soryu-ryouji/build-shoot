@@ -83,7 +83,15 @@ func _physics_process(delta: float) -> void:
 func _advance(dist: float) -> void:
 	position += dir * dist
 
-	var block_list: Array = game.blocks.blocks.duplicate()
+	# 穿透忽略列表按实际目标更新，避免局部查询下残留已离开的目标。
+	for bid in _ignored.keys():
+		var previous: Dictionary = game.get_target_by_id(bid)
+		if previous.is_empty() or not bool(previous.get("alive", false)) or not _overlaps(previous.rect):
+			_ignored.erase(bid)
+
+	# 查询区域覆盖附近格，扩张量包含敌人与巢穴的最大半尺寸。
+	var extent := Vector2(radius + 38.0, radius + 34.0)
+	var block_list: Array = game.blocks.query_rect(Rect2(position - extent, extent * 2.0))
 	block_list.append_array(game.get_nest_targets())
 	var count := block_list.size()
 	for i in count:

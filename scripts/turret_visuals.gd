@@ -19,7 +19,9 @@ const HEAD_TEXTURE_PIVOT := Vector2(160.0, 320.0)
 static func predict(blocks: Node, origin: Vector2, direction: Vector2, max_distance: float) -> Vector2:
 	var p := origin
 	var step := 5.0
-	var targets: Array = blocks.blocks.duplicate()
+	var end := origin + direction * max_distance
+	var query := Rect2(origin, Vector2.ZERO).expand(end).grow(64.0)
+	var targets: Array = blocks.query_rect(query)
 	targets.append_array(blocks.game.get_nest_targets())
 	for i in ceili(max_distance / step):
 		p += direction * step
