@@ -14,6 +14,8 @@ const OPTION_LABELS := {
 	"animate_monsters": "settings.monster_animation",
 	"show_grid": "settings.show_grid",
 	"show_aim": "settings.show_aim",
+	"sound_enabled": "settings.sound_enabled",
+	"music_enabled": "settings.music_enabled",
 }
 
 var in_game := false

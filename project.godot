@@ -19,6 +19,8 @@ config/icon="res://icon.svg"
 
 I18n="*res://scripts/i18n.gd"
 GameSettings="*res://scripts/game_settings.gd"
+Sfx="*res://scripts/audio_manager.gd"
+Music="*res://scripts/music_manager.gd"
 
 [display]
 

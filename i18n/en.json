@@ -84,6 +84,8 @@
   "settings.monster_animation": "ENEMY ANIMATION",
   "settings.show_grid": "ARENA GRID",
   "settings.show_aim": "TARGETING GUIDES",
+  "settings.sound_enabled": "SOUND EFFECTS",
+  "settings.music_enabled": "BACKGROUND MUSIC",
   "settings.on": "ON",
   "settings.off": "OFF",
   "settings.saved": "INSTANTLY APPLIED / AUTO-SAVED",

@@ -450,6 +450,7 @@ func _fire_projectile() -> void:
 
 
 func _fire_laser(target: Dictionary) -> void:
+	Sfx.play("laser")
 	_cooldown = get_effective_interval()
 	_recoil = 1.0
 	shots += 1

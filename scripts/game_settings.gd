@@ -5,12 +5,14 @@ extends Node
 signal changed
 
 const CONFIG_PATH := "user://settings.cfg"
-const BOOLEAN_OPTIONS := ["fullscreen", "animate_monsters", "show_grid", "show_aim"]
+const BOOLEAN_OPTIONS := ["fullscreen", "animate_monsters", "show_grid", "show_aim", "sound_enabled", "music_enabled"]
 
 var fullscreen := false
 var animate_monsters := true
 var show_grid := true
 var show_aim := true
+var sound_enabled := true
+var music_enabled := true
 
 
 func _ready() -> void:

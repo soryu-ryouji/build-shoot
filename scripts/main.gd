@@ -87,6 +87,7 @@ func _ready() -> void:
 	Engine.time_scale = 1.0
 	buff_system = BuildingBuffs.new(self)
 	_setup_nodes()
+	Music.play_track("battle")
 
 
 func _process(delta: float) -> void:
@@ -474,6 +475,7 @@ func hit_block(id: int, amount: int, hit_pos: Vector2 = Vector2.INF, electric: b
 	var res: Dictionary = blocks.damage(id, amount)
 	if not bool(res.get("hit", false)):
 		return
+	Sfx.play("destroy" if bool(res.destroyed) else "hit")
 	var center: Vector2 = res.rect.get_center()
 	var fx_pos := center if hit_pos == Vector2.INF else hit_pos
 	var fx_color: Color = res.color
@@ -488,6 +490,7 @@ func hit_nest(nest: Node, amount: int, hit_pos: Vector2, electric: bool) -> void
 	if nest == null or not is_instance_valid(nest) or not nest.alive:
 		return
 	var destroyed: bool = nest.take_damage(amount)
+	Sfx.play("destroy" if destroyed else "hit")
 	effects.emit_hit(hit_pos, Color(0.68, 0.94, 1.0) if electric else Palette.PINK, destroyed)
 
 
@@ -525,6 +528,7 @@ func on_nest_destroyed(nest: Node) -> void:
 
 func damage_base(amount: float) -> void:
 	if base_core != null and base_core.alive:
+		Sfx.play("base_hit")
 		base_core.take_damage(amount)
 
 
@@ -542,6 +546,7 @@ func check_outcome() -> void:
 
 
 func _show_result() -> void:
+	Sfx.play("victory" if outcome == "won" else "defeat")
 	cancel_placement()
 	clear_selection()
 	result_title.text = I18n.t("result.won" if outcome == "won" else "result.lost")
@@ -572,6 +577,7 @@ func begin_placement(item_id: String) -> void:
 	if item.is_empty():
 		return
 	if coins < int(item.cost):
+		Sfx.play("invalid")
 		hud.toast(I18n.t("shop.not_enough"), Palette.DANGER)
 		return
 	cancel_orientation()
@@ -617,8 +623,10 @@ func finish_placement(item_id: String, pos: Vector2) -> void:
 		coins -= int(item.cost)
 		_place_building(item, snapped)
 	elif coins < int(item.cost):
+		Sfx.play("invalid")
 		hud.toast(I18n.t("shop.not_enough"), Palette.DANGER)
 	else:
+		Sfx.play("invalid")
 		hud.toast(I18n.t("shop.invalid"), Palette.DANGER)
 	_set_deploy_focus(false)
 	placement_ghost.end()
@@ -796,6 +804,9 @@ func _place_building(item: Dictionary, pos: Vector2, facing := -PI / 2.0) -> Nod
 	placed_buildings.append(building)
 	arena.map_loader.set_occupied(cell, building)
 	refresh_power()
+	Sfx.play("place")
+	if not item.get("auras", []).is_empty():
+		Sfx.play("buff")
 	return building
 
 
@@ -855,6 +866,7 @@ func upgrade_selected() -> void:
 		return
 	coins -= cost
 	building.apply_upgrade(cost)
+	Sfx.play("upgrade")
 	refresh_power()
 	if building.is_firepower():
 		highlights.set_range_cells(get_range_cells(building.global_position, building.attack_range))
@@ -957,6 +969,7 @@ func get_blocking_building(rect: Rect2) -> Node:
 
 
 func on_building_destroyed(building: Node) -> void:
+	Sfx.play("destroy")
 	placed_buildings.erase(building)
 	arena.map_loader.clear_occupied(building.cell)
 	if selected_building == building:
@@ -976,6 +989,7 @@ func has_firepower(exclude: Node = null) -> bool:
 
 
 func fire_item_ball(source: Node, pos: Vector2, dir: Vector2, dmg: int, pierce: int, bounces: int, speed: float, radius: float, electric: bool = false) -> void:
+	Sfx.play("heavy_shot" if String(source.item_id) == "heavy_turret" else "shoot")
 	var ball = Ball.new()
 	ball.setup(self, pos, dir, speed, radius, dmg, pierce, bounces, electric)
 	balls_layer.add_child(ball)

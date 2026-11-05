@@ -84,9 +84,27 @@
 
 - F5 先进入主界面，可开始行动、打开设置或退出。
 - 游戏内 Esc 或右上角 `≡` 打开系统面板并暂停。
-- 设置包含中英文、全屏、怪物动画、场地网格和索敌提示。
+- 设置包含中英文、全屏、怪物动画、场地网格、索敌提示，以及独立的音效和背景音乐开关。
 - 设置保存到 `user://settings.cfg`；无头测试不会读写用户配置。
 - 中文使用内置 Noto Sans SC 子集。修改 `i18n/*.json` 后运行 `python tools/build_font_subset.py` 并重新导入资源。
+
+## 音频
+
+游戏包含 13 个原创程序化短音效：界面点击、建造、升级、非法操作、普通射击、重炮、激光、命中、击碎、增益、基地受击、胜利和失败。另有 `menu_loop.wav` 工业氛围主界面音乐和 `battle_loop.wav` 电子战斗音乐，两首均为约 32 秒的无缝循环。
+
+音频源文件为 44.1kHz 单声道 16-bit PCM WAV，Godot 导入时使用 QOA 压缩。全局 `Sfx` 使用 12 路播放器池。射击和命中等高频事件带冷却及轻微音高变化；池满时普通事件丢弃，基地受击和胜负事件可抢占较旧的低优先级声音。
+
+全局 `Music` 使用双播放器交叉淡化，主界面和战斗场景自动切换曲目。音效与音乐开关在设置中分别即时生效并保存。
+
+重新生成全部 WAV：
+
+```bash
+python tools/generate_sfx.py
+python tools/generate_music.py
+Godot_v4.7.2-stable_win64_console.exe --headless --path . --import
+```
+
+生成脚本仅使用 Python 标准库，固定随机种子，重复运行会逐字节生成相同文件。
 
 ## 运行
 
@@ -147,7 +165,7 @@ Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path . res://t
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path . res://tools/stress_test.tscn -- --enemies=1000 --seconds=10
 ```
 
-冒烟测试覆盖：无限正负坐标、远距离地面加载、基地/巢穴占用、放置与拆除、能源和升级、炮塔/激光/炮弹攻击巢穴、巢穴独立生成、怪物向基地移动、阵地拦截、同种光环取最高、异种光环叠乘、压缩塔两格圆形范围、免朝向放置、按建造顺序串联、无上限增长与互相覆盖、能量链方向与断电生命周期、拆除恢复、有效攻击面板、镜头移动缩放、清场胜利、基地失败和第二 JSON 校验。
+冒烟测试覆盖：无限正负坐标、远距离地面加载、基地/巢穴占用、放置与拆除、能源和升级、炮塔/激光/炮弹攻击巢穴、巢穴独立生成、怪物向基地移动、阵地拦截、同种光环取最高、异种光环叠乘、压缩塔两格圆形范围、免朝向放置、按建造顺序串联、无上限增长与互相覆盖、能量链方向与断电生命周期、拆除恢复、有效攻击面板、音效加载与限频开关、音乐加载与场景切换、镜头移动缩放、清场胜利、基地失败和第二 JSON 校验。
 
 响应式测试覆盖 720×960、1000×2000、1080×1920、1080×2400，以及 HUD、商店、触摸部署、设置面板、主界面和镜头坐标转换。
 
@@ -193,6 +211,10 @@ data/maps/                  version 2 无限地图 JSON
 assets/tilesets/            工业瓦片与 TileSet
 assets/ui/base_core.png     中央基地
 assets/ui/nest.png          怪物巢穴
+assets/audio/sfx/           13 个原创 WAV 音效
+assets/audio/music/         主界面与战斗循环音乐
+scripts/audio_manager.gd    全局音效池、限频、优先级和按钮点击
+scripts/music_manager.gd    循环音乐、场景切换与交叉淡化
 scripts/main.gd             游戏状态、镜头、放置、能源与胜负
 scripts/building_buffs.gd   建筑光环、叠乘组和有效攻击缓存
 scripts/energy_links.gd     增益关系链路与定向流动 shader
@@ -210,4 +232,6 @@ tools/smoke_test.gd         玩法冒烟测试
 tools/stress_test.gd        1000 怪物与 16 火力塔压力测试
 tools/responsive_test.gd    多分辨率与操作测试
 tools/screenshot.gd         战斗状态截图
+tools/generate_sfx.py       可重复生成全部原创 WAV 音效
+tools/generate_music.py     可重复生成两首循环背景音乐
 ```

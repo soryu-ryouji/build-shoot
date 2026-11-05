@@ -84,6 +84,8 @@
   "settings.monster_animation": "怪物动画",
   "settings.show_grid": "场地网格",
   "settings.show_aim": "索敌提示",
+  "settings.sound_enabled": "游戏音效",
+  "settings.music_enabled": "背景音乐",
   "settings.on": "开启",
   "settings.off": "关闭",
   "settings.saved": "更改即时生效并自动保存",
