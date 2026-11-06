@@ -1,13 +1,12 @@
 extends Control
 
-## 纯竖屏商店：上方是当前类别的道具列表，下方是三类建筑卡。
-## 点击类别切换列表；选中道具后，拖拽类别卡把该道具放到场上。
+## 底部标签式建造栏预置体。道具卡从 ItemCard.tscn 实例化。
 
 const ItemDefs = preload("res://scripts/item_defs.gd")
-const ItemCard = preload("res://scripts/item_card.gd")
-const ItemChip = preload("res://scripts/item_chip.gd")
+const ItemCardScene = preload("res://scenes/ui/item_card.tscn")
 const Palette = preload("res://scripts/palette.gd")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
+const EventBindingScript = preload("res://scripts/event_binding.gd")
 const UiMetrics = preload("res://scripts/ui_metrics.gd")
 
 signal drag_started(item_id: String)
@@ -16,13 +15,13 @@ signal drag_released(item_id: String, pos: Vector2)
 
 var game: Node
 var cards: Array = []
-var chips: Array = []
-var selected: Dictionary = {}
+var tab_buttons: Dictionary = {}
 var active_category := ItemDefs.CATEGORY_FIREPOWER
 
-var item_row: HBoxContainer
-var card_row: HBoxContainer
+@onready var item_row: HBoxContainer = %ItemRow
+@onready var tab_row: HBoxContainer = %TabRow
 var _panel_style: StyleBoxFlat
+var _events := EventBindingScript.new()
 
 var _dragging := false
 var _drag_id := ""
@@ -32,158 +31,143 @@ var _pending_pos := Vector2.ZERO
 
 
 func _ready() -> void:
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_panel_style = StyleBoxFlat.new()
-	_panel_style.bg_color = Color(Palette.PAPER, 0.92)
-	_panel_style.border_color = Color(1.0, 1.0, 0.98, 0.65)
-	_panel_style.set_border_width_all(1)
-	_panel_style.shadow_color = Color(0.0, 0.0, 0.0, 0.18)
-	_panel_style.shadow_size = 5
-	_panel_style.shadow_offset = Vector2(0, 3)
-
-	for category in ItemDefs.CATEGORY_ORDER:
-		var default_item: Dictionary = ItemDefs.get_default_item(String(category))
-		if not default_item.is_empty():
-			selected[category] = String(default_item.id)
-
-	var column := VBoxContainer.new()
-	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_theme_constant_override("separation", 5)
-	column.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	column.offset_left = 6
-	column.offset_top = 6
-	column.offset_right = -6
-	column.offset_bottom = -6
-	add_child(column)
-
-	item_row = HBoxContainer.new()
-	item_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	item_row.custom_minimum_size.y = UiMetrics.SHOP_ITEM_ROW
-	item_row.add_theme_constant_override("separation", 5)
-	column.add_child(item_row)
-
-	card_row = HBoxContainer.new()
-	card_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card_row.add_theme_constant_override("separation", 5)
-	card_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	column.add_child(card_row)
-
-	_build_cards()
-	_refresh_items()
-	get_viewport().size_changed.connect(_layout)
-	_layout()
+    mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _panel_style = StyleBoxFlat.new()
+    _panel_style.bg_color = Color(Palette.PAPER, 0.95)
+    _panel_style.border_color = Color(1.0, 1.0, 0.98, 0.76)
+    _panel_style.set_border_width_all(1)
+    _panel_style.shadow_color = Color(0.0, 0.0, 0.0, 0.20)
+    _panel_style.shadow_size = 6
+    _panel_style.shadow_offset = Vector2(0, -3)
+    tab_buttons = {
+        ItemDefs.CATEGORY_FIREPOWER: %FirepowerTab,
+        ItemDefs.CATEGORY_FORTIFICATION: %FortificationTab,
+        ItemDefs.CATEGORY_ENERGY: %EnergyTab,
+    }
+    for id in tab_buttons:
+        var button: Button = tab_buttons[id]
+        button.add_theme_color_override("font_color", Palette.INK_MUTED)
+        button.add_theme_color_override("font_hover_color", Palette.INK)
+        button.add_theme_color_override("font_pressed_color", Palette.INK)
+        button.add_theme_stylebox_override("normal", _tab_style(Color(Palette.INK, 0.035), Color(Palette.INK, 0.10), false))
+        button.add_theme_stylebox_override("hover", _tab_style(Color(Palette.ACCENT, 0.12), Palette.ACCENT, false))
+        button.add_theme_stylebox_override("pressed", _tab_style(Color(Palette.ACCENT, 0.18), Palette.ACCENT, true))
+        button.pressed.connect(_on_tab_pressed.bind(String(id)))
+    _refresh_items()
+    _events.bind(Events.language_changed, _on_locale_changed)
+    get_viewport().size_changed.connect(_layout)
+    _layout()
 
 
-func _build_cards() -> void:
-	for category in ItemDefs.CATEGORY_ORDER:
-		var item: Dictionary = ItemDefs.get_item(String(selected[category]))
-		if item.is_empty():
-			continue
-		var card = ItemCard.new()
-		card.game = game
-		card.category = String(category)
-		card.item = item
-		card.custom_minimum_size = Vector2(96, UiMetrics.SHOP_CARD_HEIGHT)
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		card.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		card.pressed.connect(_on_category_pressed)
-		card_row.add_child(card)
-		cards.append(card)
+func _exit_tree() -> void:
+    _events.clear()
+
+
+func _tab_style(fill: Color, border: Color, active: bool) -> StyleBoxFlat:
+    var style := StyleBoxFlat.new()
+    style.bg_color = fill
+    style.border_color = border
+    style.set_border_width_all(1)
+    style.border_width_bottom = 3 if active else 1
+    style.set_corner_radius_all(2)
+    return style
+
+
+func _refresh_tabs() -> void:
+    for id in tab_buttons:
+        var button: Button = tab_buttons[id]
+        button.text = I18n.t(ItemDefs.category_name_key(String(id)))
+        button.set_pressed_no_signal(String(id) == active_category)
 
 
 func _refresh_items() -> void:
-	for chip in chips:
-		if is_instance_valid(chip):
-			item_row.remove_child(chip)
-			chip.queue_free()
-	chips.clear()
-	for item in ItemDefs.get_category_items(active_category):
-		var chip = ItemChip.new()
-		chip.game = game
-		chip.item = item
-		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		chip.custom_minimum_size = Vector2(72, UiMetrics.SHOP_ITEM_ROW)
-		chip.active = String(selected[active_category]) == String(item.id)
-		chip.pressed.connect(_on_item_chip_pressed)
-		item_row.add_child(chip)
-		chips.append(chip)
+    cancel_drag()
+    for card in cards:
+        if is_instance_valid(card):
+            item_row.remove_child(card)
+            card.queue_free()
+    cards.clear()
+    for item in ItemDefs.get_category_items(active_category):
+        var card = ItemCardScene.instantiate()
+        card.game = game
+        card.category = active_category
+        card.item = item
+        card.custom_minimum_size = Vector2(168, UiMetrics.SHOP_CARD_HEIGHT)
+        card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+        card.pressed.connect(_on_card_pressed.bind(String(item.id)))
+        item_row.add_child(card)
+        cards.append(card)
+    _refresh_tabs()
 
 
-func _on_category_pressed(category: String, pos: Vector2) -> void:
-	active_category = category
-	_refresh_items()
-	_refresh_cards()
-
-	_pending = true
-	_pending_id = String(selected[category])
-	_pending_pos = pos
+func _on_tab_pressed(category: String) -> void:
+    if category == active_category:
+        return
+    active_category = category
+    _refresh_items()
 
 
-func _on_item_chip_pressed(item_id: String) -> void:
-	_pending = false
-	selected[active_category] = item_id
-	_refresh_items()
-	_refresh_cards()
+func _on_card_pressed(_category: String, pos: Vector2, item_id: String) -> void:
+    _pending = true
+    _pending_id = item_id
+    _pending_pos = pos
 
 
-func _refresh_cards() -> void:
-	for card in cards:
-		if not is_instance_valid(card):
-			continue
-		card.set_item(ItemDefs.get_item(String(selected[String(card.category)])))
-		card.set_active(String(card.category) == active_category)
+func _on_locale_changed(_locale: String = "") -> void:
+    _refresh_tabs()
 
 
 func _input(event: InputEvent) -> void:
-	if _pending and not _dragging:
-		if event is InputEventMouseMotion or event is InputEventScreenDrag:
-			if event.position.distance_to(_pending_pos) > 8.0:
-				_begin_drag(event.position)
-		elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
-			_pending = false
-		elif event is InputEventScreenTouch and not event.pressed:
-			_pending = false
-		return
+    if _pending and not _dragging:
+        if event is InputEventMouseMotion or event is InputEventScreenDrag:
+            if event.position.distance_to(_pending_pos) > 8.0:
+                _begin_drag(event.position)
+        elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+            _pending = false
+        elif event is InputEventScreenTouch and not event.pressed:
+            _pending = false
+        return
 
-	if not _dragging:
-		return
-	if event is InputEventMouseMotion or event is InputEventScreenDrag:
-		drag_moved.emit(event.position)
-	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
-		_finish_drag(event.position)
-	elif event is InputEventScreenTouch and not event.pressed:
-		_finish_drag(event.position)
+    if not _dragging:
+        return
+    if event is InputEventMouseMotion or event is InputEventScreenDrag:
+        drag_moved.emit(event.position)
+    elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+        _finish_drag(event.position)
+    elif event is InputEventScreenTouch and not event.pressed:
+        _finish_drag(event.position)
 
 
 func _begin_drag(pos: Vector2) -> void:
-	_pending = false
-	_dragging = true
-	_drag_id = _pending_id
-	drag_started.emit(_drag_id)
-	drag_moved.emit(pos)
+    _pending = false
+    _dragging = true
+    _drag_id = _pending_id
+    drag_started.emit(_drag_id)
+    drag_moved.emit(pos)
 
 
 func _finish_drag(pos: Vector2) -> void:
-	var id := _drag_id
-	_dragging = false
-	_drag_id = ""
-	drag_released.emit(id, pos)
-	get_viewport().set_input_as_handled()
+    var id := _drag_id
+    _dragging = false
+    _drag_id = ""
+    drag_released.emit(id, pos)
+    get_viewport().set_input_as_handled()
 
 
 func cancel_drag() -> void:
-	_dragging = false
-	_drag_id = ""
-	_pending = false
-	_pending_id = ""
+    _dragging = false
+    _drag_id = ""
+    _pending = false
+    _pending_id = ""
 
 
 func _layout() -> void:
-	var rect := ResponsiveLayout.shop_rect(self)
-	position = rect.position
-	size = rect.size
-	queue_redraw()
+    var rect := ResponsiveLayout.shop_rect(self)
+    position = rect.position
+    size = rect.size
+    queue_redraw()
 
 
 func _draw() -> void:
-	draw_style_box(_panel_style, Rect2(Vector2.ZERO, size))
+    draw_style_box(_panel_style, Rect2(Vector2.ZERO, size))

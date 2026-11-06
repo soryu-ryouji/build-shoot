@@ -27,6 +27,7 @@ func set_locale(code: String, notify: bool = true) -> void:
 	_strings = _load(code)
 	if notify:
 		locale_changed.emit(locale)
+		Events.set_language(locale)
 
 
 func toggle_locale() -> void:

@@ -3,10 +3,12 @@ extends Node
 ## 多分辨率下的无限镜头、HUD、商店、触摸部署和主界面回归。
 
 const SIZES := [
-	Vector2i(720, 960),
-	Vector2i(1000, 2000),
-	Vector2i(1080, 1920),
-	Vector2i(1080, 2400),
+	Vector2i(960, 540),
+	Vector2i(1280, 720),
+	Vector2i(1920, 1080),
+	Vector2i(1440, 900),
+	Vector2i(1920, 800),
+	Vector2i(844, 390),
 ]
 
 var failures: Array[String] = []
@@ -36,12 +38,19 @@ func _run() -> void:
 		_check(main.world_camera.zoom.x > 0.0, "positive camera zoom %s" % target)
 		_check(_inside(hud_rect, view), "HUD inside %s" % target)
 		_check(_inside(shop_rect, view), "shop inside %s" % target)
-		_check(hud_rect.size.y >= 68.0, "HUD touch height %s" % target)
+		_check(hud_rect.size.y >= 60.0, "HUD touch height %s" % target)
+		_check(field.position.y >= hud_rect.end.y, "field starts below HUD %s" % target)
+		_check(field.end.y <= shop_rect.position.y, "field avoids bottom shop %s" % target)
 		_check_touch(main.hud.settings_button, "settings button %s" % target)
-		_check_touch(main.hud.base_button, "base button %s" % target)
 		_check_touch(main.shop_bar.cards[0], "shop card %s" % target)
-		_check_font(main.hud.mode_label, 20, "HUD font %s" % target)
+		_check_font(main.hud.coins_label, 20, "HUD font %s" % target)
 		_check_font(main.shop_bar.cards[0].name_label, 15, "shop font %s" % target)
+		main.shop_bar._on_tab_pressed("energy")
+		await _frames(2)
+		_check(main.shop_bar.cards.size() == 2, "energy tab shows two direct items %s" % target)
+		_check(main.shop_bar.cards[0].item.id == "solar", "tab cards expose item id %s" % target)
+		main.shop_bar._on_tab_pressed("firepower")
+		await _frames(2)
 		var world := Vector2(256, 192)
 		var round_trip: Vector2 = main.screen_to_world(main.world_to_screen(world))
 		_check(round_trip.distance_to(world) < 0.1, "camera coordinate round trip %s" % target)
@@ -55,6 +64,7 @@ func _run() -> void:
 			await _frames(2)
 			_check(main.focus_panel.visible, "focus panel opens %s" % target)
 			_check(_inside(main.focus_panel.get_global_rect(), view), "focus panel inside %s" % target)
+			_check(not main.focus_panel.get_global_rect().intersects(shop_rect), "focus avoids bottom shop %s" % target)
 			_check_touch(main.focus_panel.close_button, "focus close %s" % target)
 			main.clear_selection()
 		for building in main.placed_buildings:

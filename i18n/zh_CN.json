@@ -8,7 +8,6 @@
   "result.lost": "基地失守",
   "result.lost_detail": "中央基地已被摧毁。",
   "hud.wave": "第 %d 波",
-  "hud.wave": "第 %d 波",
   "hud.wave_next": "第 %d 波 · 下一波 %d 秒",
   "hud.destroyed": "已击碎 %d",
   "hud.coins": "金币 %d",
@@ -91,5 +90,6 @@
   "settings.saved": "更改即时生效并自动保存",
   "settings.resume": "继续行动",
   "settings.restart": "重新开始",
-  "settings.main_menu": "返回主界面"
+  "settings.main_menu": "返回主界面",
+  "shop.title": "建造 / 拖拽部署"
 }

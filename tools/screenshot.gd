@@ -4,7 +4,7 @@ extends Node
 ## 附加 -- --place / --orient / --focus / --buff / --power / --settings。
 
 const ItemDefs = preload("res://scripts/item_defs.gd")
-const DEFAULT_SIZE := Vector2i(1080, 2400)
+const DEFAULT_SIZE := Vector2i(1280, 720)
 
 var main: Node
 
@@ -125,5 +125,5 @@ func _requested_size_argument() -> Vector2i:
 		if arg.begins_with("--size="):
 			var parts := arg.trim_prefix("--size=").split("x")
 			if parts.size() == 2 and parts[0].is_valid_int() and parts[1].is_valid_int():
-				return Vector2i(maxi(320, int(parts[0])), maxi(480, int(parts[1])))
+				return Vector2i(maxi(640, int(parts[0])), maxi(360, int(parts[1])))
 	return Vector2i.ZERO

@@ -2,7 +2,7 @@ extends Node
 
 ## 主界面截图；附加 --settings 时截取主界面设置面板。
 
-const DEFAULT_SIZE := Vector2i(1080, 2400)
+const DEFAULT_SIZE := Vector2i(1280, 720)
 
 var menu: Control
 
@@ -49,5 +49,5 @@ func _requested_size_argument() -> Vector2i:
 		if arg.begins_with("--size="):
 			var parts := arg.trim_prefix("--size=").split("x")
 			if parts.size() == 2 and parts[0].is_valid_int() and parts[1].is_valid_int():
-				return Vector2i(maxi(320, int(parts[0])), maxi(480, int(parts[1])))
+				return Vector2i(maxi(640, int(parts[0])), maxi(360, int(parts[1])))
 	return Vector2i.ZERO

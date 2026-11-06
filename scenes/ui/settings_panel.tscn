@@ -1,0 +1,195 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/settings_panel.gd" id="1_settings"]
+
+[node name="SettingsPanel" type="Control"]
+process_mode = 3
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+script = ExtResource("1_settings")
+
+[node name="Panel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 0
+
+[node name="Margin" type="MarginContainer" parent="Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="Column" type="VBoxContainer" parent="Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Header" type="HBoxContainer" parent="Panel/Margin/Column"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Titles" type="VBoxContainer" parent="Panel/Margin/Column/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2
+
+[node name="TitleLabel" type="Label" parent="Panel/Margin/Column/Header/Titles"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.0901961, 0.0980392, 0.105882, 1)
+theme_override_font_sizes/font_size = 26
+vertical_alignment = 1
+
+[node name="SubtitleLabel" type="Label" parent="Panel/Margin/Column/Header/Titles"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.376471, 0.403922, 0.419608, 1)
+theme_override_font_sizes/font_size = 12
+vertical_alignment = 1
+
+[node name="CloseButton" type="Button" parent="Panel/Margin/Column/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+focus_mode = 0
+text = "×"
+theme_override_font_sizes/font_size = 24
+alignment = 1
+
+[node name="OptionsGrid" type="GridContainer" parent="Panel/Margin/Column"]
+layout_mode = 2
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 8
+columns = 2
+
+[node name="FullscreenOption" type="Button" parent="Panel/Margin/Column/OptionsGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(250, 54)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_default_cursor_shape = 2
+focus_mode = 0
+toggle_mode = true
+text = "全屏显示"
+theme_override_font_sizes/font_size = 16
+
+[node name="MonsterAnimationOption" type="Button" parent="Panel/Margin/Column/OptionsGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(250, 54)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_default_cursor_shape = 2
+focus_mode = 0
+toggle_mode = true
+text = "怪物动画"
+theme_override_font_sizes/font_size = 16
+
+[node name="ShowGridOption" type="Button" parent="Panel/Margin/Column/OptionsGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(250, 54)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_default_cursor_shape = 2
+focus_mode = 0
+toggle_mode = true
+text = "场地网格"
+theme_override_font_sizes/font_size = 16
+
+[node name="ShowAimOption" type="Button" parent="Panel/Margin/Column/OptionsGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(250, 54)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_default_cursor_shape = 2
+focus_mode = 0
+toggle_mode = true
+text = "索敌提示"
+theme_override_font_sizes/font_size = 16
+
+[node name="SoundOption" type="Button" parent="Panel/Margin/Column/OptionsGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(250, 54)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_default_cursor_shape = 2
+focus_mode = 0
+toggle_mode = true
+text = "游戏音效"
+theme_override_font_sizes/font_size = 16
+
+[node name="MusicOption" type="Button" parent="Panel/Margin/Column/OptionsGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(250, 54)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_default_cursor_shape = 2
+focus_mode = 0
+toggle_mode = true
+text = "背景音乐"
+theme_override_font_sizes/font_size = 16
+
+[node name="LanguageButton" type="Button" parent="Panel/Margin/Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 16
+
+[node name="SavedLabel" type="Label" parent="Panel/Margin/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.376471, 0.403922, 0.419608, 1)
+theme_override_font_sizes/font_size = 12
+vertical_alignment = 1
+
+[node name="GameActions" type="VBoxContainer" parent="Panel/Margin/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ResumeButton" type="Button" parent="Panel/Margin/Column/GameActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 17
+
+[node name="Row" type="HBoxContainer" parent="Panel/Margin/Column/GameActions"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="RestartButton" type="Button" parent="Panel/Margin/Column/GameActions/Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 54)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_default_cursor_shape = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 16
+
+[node name="MenuButton" type="Button" parent="Panel/Margin/Column/GameActions/Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 54)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_default_cursor_shape = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 16
+
+[connection signal="pressed" from="Panel/Margin/Column/Header/CloseButton" to="." method="close_panel"]
+[connection signal="pressed" from="Panel/Margin/Column/LanguageButton" to="." method="_on_language_pressed"]
+[connection signal="pressed" from="Panel/Margin/Column/GameActions/ResumeButton" to="." method="close_panel"]
+[connection signal="pressed" from="Panel/Margin/Column/GameActions/Row/RestartButton" to="." method="_on_restart"]
+[connection signal="pressed" from="Panel/Margin/Column/GameActions/Row/MenuButton" to="." method="_on_menu"]

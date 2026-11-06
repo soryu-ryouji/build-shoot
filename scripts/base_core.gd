@@ -19,6 +19,7 @@ func setup(g: Node, definition: Dictionary) -> void:
 	cell = definition.get("cell", Vector2i.ZERO)
 	max_hp = int(definition.get("hp", 1000))
 	hp = float(max_hp)
+	Events.set_base_health(hp, max_hp)
 	position = game.arena.map_loader.cell_to_world(cell)
 	var cells: Vector2i = definition.get("size", Vector2i(3, 3))
 	body_size = Vector2(cells) * 64.0 - Vector2(16.0, 16.0)
@@ -48,6 +49,7 @@ func take_damage(amount: float) -> void:
 	if not alive or amount <= 0.0 or game.outcome != "playing":
 		return
 	hp = maxf(0.0, hp - amount)
+	Events.set_base_health(hp, max_hp)
 	_hurt_flash = 1.0
 	if hp <= 0.0:
 		alive = false

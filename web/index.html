@@ -18,18 +18,41 @@
 		align-items: center;
 		justify-content: center;
 	}
-	/* 手机上铺满；桌面横屏时收成 9:16 竖屏舞台，避免战斗区被上下裁掉 */
+	/* 横屏舞台始终铺满；不再把桌面端限制成竖屏窗口。 */
 	#stage {
-		position: relative;
-		width: 100vw;
-		height: 100vh;
+	    position: relative;
+	    width: 100vw;
+	    height: 100vh;
 	}
-	@media (min-aspect-ratio: 3/5) {
-		#stage {
-			width: min(100vw, 56.25vh);
-			height: 100vh;
-			box-shadow: 0 0 64px rgba(0, 0, 0, 0.65);
-		}
+	#rotate-hint {
+	    display: none;
+	    position: fixed;
+	    inset: 0;
+	    z-index: 2;
+	    align-items: center;
+	    justify-content: center;
+	    flex-direction: column;
+	    gap: 12px;
+	    background: #14181c;
+	    color: #ece9e1;
+	    font: 600 20px/1.6 system-ui, sans-serif;
+	    letter-spacing: 0.08em;
+	    text-align: center;
+	}
+	#rotate-hint small {
+	    color: #8f969b;
+	    font-size: 13px;
+	    font-weight: 400;
+	}
+	#rotate-hint .phone {
+	    width: 48px;
+	    height: 76px;
+	    border: 2px solid #f1a33b;
+	    border-radius: 7px;
+	    transform: rotate(90deg);
+	}
+	@media (orientation: portrait) and (pointer: coarse) {
+	    #rotate-hint { display: flex; }
 	}
 	iframe {
 		display: block;

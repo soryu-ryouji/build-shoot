@@ -427,6 +427,7 @@ func damage(id: int, amount: int) -> Dictionary:
 		spatial_index.remove(id)
 		block.hp_bar_time = 0.0
 		destroyed += 1
+		Events.set_destroyed(destroyed)
 		queue_redraw()
 		return {"hit": true, "destroyed": true, "rect": block.rect, "max_hp": int(block.max_hp), "color": block.color}
 	queue_redraw()

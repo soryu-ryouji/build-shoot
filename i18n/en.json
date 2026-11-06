@@ -8,7 +8,6 @@
   "result.lost": "BASE LOST",
   "result.lost_detail": "The central base has been destroyed.",
   "hud.wave": "WAVE %d",
-  "hud.wave": "WAVE %d",
   "hud.wave_next": "WAVE %d · NEXT %ds",
   "hud.destroyed": "DESTROYED %d",
   "hud.coins": "COINS %d",
@@ -91,5 +90,6 @@
   "settings.saved": "INSTANTLY APPLIED / AUTO-SAVED",
   "settings.resume": "RESUME OPERATION",
   "settings.restart": "RESTART",
-  "settings.main_menu": "MAIN MENU"
+  "settings.main_menu": "MAIN MENU",
+  "shop.title": "BUILD / DRAG TO DEPLOY"
 }

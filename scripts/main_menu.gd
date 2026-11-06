@@ -1,121 +1,52 @@
 extends Control
 
-## 自适应主界面：背景等比覆盖，标题在左上，操作按钮落在底部拇指区。
+## 主菜单场景树位于 scenes/main_menu.tscn；语言由 Events 驱动。
 
 const Palette = preload("res://scripts/palette.gd")
-const SettingsPanel = preload("res://scripts/settings_panel.gd")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
-const UiMetrics = preload("res://scripts/ui_metrics.gd")
-const MenuTexture = preload("res://assets/ui/menu_background.png")
-const MenuCharacterRig = preload("res://scripts/menu_character_rig.gd")
-# 立绘右边缘在设计稿中的位置（720x960），用于在更长的屏幕上把人整体挪回画面内
+const EventBindingScript = preload("res://scripts/event_binding.gd")
 const MENU_CHARACTER_RIGHT := 659.0 / 720.0
 
-var start_button: Button
-var settings_button: Button
-var quit_button: Button
-var settings_panel: Control
-var title_label: Label
-var subtitle_label: Label
-var mode_label: Label
-var title_box: VBoxContainer
-var actions_box: VBoxContainer
-var background: TextureRect
-var character: Control
-var accent_bar: ColorRect
-var title_rule: ColorRect
-var actions_rule: ColorRect
+@onready var start_button: Button = %StartButton
+@onready var settings_button: Button = %SettingsButton
+@onready var quit_button: Button = %QuitButton
+@onready var settings_panel: Control = %SettingsPanel
+@onready var title_label: Label = %TitleLabel
+@onready var subtitle_label: Label = %SubtitleLabel
+@onready var mode_label: Label = %ModeLabel
+@onready var title_box: VBoxContainer = %TitleBox
+@onready var actions_box: VBoxContainer = %ActionsBox
+@onready var background: TextureRect = %Background
+@onready var menu_shade: ColorRect = %MenuShade
+@onready var character: Control = %Character
+@onready var accent_bar: ColorRect = %AccentBar
+@onready var title_rule: ColorRect = %TitleRule
+@onready var actions_rule: ColorRect = %ActionsRule
+var _events := EventBindingScript.new()
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_build()
-	I18n.locale_changed.connect(_refresh_texts)
+	_style_menu_button(start_button, true)
+	_style_menu_button(settings_button, false)
+	_style_menu_button(quit_button, false)
+	_events.bind(Events.language_changed, _on_language_changed)
 	get_viewport().size_changed.connect(_layout)
 	_refresh_texts()
 	_layout()
 	Music.play_track("menu")
 
 
-func _build() -> void:
-	background = TextureRect.new()
-	background.texture = MenuTexture
-	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(background)
-
-	# 人物按背景的 cover 尺寸摆放，由 rig 自己驱动分层待机
-	character = MenuCharacterRig.new()
-	add_child(character)
-
-	# 装饰线单独成节点，画在背景与立绘之上
-	accent_bar = _make_rule(Vector2(4, 84))
-	title_rule = _make_rule(Vector2(172, 2))
-	actions_rule = _make_rule(Vector2(124, 2))
-
-	title_box = VBoxContainer.new()
-	title_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title_box.add_theme_constant_override("separation", 2)
-	add_child(title_box)
-	title_label = _make_label(title_box, UiMetrics.FONT_DISPLAY, Palette.INK)
-	subtitle_label = _make_label(title_box, UiMetrics.FONT_BODY, Palette.INK_MUTED)
-
-	actions_box = VBoxContainer.new()
-	actions_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	actions_box.add_theme_constant_override("separation", 10)
-	add_child(actions_box)
-	mode_label = _make_label(actions_box, UiMetrics.FONT_SMALL, Palette.INK)
-	start_button = _make_button(actions_box, 21, true)
-	start_button.custom_minimum_size.y = 66
-	start_button.pressed.connect(start_game)
-
-	var secondary := HBoxContainer.new()
-	secondary.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	secondary.add_theme_constant_override("separation", UiMetrics.GAP)
-	actions_box.add_child(secondary)
-	settings_button = _make_button(secondary, UiMetrics.FONT_LABEL, false)
-	settings_button.custom_minimum_size.y = 56
-	settings_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	settings_button.pressed.connect(open_settings)
-	quit_button = _make_button(secondary, UiMetrics.FONT_LABEL, false)
-	quit_button.custom_minimum_size = Vector2(100, 56)
-	quit_button.pressed.connect(_on_quit)
-
-	settings_panel = SettingsPanel.new()
-	settings_panel.name = "SettingsPanel"
-	add_child(settings_panel)
+func _exit_tree() -> void:
+	_events.clear()
 
 
-func _make_rule(rule_size: Vector2) -> ColorRect:
-	var rule := ColorRect.new()
-	rule.color = Palette.ACCENT
-	rule.custom_minimum_size = rule_size
-	rule.size = rule_size
-	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(rule)
-	return rule
+func _on_language_changed(_locale: String) -> void:
+	_refresh_texts()
 
 
-func _make_label(parent: Node, font_size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", color)
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(label)
-	return label
-
-
-func _make_button(parent: Node, font_size: int, primary: bool) -> Button:
-	var button := Button.new()
-	button.focus_mode = Control.FOCUS_NONE
-	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	button.add_theme_font_size_override("font_size", font_size)
+func _style_menu_button(button: Button, primary: bool) -> void:
 	button.add_theme_color_override("font_color", Palette.INK)
 	button.add_theme_color_override("font_hover_color", Palette.INK)
 	button.add_theme_color_override("font_pressed_color", Palette.INK)
@@ -124,8 +55,6 @@ func _make_button(parent: Node, font_size: int, primary: bool) -> Button:
 	button.add_theme_stylebox_override("normal", _style(Color(Palette.PAPER, fill_alpha), border, primary))
 	button.add_theme_stylebox_override("hover", _style(Color(1.0, 0.94, 0.80, 0.98), Palette.ACCENT, true))
 	button.add_theme_stylebox_override("pressed", _style(Palette.ACCENT.darkened(0.15), Palette.ACCENT, true))
-	parent.add_child(button)
-	return button
 
 
 func _style(fill: Color, border: Color, accent: bool) -> StyleBoxFlat:
@@ -142,39 +71,36 @@ func _style(fill: Color, border: Color, accent: bool) -> StyleBoxFlat:
 
 
 func _layout() -> void:
-	background.texture = MenuTexture
 	_layout_character()
 	var safe := ResponsiveLayout.safe_rect(self)
 	var margin := ResponsiveLayout.margin(self)
-	var width := minf(330.0, safe.size.x - margin * 2.0)
-	title_box.position = safe.position + Vector2(margin, margin + 8.0)
+	var width := minf(400.0, safe.size.x * 0.44)
+	title_box.position = safe.position + Vector2(margin + 10.0, margin + 12.0)
 	title_box.size = Vector2(width, 120)
-
 	actions_box.reset_size()
 	var actions_height := actions_box.get_combined_minimum_size().y
-	actions_box.size = Vector2(width, actions_height)
-	# 主菜单按钮贴近底部拇指区，长屏手机上也不用伸到屏幕上半部
+	var actions_width := minf(360.0, safe.size.x * 0.40)
+	actions_box.size = Vector2(actions_width, actions_height)
 	actions_box.position = Vector2(
-		safe.position.x + margin,
-		safe.end.y - margin - actions_height - 28.0,
+		safe.position.x + margin + 10.0,
+		safe.end.y - margin - actions_height - 12.0,
 	)
-
 	accent_bar.position = title_box.position + Vector2(-8, 4)
 	title_rule.position = title_box.position + Vector2(0, 104)
 	actions_rule.position = actions_box.position + Vector2(0, -16)
 	queue_redraw()
 
-
 func _layout_character() -> void:
 	var view := size
 	if view.x <= 0.0 or view.y <= 0.0:
 		return
-	# 人物层固定按设计稿比例缩放，和背景 cover 映射重合；长屏时整体左移，避免右侧被裁
-	var cover := maxf(view.x / 720.0, view.y / 960.0)
-	var drawn := Vector2(720.0, 960.0) * cover
-	var origin := (view - drawn) * 0.5
-	var right := origin.x + MENU_CHARACTER_RIGHT * drawn.x
-	origin.x -= maxf(0.0, right - (view.x - 14.0))
+	# 横屏不再沿用背景 cover 的放大比例，人物完整落在右侧操作安全区之外。
+	var character_scale := view.y / 960.0 * 1.08
+	var drawn := Vector2(720.0, 960.0) * character_scale
+	var origin := Vector2(
+		view.x - MENU_CHARACTER_RIGHT * drawn.x - 30.0,
+		view.y - drawn.y + 30.0,
+	)
 	character.size = drawn
 	character.position = origin
 

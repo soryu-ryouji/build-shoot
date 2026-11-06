@@ -308,6 +308,8 @@ func take_damage(amount: float) -> void:
 	if not alive or amount <= 0.0:
 		return
 	hp -= amount
+	if game.selected_building == self:
+		Events.update_building(self)
 	hurt_flash = 1.0
 	if hp <= 0.0:
 		_destroy()
@@ -402,6 +404,8 @@ func _fire_projectile() -> void:
 	_cooldown = get_effective_interval()
 	_recoil = 1.0
 	shots += 1
+	if game.selected_building == self:
+		Events.update_building(self)
 	var buffed := buff_damage_multiplier > 1.0
 	var shot_damage := get_effective_damage()
 	var dir := Vector2.from_angle(aim_angle)
@@ -423,6 +427,8 @@ func _fire_laser(target: Dictionary) -> void:
 	_cooldown = get_effective_interval()
 	_recoil = 1.0
 	shots += 1
+	if game.selected_building == self:
+		Events.update_building(self)
 	_beam_buffed = buff_damage_multiplier > 1.0
 	var shot_damage := get_effective_damage()
 	var rect: Rect2 = target.rect

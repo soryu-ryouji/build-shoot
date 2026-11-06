@@ -1,6 +1,19 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/main_menu.gd" id="1_menu"]
+[ext_resource type="Texture2D" path="res://assets/ui/menu_background.png" id="2_bg"]
+[ext_resource type="Script" path="res://scripts/menu_character_rig.gd" id="3_character"]
+[ext_resource type="PackedScene" path="res://scenes/ui/settings_panel.tscn" id="4_settings"]
+
+[sub_resource type="Shader" id="Shader_menu"]
+code = "shader_type canvas_item;
+void fragment() {
+	float alpha = 1.0 - smoothstep(0.28, 0.72, UV.x);
+	COLOR = vec4(0.94, 0.94, 0.91, alpha * 0.88);
+}"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_menu"]
+shader = SubResource("Shader_menu")
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -9,4 +22,132 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 script = ExtResource("1_menu")
+
+[node name="Background" type="TextureRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_bg")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="MenuShade" type="ColorRect" parent="."]
+unique_name_in_owner = true
+material = SubResource("ShaderMaterial_menu")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Character" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+script = ExtResource("3_character")
+
+[node name="AccentBar" type="ColorRect" parent="."]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(4, 84)
+layout_mode = 0
+mouse_filter = 2
+color = Color(0.945098, 0.639216, 0.231373, 1)
+
+[node name="TitleRule" type="ColorRect" parent="."]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(172, 2)
+layout_mode = 0
+mouse_filter = 2
+color = Color(0.945098, 0.639216, 0.231373, 1)
+
+[node name="ActionsRule" type="ColorRect" parent="."]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(124, 2)
+layout_mode = 0
+mouse_filter = 2
+color = Color(0.945098, 0.639216, 0.231373, 1)
+
+[node name="TitleBox" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="TitleLabel" type="Label" parent="TitleBox"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.0901961, 0.0980392, 0.105882, 1)
+theme_override_font_sizes/font_size = 42
+vertical_alignment = 1
+
+[node name="SubtitleLabel" type="Label" parent="TitleBox"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.376471, 0.403922, 0.419608, 1)
+theme_override_font_sizes/font_size = 15
+vertical_alignment = 1
+
+[node name="ActionsBox" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="ModeLabel" type="Label" parent="ActionsBox"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.0901961, 0.0980392, 0.105882, 1)
+theme_override_font_sizes/font_size = 13
+vertical_alignment = 1
+
+[node name="StartButton" type="Button" parent="ActionsBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 66)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 21
+alignment = 0
+
+[node name="Secondary" type="HBoxContainer" parent="ActionsBox"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="SettingsButton" type="Button" parent="ActionsBox/Secondary"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_default_cursor_shape = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 17
+alignment = 0
+
+[node name="QuitButton" type="Button" parent="ActionsBox/Secondary"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 56)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 17
+alignment = 0
+
+[node name="SettingsPanel" parent="." instance=ExtResource("4_settings")]
+unique_name_in_owner = true
+
+[connection signal="pressed" from="ActionsBox/StartButton" to="." method="start_game"]
+[connection signal="pressed" from="ActionsBox/Secondary/SettingsButton" to="." method="open_settings"]
+[connection signal="pressed" from="ActionsBox/Secondary/QuitButton" to="." method="_on_quit"]

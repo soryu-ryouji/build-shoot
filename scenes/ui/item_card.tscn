@@ -1,0 +1,33 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/item_card.gd" id="1_card"]
+
+[node name="ItemCard" type="Control"]
+custom_minimum_size = Vector2(168, 76)
+mouse_default_cursor_shape = 2
+script = ExtResource("1_card")
+
+[node name="CategoryLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.376471, 0.403922, 0.419608, 1)
+theme_override_font_sizes/font_size = 12
+vertical_alignment = 1
+
+[node name="NameLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.0901961, 0.0980392, 0.105882, 1)
+theme_override_font_sizes/font_size = 15
+vertical_alignment = 1
+max_lines_visible = 1
+
+[node name="CostLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.945098, 0.639216, 0.231373, 1)
+theme_override_font_sizes/font_size = 13
+vertical_alignment = 1

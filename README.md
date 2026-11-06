@@ -29,7 +29,7 @@
 - 空地拖动：移动镜头。
 - 鼠标滚轮／双指缩放：调整视野。
 - WASD／方向键：移动镜头。
-- 顶栏“基”按钮或 Home：回到基地。
+- Home：回到基地。
 - 屏外巢穴：显示粉色方向指示。
 - 商店拖拽和建筑范围预览优先，不会触发镜头移动。
 
@@ -39,11 +39,11 @@
 
 | 操作 | 键鼠 | 触摸 |
 | --- | --- | --- |
-| 选择类别/道具 | 点击类别卡、再点上方道具项 | 同左 |
-| 布置建筑 | 从类别卡拖到格子，松手直接放置 | 同左 |
+| 选择类别/道具 | 点击底部类别标签切换道具列表 | 同左 |
+| 布置建筑 | 从底部道具卡拖到格子，松手直接放置 | 同左 |
 | 移动镜头 | 拖动空地、WASD 或方向键 | 单指拖动空地 |
 | 缩放 | 鼠标滚轮 | 双指缩放 |
-| 回到基地 | Home 或顶栏“基” | 顶栏“基” |
+| 回到基地 | Home | — |
 | 查看/升级/拆除 | 点击已放置建筑 | 同左 |
 | 系统设置/暂停 | Esc 或右上角 ≡ | 右上角 ≡ |
 | 切换语言 | L 或设置面板 | 设置面板 |
@@ -113,8 +113,9 @@ Godot_v4.7.2-stable_win64_console.exe --headless --path . --import
 
 ## 运行
 
-- Godot 4.7，移动渲染器，设计视口 400×800，竖屏。
-- 桌面默认窗口 480×960；长屏向上扩展。
+- Godot 4.7，移动渲染器，设计视口 960×540，横屏。
+- 桌面默认窗口 1280×720；16:10 与超宽屏扩展可视空间，移动端适配安全区。
+- 战斗 UI 使用精简顶部资源栏、底部标签式建造栏和横向建筑详情；设置项采用双列布局。
 - 编辑器打开项目后 F5，或运行：
 
 ```bash
@@ -162,17 +163,24 @@ Godot_v4.7.2-stable_win64.exe --path .
 
 详细结构见 [地图系统改造文档](docs/map_system_refactor_proposal.md)。导出预设包含 `data/maps/*.json`。
 
+## UI 预置体与事件驱动
+
+HUD、底部建造栏、道具卡、建筑详情、设置和结算均位于 `scenes/ui/`，可在 Godot 编辑器中直接调整。主菜单的完整节点树位于 `scenes/main_menu.tscn`。
+
+`Events` 自动加载提供状态缓存和具体事件；UI 使用 `EventBinding` 统一绑定、去重和解绑。详细目录、事件列表与扩展示例见 [UI 预置体与事件中心](docs/ui_prefabs_and_events.md)。
+
 ## 测试
 
 ```bash
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path . res://tools/smoke_test.tscn
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path . res://tools/responsive_test.tscn
+Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path . res://tools/event_center_test.tscn
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path . res://tools/stress_test.tscn -- --enemies=1000 --seconds=10
 ```
 
 冒烟测试覆盖：无限正负坐标、远距离地面加载、基地/巢穴占用、放置与拆除、能源和升级、炮塔/激光/炮弹攻击巢穴、巢穴独立生成、怪物向基地移动、阵地拦截、同种光环乘算、异种光环叠乘、压缩塔两格圆形范围、免朝向放置、A3/A2 双塔与后放 A4/A5 扩展、双炮塔共享网络、公共增幅去重、无上限增长与互相覆盖、能量链方向/层级、本塔与网络双色范围、环绕电弧数量与断电生命周期、拆除恢复、有效攻击面板、音效加载与限频开关、音乐加载与场景切换、镜头移动缩放、清场胜利、基地失败和第二 JSON 校验。
 
-响应式测试覆盖 720×960、1000×2000、1080×1920、1080×2400，以及 HUD、商店、触摸部署、设置面板、主界面和镜头坐标转换。
+响应式测试覆盖 960×540、1280×720、1920×1080、1440×900、1920×800、844×390，以及 HUD、商店、触摸部署、设置面板、主界面和镜头坐标转换。
 
 压力测试固定生成 1000 只高生命怪物、16 座火力塔和充足供电，保留巢穴与基地战斗，预热 1 秒后采样 10 秒。输出敌人数量、节点数、draw call、帧时间和实测 FPS，不设置跨硬件通用的帧率门槛。无头结果只代表逻辑吞吐；去掉 `--headless` 可在目标设备上测量真实 2D 渲染。
 
@@ -187,7 +195,7 @@ Godot_v4.7.2-stable_win64_console.exe --path . res://tools/screenshot.tscn -- --
 Godot_v4.7.2-stable_win64_console.exe --path . res://tools/screenshot.tscn -- --buff
 ```
 
-默认生成 `image.png`；附加 `--settings`、`--focus`、`--power` 可生成对应状态，`--size=1000x2000` 可指定尺寸，`--locale=en` 可检查英文排版。
+默认生成 `image.png`；附加 `--settings`、`--focus`、`--power` 可生成对应状态，`--size=1280x720` 可指定尺寸，`--locale=en` 可检查英文排版。
 
 ## 美术素材
 

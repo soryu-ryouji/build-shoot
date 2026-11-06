@@ -1,0 +1,238 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/focus_panel.gd" id="1_focus"]
+[ext_resource type="FontFile" path="res://assets/ui/font/game_numbers.otf" id="2_numbers"]
+
+[node name="FocusPanel" type="Control"]
+visible = false
+mouse_filter = 0
+script = ExtResource("1_focus")
+
+[node name="Panel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="Margin" type="MarginContainer" parent="Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="Column" type="VBoxContainer" parent="Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Rule" type="ColorRect" parent="Panel/Margin/Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(64, 3)
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.945098, 0.639216, 0.231373, 1)
+
+[node name="Header" type="HBoxContainer" parent="Panel/Margin/Column"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Titles" type="VBoxContainer" parent="Panel/Margin/Column/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 1
+
+[node name="TitleLabel" type="Label" parent="Panel/Margin/Column/Header/Titles"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.0901961, 0.0980392, 0.105882, 1)
+theme_override_font_sizes/font_size = 21
+vertical_alignment = 1
+
+[node name="DescLabel" type="Label" parent="Panel/Margin/Column/Header/Titles"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.376471, 0.403922, 0.419608, 1)
+theme_override_font_sizes/font_size = 13
+vertical_alignment = 1
+autowrap_mode = 3
+max_lines_visible = 2
+
+[node name="PowerLabel" type="Label" parent="Panel/Margin/Column/Header/Titles"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.376471, 0.403922, 0.419608, 1)
+theme_override_font_sizes/font_size = 12
+vertical_alignment = 1
+
+[node name="CloseButton" type="Button" parent="Panel/Margin/Column/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+size_flags_vertical = 0
+focus_mode = 0
+text = "×"
+theme_override_font_sizes/font_size = 22
+
+[node name="SeparatorA" type="ColorRect" parent="Panel/Margin/Column"]
+custom_minimum_size = Vector2(0, 1)
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.1, 0.12, 0.13, 0.14)
+
+[node name="StatsGrid" type="GridContainer" parent="Panel/Margin/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 6
+columns = 6
+
+[node name="Stat0" type="VBoxContainer" parent="Panel/Margin/Column/StatsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Name" type="Label" parent="Panel/Margin/Column/StatsGrid/Stat0"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.376471, 0.403922, 0.419608, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="Value" type="Label" parent="Panel/Margin/Column/StatsGrid/Stat0"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.0901961, 0.0980392, 0.105882, 1)
+theme_override_fonts/font = ExtResource("2_numbers")
+theme_override_font_sizes/font_size = 19
+
+[node name="Stat1" type="VBoxContainer" parent="Panel/Margin/Column/StatsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Name" type="Label" parent="Panel/Margin/Column/StatsGrid/Stat1"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.376471, 0.403922, 0.419608, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="Value" type="Label" parent="Panel/Margin/Column/StatsGrid/Stat1"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.0901961, 0.0980392, 0.105882, 1)
+theme_override_fonts/font = ExtResource("2_numbers")
+theme_override_font_sizes/font_size = 19
+
+[node name="Stat2" type="VBoxContainer" parent="Panel/Margin/Column/StatsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Name" type="Label" parent="Panel/Margin/Column/StatsGrid/Stat2"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.376471, 0.403922, 0.419608, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="Value" type="Label" parent="Panel/Margin/Column/StatsGrid/Stat2"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.0901961, 0.0980392, 0.105882, 1)
+theme_override_fonts/font = ExtResource("2_numbers")
+theme_override_font_sizes/font_size = 19
+
+[node name="Stat3" type="VBoxContainer" parent="Panel/Margin/Column/StatsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Name" type="Label" parent="Panel/Margin/Column/StatsGrid/Stat3"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.376471, 0.403922, 0.419608, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="Value" type="Label" parent="Panel/Margin/Column/StatsGrid/Stat3"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.0901961, 0.0980392, 0.105882, 1)
+theme_override_fonts/font = ExtResource("2_numbers")
+theme_override_font_sizes/font_size = 19
+
+[node name="Stat4" type="VBoxContainer" parent="Panel/Margin/Column/StatsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Name" type="Label" parent="Panel/Margin/Column/StatsGrid/Stat4"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.376471, 0.403922, 0.419608, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="Value" type="Label" parent="Panel/Margin/Column/StatsGrid/Stat4"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.0901961, 0.0980392, 0.105882, 1)
+theme_override_fonts/font = ExtResource("2_numbers")
+theme_override_font_sizes/font_size = 19
+
+[node name="Stat5" type="VBoxContainer" parent="Panel/Margin/Column/StatsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Name" type="Label" parent="Panel/Margin/Column/StatsGrid/Stat5"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.376471, 0.403922, 0.419608, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="Value" type="Label" parent="Panel/Margin/Column/StatsGrid/Stat5"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.0901961, 0.0980392, 0.105882, 1)
+theme_override_fonts/font = ExtResource("2_numbers")
+theme_override_font_sizes/font_size = 19
+
+[node name="SeparatorB" type="ColorRect" parent="Panel/Margin/Column"]
+custom_minimum_size = Vector2(0, 1)
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.1, 0.12, 0.13, 0.14)
+
+[node name="Actions" type="HBoxContainer" parent="Panel/Margin/Column"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="UpgradeEffect" type="Label" parent="Panel/Margin/Column/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(180, 20)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.376471, 0.403922, 0.419608, 1)
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="UpgradeButton" type="Button" parent="Panel/Margin/Column/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(230, 50)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 15
+
+[node name="DismantleButton" type="Button" parent="Panel/Margin/Column/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(190, 50)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 15
+
+[connection signal="pressed" from="Panel/Margin/Column/Header/CloseButton" to="." method="_on_close"]
+[connection signal="pressed" from="Panel/Margin/Column/Actions/UpgradeButton" to="." method="_on_upgrade"]
+[connection signal="pressed" from="Panel/Margin/Column/Actions/DismantleButton" to="." method="_on_dismantle"]
