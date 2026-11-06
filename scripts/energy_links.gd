@@ -33,7 +33,8 @@ var _segments: Array = []
 
 
 func _ready() -> void:
-	z_index = 1
+	# 高于建筑（z=4），低于命中特效（z=6），避免链节被建筑遮住。
+	z_index = 5
 	var quad := QuadMesh.new()
 	quad.size = Vector2.ONE
 	_multimesh = MultiMesh.new()

@@ -238,6 +238,9 @@ func _run() -> void:
 	_check(main.get_buff_multiplier(buffed.global_position) == 2, "compression buff applies")
 	var initial_link: Dictionary = _find_link(compression, buffed)
 	_check(not initial_link.is_empty(), "active aura creates an energy link")
+	_check(main.energy_links.z_index > buffed.z_index, "energy links render above buildings")
+	buffed._process(0.0)
+	_check(buffed.buff_particles.get_arc_count() == 2, "x2 buff shows two orbiting arcs")
 	if not initial_link.is_empty():
 		var link_direction: Vector2 = initial_link.end - initial_link.start
 		var target_direction: Vector2 = buffed.global_position - compression.global_position
@@ -253,19 +256,14 @@ func _run() -> void:
 	_check(int(buffed_ball.damage) == 2, "projectile reads effective damage")
 	buffed_ball._vanish()
 
-	# 同组取最高，不同组叠乘；拆除后剩余光环立即重算。
-	var stronger_def: Dictionary = ItemDefs.get_item("compression_tower").duplicate(true)
-	stronger_def["id"] = "test_stronger_compression"
-	stronger_def["energy_demand"] = 0
-	stronger_def["auras"][0]["propagate"] = false
-	stronger_def["auras"][0]["target_categories"] = [ItemDefs.CATEGORY_FIREPOWER]
-	stronger_def["auras"][0]["target_items"] = []
-	stronger_def["auras"][0]["modifiers"][0]["value"] = 3.0
-	var stronger: Node = main._place_building(stronger_def, _world(0, 5), -PI / 2.0)
-	_check(int(buffed.get_effective_damage()) == 3, "same aura group takes highest multiplier")
-	main.select_building(stronger)
+	# 两座压缩塔同时覆盖同一炮塔时，同种 ×2 也要乘算。
+	var second_def: Dictionary = ItemDefs.get_item("compression_tower").duplicate(true)
+	second_def["energy_demand"] = 0
+	var second_compression: Node = main._place_building(second_def, _world(2, 4))
+	_check(int(buffed.get_effective_damage()) == 4, "two overlapping compression auras multiply to x4")
+	main.select_building(second_compression)
 	main.dismantle_selected()
-	_check(int(buffed.get_effective_damage()) == 2, "removing stronger aura restores base compression")
+	_check(int(buffed.get_effective_damage()) == 2, "removing the second aura restores x2")
 
 	var amplifier_def: Dictionary = ItemDefs.get_item("compression_tower").duplicate(true)
 	amplifier_def["id"] = "test_amplifier"
@@ -291,45 +289,53 @@ func _run() -> void:
 	main.recompute_buffs()
 	_check(int(buffed.get_effective_damage()) == 1, "offline aura stops affecting damage")
 	_check(main.energy_links.link_count() == 0, "offline aura removes energy links")
+	buffed._process(0.0)
+	_check(not buffed.buff_particles.emitting and buffed.buff_particles.get_arc_count() == 0, "offline buff hides orbiting arcs")
 	compression.set_powered(true)
 	main.recompute_buffs()
 	_check(int(buffed.get_effective_damage()) == 2, "restored power restores aura")
 	_check(main.energy_links.link_count() == 1, "restored power restores the energy link")
+	buffed._process(0.0)
+	_check(buffed.buff_particles.emitting and buffed.buff_particles.get_arc_count() == 2, "restored buff restores two arcs")
 
-	# 圆形可传递光环：A(0,4) → B(2,4) → C(2,2) → D(0,2) → 炮塔(-2,2)。
-	# 只按建造顺序向前传递，D 验证不封顶继续到 ×16。
+	# 用户操作回归：A3 先放、A2 后放，A1 得到 ×2×2；后放 A4 后更新为 ×2×2×2。
+	_clear_buildings()
 	var chain_def: Dictionary = ItemDefs.get_item("compression_tower").duplicate(true)
 	chain_def["energy_demand"] = 0
-	var chain_b: Node = main._place_building(chain_def, _world(2, 4))
-	var chain_c: Node = main._place_building(chain_def, _world(2, 2))
-	var chain_d: Node = main._place_building(chain_def, _world(0, 2))
 	var chain_tower_def: Dictionary = ItemDefs.get_item("turret").duplicate(true)
 	chain_tower_def["energy_demand"] = 0
-	var chain_target: Node = main._place_building(chain_tower_def, _world(-2, 2))
-	_check(is_equal_approx(compression.get_primary_aura_output_multiplier(), 2.0), "chain source keeps base multiplier")
-	_check(is_equal_approx(chain_b.get_primary_aura_output_multiplier(), 4.0), "second compression propagates x4")
-	_check(is_equal_approx(chain_c.get_primary_aura_output_multiplier(), 8.0), "third compression propagates x8")
-	_check(is_equal_approx(chain_d.get_primary_aura_output_multiplier(), 16.0), "propagation continues without a multiplier cap")
-	_check(int(chain_target.get_effective_damage()) == 16, "firepower receives uncapped propagated multiplier")
-	_check(not _find_link(chain_d, chain_target).is_empty(), "propagated aura links the final compression to firepower")
-	main.select_building(chain_d)
-	_check(main.focus_panel.stat_values[2].text == "×16", "compression panel shows uncapped propagated output")
+	var a1: Node = main._place_building(chain_tower_def, _world(0, 0))
+	var a3: Node = main._place_building(chain_def, _world(0, 2))
+	_check(int(a1.get_effective_damage()) == 2, "A3 alone gives A1 x2")
+	var a2: Node = main._place_building(chain_def, _world(0, 1))
+	_check(int(a1.get_effective_damage()) == 4, "A3 and A2 both multiply A1 to x4")
+	var a4: Node = main._place_building(chain_def, _world(0, 3))
+	_check(int(a1.get_effective_damage()) == 8, "later A4 extends the existing network to x8")
+	_check(is_equal_approx(a4.get_primary_aura_output_multiplier(), 2.0), "A4 is the new outer layer")
+	_check(is_equal_approx(a3.get_primary_aura_output_multiplier(), 4.0), "A4 retroactively strengthens A3")
+	_check(is_equal_approx(a2.get_primary_aura_output_multiplier(), 4.0), "A4 also strengthens A2")
+	_check(not _find_link(a4, a3).is_empty(), "energy flows from later outer tower toward A3")
+	a1._process(0.0)
+	_check(a1.buff_particles.get_arc_count() == 4, "x8 buff shows four arcs")
+
+	# 再向外扩展一层，倍率继续到 ×16，不设上限。
+	var a5: Node = main._place_building(chain_def, _world(0, 5))
+	_check(int(a1.get_effective_damage()) == 16, "A5 extends the network to x16 without a cap")
+	a1._process(0.0)
+	_check(a1.buff_particles.get_arc_count() == 5, "x16 buff grows to five arcs")
+	main.select_building(a3)
+	_check(main.focus_panel.stat_values[2].text == "×8", "compression panel updates after outer expansion")
 	_check(main.focus_panel.stat_values[4].text == "周围 2 格", "compression panel shows two-cell coverage")
 	main.clear_selection()
-
-	# 圆形范围内即使互相覆盖，也只允许旧塔向新塔传递，不产生递归。
-	var cycle_source: Node = main._place_building(chain_def, _world(-6, -8))
-	var cycle_a: Node = main._place_building(chain_def, _world(-6, -6))
-	var cycle_b: Node = main._place_building(chain_def, _world(-4, -6))
-	var cycle_target: Node = main._place_building(chain_tower_def, _world(-2, -6))
-	_check(is_equal_approx(cycle_source.get_primary_aura_output_multiplier(), 2.0), "newer towers cannot amplify their older source")
-	_check(is_equal_approx(cycle_a.get_primary_aura_output_multiplier(), 4.0), "older source buffs a newer tower in two cells")
-	_check(is_equal_approx(cycle_b.get_primary_aura_output_multiplier(), 8.0), "mutual circular coverage still follows build order")
-	_check(int(cycle_target.get_effective_damage()) == 8, "ordered circular network reaches firepower")
-	for tower in [chain_b, chain_c, chain_d, chain_target, cycle_a, cycle_b, cycle_target, cycle_source]:
+	main.select_building(a5)
+	main.dismantle_selected()
+	_check(int(a1.get_effective_damage()) == 8, "removing A5 restores the x8 network")
+	main.select_building(a4)
+	main.dismantle_selected()
+	_check(int(a1.get_effective_damage()) == 4, "removing A4 restores the original x4 pair")
+	for tower in [a2, a3, a1]:
 		main.select_building(tower)
 		main.dismantle_selected()
-	_check(int(buffed.get_effective_damage()) == 2, "removing propagation network restores original aura")
 
 	# ---------------------------------------------------------------- 镜头
 	var old_center: Vector2 = main.camera_center

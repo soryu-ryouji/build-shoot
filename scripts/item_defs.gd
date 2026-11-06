@@ -147,7 +147,7 @@ const ITEMS := {
 			"propagate": true,
 			"show_links": true,
 			"stack_group": "compression_damage",
-			"stack_rule": "max",
+			"stack_rule": "stack",
 			"modifiers": [{"stat": "damage", "op": "mul", "value": 2.0}],
 		}],
 		"attack_style": "none",

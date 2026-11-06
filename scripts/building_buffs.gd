@@ -1,10 +1,11 @@
 extends RefCounted
 
-## 建筑光环结算：同组取最高，不同组叠乘。
-## propagate 光环按建造顺序由旧塔传向新塔，形成 DAG 后拓扑传播，不设倍率上限。
+## 建筑光环按 stack_rule 叠乘或取最高。
+## propagate 光环以火力终端分层，从外层向内传播，不设倍率上限。
 
 var game: Node
 var _active_links: Array = []
+var _network_components: Dictionary = {}
 
 
 func _init(owner_game: Node) -> void:
@@ -15,6 +16,7 @@ func recompute() -> void:
 	if game == null:
 		return
 	_active_links.clear()
+	_network_components.clear()
 	_recompute_propagation()
 	for target in game.placed_buildings:
 		if not is_instance_valid(target) or not bool(target.alive):
@@ -51,11 +53,6 @@ func _recompute_propagation() -> void:
 
 
 func _recompute_propagation_group(group: String) -> void:
-	var build_order: Dictionary = {}
-	for i in game.placed_buildings.size():
-		var building = game.placed_buildings[i]
-		if is_instance_valid(building):
-			build_order[building.get_instance_id()] = i
 	var nodes: Dictionary = {}
 	for building in game.placed_buildings:
 		if not is_instance_valid(building) or not bool(building.alive) or not bool(building.powered):
@@ -65,58 +62,95 @@ func _recompute_propagation_group(group: String) -> void:
 			if bool(aura.get("propagate", false)) and aura_group == group:
 				nodes[building.get_instance_id()] = {"node": building, "aura": aura}
 
-	var edges: Array = []
+	# 圆形覆盖按无向连接处理；到火力终端的最短层数决定传播方向。
+	var adjacency: Dictionary = {}
+	for id in nodes:
+		adjacency[id] = []
 	for source_id in nodes:
-		var source_info: Dictionary = nodes[source_id]
-		var source: Node = source_info.node
-		var aura: Dictionary = source_info.aura
+		var source: Node = nodes[source_id].node
+		var aura: Dictionary = nodes[source_id].aura
 		for target_id in nodes:
-			if source_id == target_id:
-				continue
-			# 圆形覆盖天然双向，只保留旧塔到新塔的方向，避免相互递归。
-			if int(build_order.get(source_id, 0)) >= int(build_order.get(target_id, 0)):
+			if int(source_id) >= int(target_id):
 				continue
 			var target: Node = nodes[target_id].node
-			if _targets(aura, target) and source.covers_aura_point(target.global_position, aura):
-				edges.append({"from": int(source_id), "to": int(target_id)})
+			var target_aura: Dictionary = nodes[target_id].aura
+			var connected: bool = _targets(aura, target) and source.covers_aura_point(target.global_position, aura)
+			connected = connected or (_targets(target_aura, source) and target.covers_aura_point(source.global_position, target_aura))
+			if connected:
+				adjacency[source_id].append(target_id)
+				adjacency[target_id].append(source_id)
+	_assign_components(group, nodes, adjacency)
 
-	# 建造顺序已保证无环；这里仍过滤异常数据中的循环边。
-	var active_edges: Array = []
-	for edge in edges:
-		if not _path_exists(int(edge.to), int(edge.from), edges):
-			active_edges.append(edge)
-	for edge in active_edges:
-		var info: Dictionary = nodes[int(edge.from)]
-		if bool(info.aura.get("show_links", false)):
-			_active_links.append({"source": info.node, "target": nodes[int(edge.to)].node})
-
-	var outgoing: Dictionary = {}
-	var indegree: Dictionary = {}
-	var incoming: Dictionary = {}
+	# 能直接强化在线火力建筑的塔是第 0 层。
+	var distances: Dictionary = {}
+	var queue: Array[int] = []
 	for id in nodes:
-		outgoing[id] = []
-		indegree[id] = 0
-		incoming[id] = 1.0
-	for edge in active_edges:
-		outgoing[int(edge.from)].append(edge)
-		indegree[int(edge.to)] = int(indegree[int(edge.to)]) + 1
-
-	var ready: Array[int] = []
-	for id in nodes:
-		if int(indegree[id]) == 0:
-			ready.append(int(id))
-	while not ready.is_empty():
-		var id: int = ready.pop_back()
 		var info: Dictionary = nodes[id]
-		var aura: Dictionary = info.aura
-		var output := _base_modifier(aura) * float(incoming[id])
-		(info.node as Node).set_aura_output_multiplier(aura, output)
-		for edge in outgoing[id]:
-			var target_id := int(edge.to)
-			incoming[target_id] = maxf(float(incoming[target_id]), output)
-			indegree[target_id] = int(indegree[target_id]) - 1
-			if int(indegree[target_id]) == 0:
-				ready.append(target_id)
+		for target in game.placed_buildings:
+			if not is_instance_valid(target) or not bool(target.alive) or not bool(target.powered) or not bool(target.is_firepower()):
+				continue
+			if _targets(info.aura, target) and (info.node as Node).covers_aura_point(target.global_position, info.aura):
+				distances[id] = 0
+				queue.append(int(id))
+				break
+	var cursor := 0
+	while cursor < queue.size():
+		var id: int = queue[cursor]
+		cursor += 1
+		for neighbor in adjacency[id]:
+			if not distances.has(neighbor):
+				distances[neighbor] = int(distances[id]) + 1
+				queue.append(int(neighbor))
+
+	# 从外层向内结算；只读取更远一层的输出，同层和反向不会递归。
+	var outputs: Dictionary = {}
+	var max_distance := 0
+	for id in nodes:
+		if not distances.has(id):
+			var info: Dictionary = nodes[id]
+			(info.node as Node).set_aura_output_multiplier(info.aura, _base_modifier(info.aura))
+		else:
+			max_distance = maxi(max_distance, int(distances[id]))
+	for distance in range(max_distance, -1, -1):
+		for id in nodes:
+			if int(distances.get(id, -1)) != distance:
+				continue
+			var info: Dictionary = nodes[id]
+			var incoming := 1.0
+			for neighbor in adjacency[id]:
+				if int(distances.get(neighbor, -1)) == distance + 1:
+					incoming = maxf(incoming, float(outputs[neighbor]))
+			var output := _base_modifier(info.aura) * incoming
+			outputs[id] = output
+			(info.node as Node).set_aura_output_multiplier(info.aura, output)
+
+	# 能量链同样从外层流向内层，不绘制同层或反向连接。
+	for id in nodes:
+		if not distances.has(id):
+			continue
+		var info: Dictionary = nodes[id]
+		if not bool(info.aura.get("show_links", false)):
+			continue
+		for neighbor in adjacency[id]:
+			if int(distances.get(neighbor, -1)) == int(distances[id]) - 1:
+				_active_links.append({"source": info.node, "target": nodes[neighbor].node})
+
+
+func _assign_components(group: String, nodes: Dictionary, adjacency: Dictionary) -> void:
+	var component := 0
+	for id in nodes:
+		if _network_components.has(id):
+			continue
+		var key := "%s:%d" % [group, component]
+		var pending: Array[int] = [int(id)]
+		_network_components[id] = key
+		while not pending.is_empty():
+			var current: int = pending.pop_back()
+			for neighbor in adjacency[current]:
+				if not _network_components.has(neighbor):
+					_network_components[neighbor] = key
+					pending.append(int(neighbor))
+		component += 1
 
 
 func _sync_energy_links() -> void:
@@ -147,24 +181,6 @@ func _sync_energy_links() -> void:
 	game.energy_links.set_links(links)
 
 
-func _path_exists(start: int, goal: int, edges: Array) -> bool:
-	var pending: Array[int] = [start]
-	var visited: Dictionary = {}
-	while not pending.is_empty():
-		var current: int = pending.pop_back()
-		if current == goal:
-			return true
-		if visited.has(current):
-			continue
-		visited[current] = true
-		for edge in edges:
-			if int(edge.from) == current:
-				var next := int(edge.to)
-				if not visited.has(next):
-					pending.append(next)
-	return false
-
-
 func _base_modifier(aura: Dictionary) -> float:
 	for modifier in aura.get("modifiers", []):
 		if String(modifier.get("stat", "")) == "damage" and String(modifier.get("op", "mul")) == "mul":
@@ -174,6 +190,9 @@ func _base_modifier(aura: Dictionary) -> float:
 
 func _collect_multipliers(point: Vector2, target: Node) -> Dictionary:
 	var groups: Dictionary = {}
+	var network_bases: Dictionary = {}
+	var network_boosts: Dictionary = {}
+	var network_groups: Dictionary = {}
 	if game == null:
 		return groups
 	for source in game.placed_buildings:
@@ -192,16 +211,29 @@ func _collect_multipliers(point: Vector2, target: Node) -> Dictionary:
 				if String(modifier.get("op", "mul")) != "mul":
 					continue
 				var value := float(modifier.get("value", 1.0))
+				var group := String(aura.get("stack_group", aura.get("id", "aura")))
 				if bool(aura.get("propagate", false)):
 					value = source.get_aura_output_multiplier(aura)
+					var component := String(_network_components.get(source.get_instance_id(), group + ":none"))
+					if not network_bases.has(component):
+						network_bases[component] = 1.0
+						network_boosts[component] = 1.0
+						network_groups[component] = group
+					# 同一网络的直接覆盖者各出基础倍率，公共链条只取一次最大增幅。
+					network_bases[component] = float(network_bases[component]) * _base_modifier(aura)
+					network_boosts[component] = maxf(float(network_boosts[component]), value / _base_modifier(aura))
+					continue
 				if value <= 0.0:
 					continue
-				var group := String(aura.get("stack_group", aura.get("id", "aura")))
 				var rule := String(aura.get("stack_rule", "max"))
 				if rule == "stack":
 					groups[group] = float(groups.get(group, 1.0)) * value
 				elif not groups.has(group) or value > float(groups[group]):
 					groups[group] = value
+	for component in network_bases:
+		var group: String = network_groups[component]
+		var value := float(network_bases[component]) * float(network_boosts[component])
+		groups[group] = float(groups.get(group, 1.0)) * value
 	return groups
 
 

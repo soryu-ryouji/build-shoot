@@ -6,6 +6,7 @@ extends Node2D
 const Palette = preload("res://scripts/palette.gd")
 const ItemDefs = preload("res://scripts/item_defs.gd")
 const TurretVisuals = preload("res://scripts/turret_visuals.gd")
+const BuffElectricity = preload("res://scripts/buff_electricity.gd")
 const SandbagTexture = preload("res://assets/ui/sandbag_field.png")
 const CompressionTexture = preload("res://assets/ui/compression_tower_field.png")
 const SolarTexture = preload("res://assets/ui/solar_field.png")
@@ -72,7 +73,7 @@ var _range_cells_cache: Array = []
 var _target_refresh := 0.0
 var _target_cache: Dictionary = {}
 var _buffed := false
-var buff_particles: CPUParticles2D
+var buff_particles: Node2D
 
 
 func setup(g: Node, def: Dictionary, facing := -PI / 2.0) -> void:
@@ -92,48 +93,10 @@ func setup(g: Node, def: Dictionary, facing := -PI / 2.0) -> void:
 func _ensure_buff_particles() -> void:
 	if buff_particles != null or not is_firepower():
 		return
-	var particles := CPUParticles2D.new()
-	particles.name = "BuffParticles"
-	particles.amount = 20
-	particles.lifetime = 1.0
-	particles.preprocess = 0.5
-	particles.emitting = false
-	particles.local_coords = true
-	particles.z_index = 1
-	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
-	particles.emission_sphere_radius = base_radius + 12.0
-	particles.direction = Vector2(0.0, -1.0)
-	particles.spread = 70.0
-	particles.gravity = Vector2(0.0, -10.0)
-	particles.initial_velocity_min = 16.0
-	particles.initial_velocity_max = 34.0
-	particles.scale_amount_min = 0.55
-	particles.scale_amount_max = 1.25
-	particles.color = Color(0.32, 0.88, 1.0, 0.92)
-	particles.texture = _make_particle_texture()
-	var material := CanvasItemMaterial.new()
-	material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	particles.material = material
-	add_child(particles)
-	buff_particles = particles
-
-
-func _make_particle_texture() -> Texture2D:
-	var gradient := Gradient.new()
-	gradient.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
-	gradient.colors = PackedColorArray([
-		Color(1.0, 1.0, 1.0, 1.0),
-		Color(0.72, 0.94, 1.0, 0.7),
-		Color(0.38, 0.78, 1.0, 0.0),
-	])
-	var texture := GradientTexture2D.new()
-	texture.width = 16
-	texture.height = 16
-	texture.fill = GradientTexture2D.FILL_RADIAL
-	texture.fill_from = Vector2(0.5, 0.5)
-	texture.fill_to = Vector2(1.0, 0.5)
-	texture.gradient = gradient
-	return texture
+	var electricity := BuffElectricity.new()
+	electricity.name = "BuffElectricity"
+	add_child(electricity)
+	buff_particles = electricity
 
 
 func _apply_def(def: Dictionary) -> void:
@@ -373,6 +336,7 @@ func _process(delta: float) -> void:
 		return
 	_buffed = is_firepower() and powered and buff_damage_multiplier > 1.0
 	if buff_particles != null:
+		buff_particles.set_multiplier(buff_damage_multiplier)
 		buff_particles.emitting = _buffed
 	if not is_firepower():
 		if not auras.is_empty() or is_energy() or hurt_flash > 0.0:
