@@ -304,6 +304,16 @@ func _run() -> void:
 	chain_def["energy_demand"] = 0
 	var chain_tower_def: Dictionary = ItemDefs.get_item("turret").duplicate(true)
 	chain_tower_def["energy_demand"] = 0
+
+	# 两座压缩塔分别覆盖不同炮塔时，双方共享双塔网络的 ×4。
+	var first_target: Node = main._place_building(chain_tower_def, _world(1, -1))
+	var second_target: Node = main._place_building(chain_tower_def, _world(1, 1))
+	main._place_building(chain_def, _world(0, -1))
+	main._place_building(chain_def, _world(0, 1))
+	_check(int(first_target.get_effective_damage()) == 4, "first target receives the shared two-tower x4")
+	_check(int(second_target.get_effective_damage()) == 4, "second target receives the shared two-tower x4")
+	_clear_buildings()
+
 	var a1: Node = main._place_building(chain_tower_def, _world(0, 0))
 	var a3: Node = main._place_building(chain_def, _world(0, 2))
 	_check(int(a1.get_effective_damage()) == 2, "A3 alone gives A1 x2")
@@ -311,9 +321,9 @@ func _run() -> void:
 	_check(int(a1.get_effective_damage()) == 4, "A3 and A2 both multiply A1 to x4")
 	var a4: Node = main._place_building(chain_def, _world(0, 3))
 	_check(int(a1.get_effective_damage()) == 8, "later A4 extends the existing network to x8")
-	_check(is_equal_approx(a4.get_primary_aura_output_multiplier(), 2.0), "A4 is the new outer layer")
-	_check(is_equal_approx(a3.get_primary_aura_output_multiplier(), 4.0), "A4 retroactively strengthens A3")
-	_check(is_equal_approx(a2.get_primary_aura_output_multiplier(), 4.0), "A4 also strengthens A2")
+	_check(is_equal_approx(a4.get_primary_aura_output_multiplier(), 8.0), "A4 shares the three-tower network multiplier")
+	_check(is_equal_approx(a3.get_primary_aura_output_multiplier(), 8.0), "A4 retroactively strengthens A3")
+	_check(is_equal_approx(a2.get_primary_aura_output_multiplier(), 8.0), "A4 also strengthens A2")
 	_check(not _find_link(a4, a3).is_empty(), "energy flows from later outer tower toward A3")
 	a1._process(0.0)
 	_check(a1.buff_particles.get_arc_count() == 4, "x8 buff shows four arcs")
@@ -324,7 +334,7 @@ func _run() -> void:
 	a1._process(0.0)
 	_check(a1.buff_particles.get_arc_count() == 5, "x16 buff grows to five arcs")
 	main.select_building(a3)
-	_check(main.focus_panel.stat_values[2].text == "×8", "compression panel updates after outer expansion")
+	_check(main.focus_panel.stat_values[2].text == "×16", "compression panel shows the shared four-tower output")
 	_check(main.focus_panel.stat_values[4].text == "周围 2 格", "compression panel shows two-cell coverage")
 	main.clear_selection()
 	main.select_building(a5)

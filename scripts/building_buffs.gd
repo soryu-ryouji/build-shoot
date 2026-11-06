@@ -1,7 +1,7 @@
 extends RefCounted
 
 ## 建筑光环按 stack_rule 叠乘或取最高。
-## propagate 光环以火力终端分层，从外层向内传播，不设倍率上限。
+## propagate 光环在同一连通网络内共享所有成员的基础倍率乘积，不设上限。
 
 var game: Node
 var _active_links: Array = []
@@ -44,7 +44,6 @@ func _recompute_propagation() -> void:
 		for aura in building.auras:
 			if not bool(aura.get("propagate", false)):
 				continue
-			# 每次从基础倍率重算，避免基于上次结果反复累乘。
 			building.set_aura_output_multiplier(aura, _base_modifier(aura))
 			var group := String(aura.get("stack_group", aura.get("id", "aura")))
 			groups[group] = true
@@ -62,7 +61,6 @@ func _recompute_propagation_group(group: String) -> void:
 			if bool(aura.get("propagate", false)) and aura_group == group:
 				nodes[building.get_instance_id()] = {"node": building, "aura": aura}
 
-	# 圆形覆盖按无向连接处理；到火力终端的最短层数决定传播方向。
 	var adjacency: Dictionary = {}
 	for id in nodes:
 		adjacency[id] = []
@@ -81,59 +79,25 @@ func _recompute_propagation_group(group: String) -> void:
 				adjacency[target_id].append(source_id)
 	_assign_components(group, nodes, adjacency)
 
-	# 能直接强化在线火力建筑的塔是第 0 层。
-	var distances: Dictionary = {}
-	var queue: Array[int] = []
-	for id in nodes:
-		var info: Dictionary = nodes[id]
-		for target in game.placed_buildings:
-			if not is_instance_valid(target) or not bool(target.alive) or not bool(target.powered) or not bool(target.is_firepower()):
-				continue
-			if _targets(info.aura, target) and (info.node as Node).covers_aura_point(target.global_position, info.aura):
-				distances[id] = 0
-				queue.append(int(id))
-				break
-	var cursor := 0
-	while cursor < queue.size():
-		var id: int = queue[cursor]
-		cursor += 1
-		for neighbor in adjacency[id]:
-			if not distances.has(neighbor):
-				distances[neighbor] = int(distances[id]) + 1
-				queue.append(int(neighbor))
-
-	# 从外层向内结算；只读取更远一层的输出，同层和反向不会递归。
+	# 每个连通网络的输出是所有在线成员基础倍率的乘积，不依赖建造顺序或目标数量。
 	var outputs: Dictionary = {}
-	var max_distance := 0
 	for id in nodes:
-		if not distances.has(id):
-			var info: Dictionary = nodes[id]
-			(info.node as Node).set_aura_output_multiplier(info.aura, _base_modifier(info.aura))
-		else:
-			max_distance = maxi(max_distance, int(distances[id]))
-	for distance in range(max_distance, -1, -1):
-		for id in nodes:
-			if int(distances.get(id, -1)) != distance:
-				continue
-			var info: Dictionary = nodes[id]
-			var incoming := 1.0
-			for neighbor in adjacency[id]:
-				if int(distances.get(neighbor, -1)) == distance + 1:
-					incoming = maxf(incoming, float(outputs[neighbor]))
-			var output := _base_modifier(info.aura) * incoming
-			outputs[id] = output
-			(info.node as Node).set_aura_output_multiplier(info.aura, output)
-
-	# 能量链同样从外层流向内层，不绘制同层或反向连接。
+		var component: String = _network_components[id]
+		if not outputs.has(component):
+			outputs[component] = 1.0
+		outputs[component] = float(outputs[component]) * _base_modifier(nodes[id].aura)
 	for id in nodes:
-		if not distances.has(id):
-			continue
 		var info: Dictionary = nodes[id]
+		(info.node as Node).set_aura_output_multiplier(info.aura, float(outputs[_network_components[id]]))
+
+	# 网络倍率没有递归方向；链路的视觉方向由新塔指向旧塔，仅用于表现能量回流。
+	for source_id in nodes:
+		var info: Dictionary = nodes[source_id]
 		if not bool(info.aura.get("show_links", false)):
 			continue
-		for neighbor in adjacency[id]:
-			if int(distances.get(neighbor, -1)) == int(distances[id]) - 1:
-				_active_links.append({"source": info.node, "target": nodes[neighbor].node})
+		for target_id in adjacency[source_id]:
+			if int(source_id) < int(target_id):
+				_active_links.append({"source": nodes[target_id].node, "target": info.node})
 
 
 func _assign_components(group: String, nodes: Dictionary, adjacency: Dictionary) -> void:
@@ -190,8 +154,7 @@ func _base_modifier(aura: Dictionary) -> float:
 
 func _collect_multipliers(point: Vector2, target: Node) -> Dictionary:
 	var groups: Dictionary = {}
-	var network_bases: Dictionary = {}
-	var network_boosts: Dictionary = {}
+	var network_values: Dictionary = {}
 	var network_groups: Dictionary = {}
 	if game == null:
 		return groups
@@ -213,15 +176,10 @@ func _collect_multipliers(point: Vector2, target: Node) -> Dictionary:
 				var value := float(modifier.get("value", 1.0))
 				var group := String(aura.get("stack_group", aura.get("id", "aura")))
 				if bool(aura.get("propagate", false)):
-					value = source.get_aura_output_multiplier(aura)
 					var component := String(_network_components.get(source.get_instance_id(), group + ":none"))
-					if not network_bases.has(component):
-						network_bases[component] = 1.0
-						network_boosts[component] = 1.0
-						network_groups[component] = group
-					# 同一网络的直接覆盖者各出基础倍率，公共链条只取一次最大增幅。
-					network_bases[component] = float(network_bases[component]) * _base_modifier(aura)
-					network_boosts[component] = maxf(float(network_boosts[component]), value / _base_modifier(aura))
+					# 同一网络只应用一次共享倍率，独立网络之间继续乘算。
+					network_values[component] = source.get_aura_output_multiplier(aura)
+					network_groups[component] = group
 					continue
 				if value <= 0.0:
 					continue
@@ -230,10 +188,9 @@ func _collect_multipliers(point: Vector2, target: Node) -> Dictionary:
 					groups[group] = float(groups.get(group, 1.0)) * value
 				elif not groups.has(group) or value > float(groups[group]):
 					groups[group] = value
-	for component in network_bases:
+	for component in network_values:
 		var group: String = network_groups[component]
-		var value := float(network_bases[component]) * float(network_boosts[component])
-		groups[group] = float(groups.get(group, 1.0)) * value
+		groups[group] = float(groups.get(group, 1.0)) * float(network_values[component])
 	return groups
 
 
