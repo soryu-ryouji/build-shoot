@@ -33,8 +33,8 @@ static func safe_rect(item: CanvasItem) -> Rect2:
     return viewport.intersection(logical)
 
 
-## 顶部信息栏横跨屏幕，只保留菜单和居中的资源信息。
-static func hud_rect(item: CanvasItem) -> Rect2:
+## 顶部控件仅覆盖左右两角，不再占用一条完整的战场区域。
+static func hud_controls_rect(item: CanvasItem) -> Rect2:
     var safe := safe_rect(item)
     var inset := minf(margin(item), 10.0)
     return Rect2(
@@ -54,10 +54,10 @@ static func shop_rect(item: CanvasItem) -> Rect2:
     )
 
 
-## 战场使用 HUD 与底部建造栏之间的完整宽度。
+## 战场从安全区顶部开始，仅避开底部建造栏；菜单和资源格悬浮在战场上。
 static func field_rect(item: CanvasItem) -> Rect2:
     var safe := safe_rect(item)
-    var top := hud_rect(item).end.y + FIELD_GAP
+    var top := safe.position.y
     var bottom := shop_rect(item).position.y - FIELD_GAP
     return Rect2(safe.position.x, top, safe.size.x, maxf(bottom - top, 1.0))
 

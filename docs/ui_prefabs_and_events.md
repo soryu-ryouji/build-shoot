@@ -20,7 +20,7 @@
 
 主要区域的自适应位置仍集中在：
 
-- `scripts/responsive_layout.gd`：HUD、战场、底部商店、详情的可用矩形。
+- `scripts/responsive_layout.gd`：左上角菜单、右侧资源格、战场、底部商店和详情的可用矩形。
 - `scripts/ui_metrics.gd`：横屏基准、触控尺寸和全局 UI 尺寸。
 
 ## 事件中心

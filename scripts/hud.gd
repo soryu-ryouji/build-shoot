@@ -10,7 +10,9 @@ const UiMetrics = preload("res://scripts/ui_metrics.gd")
 const EventBindingScript = preload("res://scripts/event_binding.gd")
 
 var game: Node
-@onready var top_panel: PanelContainer = %TopPanel
+@onready var stats_box: HBoxContainer = %Stats
+@onready var coins_cell: PanelContainer = %CoinsCell
+@onready var energy_cell: PanelContainer = %EnergyCell
 @onready var coins_label: Label = %CoinsLabel
 @onready var energy_label: Label = %EnergyLabel
 @onready var toast_label: Label = %ToastLabel
@@ -25,7 +27,9 @@ var _events := EventBindingScript.new()
 func _ready() -> void:
     mouse_filter = Control.MOUSE_FILTER_IGNORE
     _message_style = _style(Color(Palette.PAPER, 0.96), Palette.ACCENT, false)
-    top_panel.add_theme_stylebox_override("panel", _style(Color(Palette.PAPER, 0.94), Palette.ACCENT, false))
+    var cell_style := _style(Color(Palette.PAPER, 0.90), Color(Palette.INK, 0.14), false)
+    coins_cell.add_theme_stylebox_override("panel", cell_style)
+    energy_cell.add_theme_stylebox_override("panel", cell_style)
     settings_button.add_theme_color_override("font_color", Palette.INK)
     settings_button.add_theme_color_override("font_hover_color", Palette.ACCENT)
     settings_button.add_theme_stylebox_override("normal", _button_style(Color(Palette.INK, 0.06)))
@@ -92,10 +96,14 @@ func _button_style(fill: Color) -> StyleBoxFlat:
 
 
 func _layout() -> void:
-    var rect := ResponsiveLayout.hud_rect(self)
+    var controls := ResponsiveLayout.hud_controls_rect(self)
     var field := ResponsiveLayout.field_rect(self)
-    top_panel.position = rect.position
-    top_panel.size = rect.size
+    settings_button.position = controls.position
+    settings_button.size = Vector2(UiMetrics.TOUCH, UiMetrics.TOUCH)
+    stats_box.reset_size()
+    var stats_size := stats_box.get_combined_minimum_size()
+    stats_box.size = Vector2(stats_size.x, UiMetrics.TOUCH)
+    stats_box.position = Vector2(controls.end.x - stats_box.size.x, controls.position.y)
     var message_width := minf(420.0, field.size.x - 48.0)
     toast_label.size = Vector2(message_width, UiMetrics.TOAST_HEIGHT)
     toast_label.position = Vector2(field.position.x + (field.size.x - message_width) * 0.5, field.position.y + 12.0)
