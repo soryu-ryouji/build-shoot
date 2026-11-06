@@ -1,7 +1,7 @@
 extends Node
 
 ## 基地防守截图：围绕中央基地布防，展示巢穴、敌人和自动攻击。
-## 附加 -- --place / --orient / --focus / --power / --settings。
+## 附加 -- --place / --orient / --focus / --buff / --power / --settings。
 
 const ItemDefs = preload("res://scripts/item_defs.gd")
 const DEFAULT_SIZE := Vector2i(1080, 2400)
@@ -19,6 +19,7 @@ func _ready() -> void:
 	await get_tree().process_frame
 
 	main.coins = 5000
+	var show_buff := "--buff" in OS.get_cmdline_user_args()
 	_place("fusion_tower", Vector2i(-3, 2))
 	_place("fusion_tower", Vector2i(3, 2))
 	_place("solar", Vector2i(0, 4))
@@ -27,7 +28,10 @@ func _ready() -> void:
 	_place("turret", Vector2i(4, 0))
 	_place("heavy_turret", Vector2i(-4, -4))
 	_place("laser_tower", Vector2i(4, -4))
-	_place("compression_tower", Vector2i(-3, 1), -PI / 2.0)
+	var compression: Node = _place("compression_tower", Vector2i(-3, 1), -PI / 2.0)
+	if show_buff:
+		_place("compression_tower", Vector2i(-3, 3))
+		_place("fusion_tower", Vector2i(3, 4))
 	_place("sandbag", Vector2i(0, -3))
 	_place("sandbag", Vector2i(0, 3))
 	main.refresh_power()
@@ -62,14 +66,20 @@ func _ready() -> void:
 		main.open_settings()
 	elif show_focus:
 		main.select_building(turret_a)
+	elif show_buff:
+		main.select_building(compression)
+		main.camera_center = compression.global_position + Vector2(0, 220)
+		main._apply_camera()
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
-	var suffix := "_settings" if show_settings else ("_focus" if show_focus else ("_power" if show_power else ("_orient" if show_orientation else ("_place" if show_place else ""))))
+	var suffix := "_settings" if show_settings else ("_focus" if show_focus else ("_buff" if show_buff else ("_power" if show_power else ("_orient" if show_orientation else ("_place" if show_place else "")))))
 	var path := ""
 	if _has_size_arg():
 		path = "res://image_%dx%d%s.png" % [target_size.x, target_size.y, suffix]
 	elif show_focus:
 		path = "res://focus_preview.png"
+	elif show_buff:
+		path = "res://buff_preview.png"
 	elif show_settings:
 		path = "res://game_settings_preview.png"
 	elif show_power:

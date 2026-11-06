@@ -117,6 +117,19 @@ func _assign_components(group: String, nodes: Dictionary, adjacency: Dictionary)
 		component += 1
 
 
+func get_connected_buildings(building: Node) -> Array:
+	var result: Array = []
+	if building == null or not is_instance_valid(building):
+		return result
+	var component = _network_components.get(building.get_instance_id())
+	if component == null:
+		return result
+	for other in game.placed_buildings:
+		if other != building and is_instance_valid(other) and _network_components.get(other.get_instance_id()) == component:
+			result.append(other)
+	return result
+
+
 func _sync_energy_links() -> void:
 	if game.energy_links == null:
 		return

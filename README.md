@@ -75,12 +75,15 @@
 
 - 绿色：镜头内当前可放置的格子。
 - 红色：基地、巢穴、已占用建筑等非法位置。
-- 青色：火力射程和压缩塔施法范围。
+- 青色：火力射程和当前压缩塔自身范围。
+- 橙色：与当前压缩塔相连的其他增益塔所新增的范围；与本塔重叠的格子仍保留青色。
 - 高亮位于瓦片上方、怪物和建筑下方。
 
 ![绿色可放置格与青色射程](range_preview.png)
 
 ![压缩塔周围两格与青色施法范围](orientation_preview.png)
+
+![压缩塔本塔与连通网络的双色范围](buff_preview.png)
 
 ## 主界面与设置
 
@@ -167,7 +170,7 @@ Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path . res://t
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path . res://tools/stress_test.tscn -- --enemies=1000 --seconds=10
 ```
 
-冒烟测试覆盖：无限正负坐标、远距离地面加载、基地/巢穴占用、放置与拆除、能源和升级、炮塔/激光/炮弹攻击巢穴、巢穴独立生成、怪物向基地移动、阵地拦截、同种光环乘算、异种光环叠乘、压缩塔两格圆形范围、免朝向放置、A3/A2 双塔与后放 A4/A5 扩展、双炮塔共享网络、公共增幅去重、无上限增长与互相覆盖、能量链方向/层级、环绕电弧数量与断电生命周期、拆除恢复、有效攻击面板、音效加载与限频开关、音乐加载与场景切换、镜头移动缩放、清场胜利、基地失败和第二 JSON 校验。
+冒烟测试覆盖：无限正负坐标、远距离地面加载、基地/巢穴占用、放置与拆除、能源和升级、炮塔/激光/炮弹攻击巢穴、巢穴独立生成、怪物向基地移动、阵地拦截、同种光环乘算、异种光环叠乘、压缩塔两格圆形范围、免朝向放置、A3/A2 双塔与后放 A4/A5 扩展、双炮塔共享网络、公共增幅去重、无上限增长与互相覆盖、能量链方向/层级、本塔与网络双色范围、环绕电弧数量与断电生命周期、拆除恢复、有效攻击面板、音效加载与限频开关、音乐加载与场景切换、镜头移动缩放、清场胜利、基地失败和第二 JSON 校验。
 
 响应式测试覆盖 720×960、1000×2000、1080×1920、1080×2400，以及 HUD、商店、触摸部署、设置面板、主界面和镜头坐标转换。
 
@@ -181,6 +184,7 @@ Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path . res://t
 Godot_v4.7.2-stable_win64_console.exe --path . res://tools/screenshot.tscn
 Godot_v4.7.2-stable_win64_console.exe --path . res://tools/screenshot.tscn -- --place
 Godot_v4.7.2-stable_win64_console.exe --path . res://tools/screenshot.tscn -- --orient
+Godot_v4.7.2-stable_win64_console.exe --path . res://tools/screenshot.tscn -- --buff
 ```
 
 默认生成 `image.png`；附加 `--settings`、`--focus`、`--power` 可生成对应状态，`--size=1000x2000` 可指定尺寸，`--locale=en` 可检查英文排版。

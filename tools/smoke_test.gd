@@ -239,6 +239,11 @@ func _run() -> void:
 	var initial_link: Dictionary = _find_link(compression, buffed)
 	_check(not initial_link.is_empty(), "active aura creates an energy link")
 	_check(main.energy_links.z_index > buffed.z_index, "energy links render above buildings")
+	main.select_building(compression)
+	_check(not main.highlights.range_cells.is_empty(), "selected compression shows its own aura")
+	_check(main.highlights.range_cells.has(compression.cell), "own aura contains the selected tower cell")
+	_check(main.highlights.network_range_cells.is_empty(), "single tower has no connected aura layer")
+	main.clear_selection()
 	buffed._process(0.0)
 	_check(buffed.buff_particles.get_arc_count() == 2, "x2 buff shows two orbiting arcs")
 	if not initial_link.is_empty():
@@ -261,6 +266,10 @@ func _run() -> void:
 	second_def["energy_demand"] = 0
 	var second_compression: Node = main._place_building(second_def, _world(2, 4))
 	_check(int(buffed.get_effective_damage()) == 4, "two overlapping compression auras multiply to x4")
+	main.select_building(compression)
+	_check(not main.highlights.network_range_cells.is_empty(), "selected tower shows connected aura ranges")
+	_check(main.highlights.network_range_cells.has(Vector2i(4, 4)), "connected layer contains the other tower's extended cells")
+	_check(not main.highlights.network_range_cells.has(compression.cell), "own cells do not duplicate into the connected layer")
 	main.select_building(second_compression)
 	main.dismantle_selected()
 	_check(int(buffed.get_effective_damage()) == 2, "removing the second aura restores x2")

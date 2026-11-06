@@ -7,10 +7,13 @@ const PLACE_FILL := Color(0.30, 0.82, 0.48, 0.12)
 const PLACE_LINE := Color(0.30, 0.82, 0.48, 0.42)
 const RANGE_FILL := Color(0.20, 0.70, 0.92, 0.06)
 const RANGE_LINE := Color(0.16, 0.65, 0.90, 0.58)
+const NETWORK_FILL := Color(0.95, 0.56, 0.20, 0.07)
+const NETWORK_LINE := Color(0.95, 0.50, 0.16, 0.62)
 
 var map: Node
 var placement_cells: Array = []
 var range_cells: Array = []
+var network_range_cells: Array = []
 var hover_cell := Vector2i.ZERO
 var hover_valid := false
 var hover_active := false
@@ -37,11 +40,19 @@ func clear_placement() -> void:
 
 func set_range_cells(cells: Array) -> void:
 	range_cells = cells
+	network_range_cells.clear()
+	queue_redraw()
+
+
+func set_aura_ranges(own_cells: Array, connected_cells: Array) -> void:
+	range_cells = own_cells
+	network_range_cells = connected_cells
 	queue_redraw()
 
 
 func clear_range() -> void:
 	range_cells.clear()
+	network_range_cells.clear()
 	queue_redraw()
 
 
@@ -57,6 +68,8 @@ func _draw() -> void:
 		_draw_grid()
 	for cell in placement_cells:
 		_draw_cell(cell, PLACE_FILL, PLACE_LINE, 60.0, 1.0)
+	for cell in network_range_cells:
+		_draw_cell(cell, NETWORK_FILL, NETWORK_LINE, 52.0, 1.5)
 	for cell in range_cells:
 		_draw_cell(cell, RANGE_FILL, RANGE_LINE, 56.0, 1.5)
 	if hover_active and map.is_cell_visible(hover_cell):

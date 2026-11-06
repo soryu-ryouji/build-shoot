@@ -777,6 +777,22 @@ func get_aura_cells(item: Dictionary, center: Vector2) -> Array:
 	return cells
 
 
+func _get_connected_aura_cells(building: Node) -> Array:
+	var cells: Array = []
+	var seen: Dictionary = {}
+	# 本塔重叠格由青色层负责，橙色只表示其他网络成员新增的范围。
+	for cell in get_aura_cells({"auras": building.auras, "facing": building.facing_angle}, building.global_position):
+		seen[cell] = true
+	if buff_system == null:
+		return cells
+	for other in buff_system.get_connected_buildings(building):
+		for cell in get_aura_cells({"auras": other.auras, "facing": other.facing_angle}, other.global_position):
+			if not seen.has(cell):
+				seen[cell] = true
+				cells.append(cell)
+	return cells
+
+
 func get_line_cells(center: Vector2, direction: Vector2) -> Array:
 	var cells: Array = []
 	var center_cell: Vector2i = arena.map_loader.world_to_cell(center)
@@ -840,7 +856,8 @@ func select_building(t: Node) -> void:
 	if t.is_firepower():
 		highlights.set_range_cells(get_range_cells(t.global_position, t.attack_range))
 	else:
-		highlights.set_range_cells(get_aura_cells({"auras": t.auras, "facing": t.facing_angle}, t.global_position))
+		var own_cells := get_aura_cells({"auras": t.auras, "facing": t.facing_angle}, t.global_position)
+		highlights.set_aura_ranges(own_cells, _get_connected_aura_cells(t))
 	focus_panel.show_building(t)
 
 
