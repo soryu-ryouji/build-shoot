@@ -144,6 +144,10 @@ func get_occupied_building(cell: Vector2i) -> Node:
 	return _occupied.get(cell, null) as Node
 
 
+func reserve_cell(cell: Vector2i) -> void:
+	_reserved[cell] = true
+
+
 func release_reserved(cell: Vector2i) -> void:
 	_reserved.erase(cell)
 

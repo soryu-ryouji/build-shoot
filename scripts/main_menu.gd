@@ -10,6 +10,8 @@ const MENU_CHARACTER_RIGHT := 659.0 / 720.0
 @onready var start_button: Button = %StartButton
 @onready var settings_button: Button = %SettingsButton
 @onready var quit_button: Button = %QuitButton
+@onready var continue_button: Button = %ContinueButton
+@onready var delete_save_button: Button = %DeleteSaveButton
 @onready var settings_panel: Control = %SettingsPanel
 @onready var title_label: Label = %TitleLabel
 @onready var subtitle_label: Label = %SubtitleLabel
@@ -23,6 +25,8 @@ const MENU_CHARACTER_RIGHT := 659.0 / 720.0
 @onready var title_rule: ColorRect = %TitleRule
 @onready var actions_rule: ColorRect = %ActionsRule
 var _events := EventBindingScript.new()
+var _delete_armed := false
+var _delete_time := 0.0
 
 
 func _ready() -> void:
@@ -31,7 +35,10 @@ func _ready() -> void:
 	_style_menu_button(start_button, true)
 	_style_menu_button(settings_button, false)
 	_style_menu_button(quit_button, false)
+	_style_menu_button(continue_button, true)
+	_style_menu_button(delete_save_button, false)
 	_events.bind(Events.language_changed, _on_language_changed)
+	_events.bind(SaveManager.save_changed, _on_save_changed)
 	get_viewport().size_changed.connect(_layout)
 	_refresh_texts()
 	_layout()
@@ -114,9 +121,38 @@ func _refresh_texts() -> void:
 	start_button.text = I18n.t("menu.start")
 	settings_button.text = I18n.t("menu.settings")
 	quit_button.text = I18n.t("menu.quit")
+	var available := SaveManager.has_save()
+	continue_button.visible = available
+	delete_save_button.visible = available
+	continue_button.text = I18n.t("menu.continue")
+	if not available:
+		_delete_armed = false
+	delete_save_button.text = I18n.t("menu.delete_confirm") if _delete_armed else I18n.t("menu.delete_save")
 
 
 func start_game() -> void:
+	SaveManager.load_requested = false
+	get_tree().change_scene_to_file("res://scenes/main.tscn")
+
+
+func continue_game() -> void:
+	SaveManager.load_requested = true
+	get_tree().change_scene_to_file("res://scenes/main.tscn")
+
+
+func _on_save_changed() -> void:
+	_delete_armed = false
+	_refresh_texts()
+
+
+func _on_delete_save() -> void:
+	if not _delete_armed:
+		_delete_armed = true
+		_delete_time = 3.0
+		delete_save_button.text = I18n.t("menu.delete_confirm")
+		return
+	SaveManager.delete_save()
+	_refresh_texts()
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 
@@ -126,3 +162,12 @@ func open_settings() -> void:
 
 func _on_quit() -> void:
 	get_tree().quit()
+
+
+func _process(delta: float) -> void:
+	if not _delete_armed:
+		return
+	_delete_time -= delta
+	if _delete_time <= 0.0:
+		_delete_armed = false
+		delete_save_button.text = I18n.t("menu.delete_save")

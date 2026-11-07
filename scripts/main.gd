@@ -93,6 +93,7 @@ var _touch_moved := false
 var _pinching := false
 var _pinch_distance := 0.0
 var _pinch_zoom := 1.0
+var _autosave_timer := 15.0
 
 
 func _ready() -> void:
@@ -102,10 +103,17 @@ func _ready() -> void:
     buff_system = BuildingBuffs.new(self)
     _setup_nodes()
     Music.play_track("battle")
+    if SaveManager.load_requested:
+        call_deferred("_restore_pending_save")
 
 
 func _process(delta: float) -> void:
     _process_camera(delta)
+    if outcome == "playing":
+        _autosave_timer -= delta
+        if _autosave_timer <= 0.0:
+            _autosave_timer = 15.0
+            SaveManager.save_game(self)
     if outcome != "playing":
         return
     if preparing:
@@ -214,6 +222,7 @@ func _setup_nodes() -> void:
     settings_panel.closed.connect(_on_settings_closed)
     settings_panel.restart_requested.connect(_on_settings_restart)
     settings_panel.menu_requested.connect(_on_settings_menu)
+    settings_panel.save_requested.connect(_on_save_requested)
     _build_result_panel(ui_layer)
     get_viewport().size_changed.connect(_layout)
     _layout()
@@ -312,6 +321,9 @@ func _on_settings_restart() -> void:
 
 
 func _on_settings_menu() -> void:
+    if outcome == "playing":
+        SaveManager.save_game(self)
+    SaveManager.load_requested = false
     get_tree().paused = false
     get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
@@ -1058,3 +1070,152 @@ func fire_item_ball(source: Node, pos: Vector2, dir: Vector2, dmg: int, pierce: 
     var ball = Ball.new()
     ball.setup(self, pos, dir, speed, radius, dmg, pierce, bounces, electric)
     balls_layer.add_child(ball)
+
+
+# ---------------------------------------------------------------- 存档序列化与恢复
+
+func _on_save_requested() -> void:
+    if SaveManager.save_game(self):
+        Events.toast(I18n.t("settings.save_success"), Palette.ACCENT)
+    else:
+        Events.toast(SaveManager.last_error, Palette.DANGER)
+
+
+func _restore_pending_save() -> void:
+    SaveManager.load_requested = false
+    var data := SaveManager.read_save()
+    if data.is_empty() or not restore_save(data):
+        Events.toast(I18n.t("settings.load_failed"), Palette.DANGER)
+        return
+    Events.toast(I18n.t("settings.load_success"), Palette.ACCENT)
+
+
+func get_save_data() -> Dictionary:
+    var buildings: Array = []
+    for building in placed_buildings:
+        if not is_instance_valid(building) or not building.alive:
+            continue
+        buildings.append({
+            "item_id": String(building.item_id),
+            "cell": [int(building.cell.x), int(building.cell.y)],
+            "level": int(building.level),
+            "invested": int(building.invested),
+            "hp": float(building.hp),
+            "shots": int(building.shots),
+            "facing": float(building.facing_angle),
+            "coin_timer": float(building._coin_timer),
+        })
+    var nest_data: Array = []
+    for nest in nests:
+        if is_instance_valid(nest) and nest.alive:
+            nest_data.append({"id": int(nest.id), "hp": float(nest.hp), "spawn_timer": float(nest.spawn_timer)})
+    var enemies: Array = []
+    for enemy in blocks.blocks:
+        if bool(enemy.get("alive", false)):
+            enemies.append({
+                "kind": String(enemy.kind),
+                "position": [float(enemy.rect.get_center().x), float(enemy.rect.get_center().y)],
+                "hp": int(enemy.hp),
+                "max_hp": int(enemy.max_hp),
+                "speed_scale": float(enemy.speed_scale),
+            })
+    return {
+        "game": {
+            "map_id": arena.map_loader.map_id,
+            "coins": int(coins),
+            "elapsed": float(elapsed),
+            "preparing": preparing,
+            "prep_timer": float(prep_timer),
+            "base_hp": float(base_core.hp),
+            "destroyed": int(blocks.destroyed),
+            "unlocked": Events.unlocked_items.keys(),
+            "camera": [float(camera_center.x), float(camera_center.y)],
+            "zoom": float(camera_zoom),
+            "buildings": buildings,
+            "nests": nest_data,
+            "enemies": enemies,
+        },
+    }
+
+
+func restore_save(data: Dictionary) -> bool:
+    var game: Dictionary = data.get("game", {})
+    if game.is_empty() or String(game.get("map_id", "")) != arena.map_loader.map_id:
+        return false
+    get_tree().paused = false
+    cancel_placement()
+    clear_selection()
+    for building in placed_buildings:
+        if is_instance_valid(building):
+            arena.map_loader.clear_occupied(building.cell)
+            building.queue_free()
+    placed_buildings.clear()
+    for nest in nests:
+        if is_instance_valid(nest):
+            arena.map_loader.release_reserved(nest.cell)
+            nest.queue_free()
+    nests.clear()
+    blocks.clear_enemies()
+
+    var definitions := {}
+    for definition in arena.map_loader.get_nest_definitions():
+        definitions[int(definition.id)] = definition
+    for saved_nest in game.get("nests", []):
+        var id := int(saved_nest.get("id", -1))
+        if not definitions.has(id):
+            continue
+        var nest = Nest.new()
+        nest.name = "Nest%d" % id
+        nest.setup(self, definitions[id])
+        arena.map_loader.reserve_cell(nest.cell)
+        nest.hp = clampf(float(saved_nest.get("hp", nest.max_hp)), 1.0, float(nest.max_hp))
+        nest.spawn_timer = float(saved_nest.get("spawn_timer", nest.spawn_interval))
+        add_child(nest)
+        nests.append(nest)
+
+    for saved_building in game.get("buildings", []):
+        var item := ItemDefs.get_item(String(saved_building.get("item_id", "")))
+        if item.is_empty():
+            continue
+        var cell_data: Array = saved_building.get("cell", [0, 0])
+        var cell := Vector2i(int(cell_data[0]), int(cell_data[1]))
+        var building = _place_building(item, arena.map_loader.cell_to_world(cell), float(saved_building.get("facing", -PI / 2.0)))
+        var saved_level := int(saved_building.get("level", 1))
+        while building.level < saved_level:
+            if not building.apply_upgrade(0):
+                break
+        building.invested = int(saved_building.get("invested", building.invested))
+        building.hp = clampf(float(saved_building.get("hp", building.max_hp)), 1.0, float(building.max_hp))
+        building.shots = int(saved_building.get("shots", 0))
+        building._coin_timer = float(saved_building.get("coin_timer", building.coin_interval))
+
+    for saved_enemy in game.get("enemies", []):
+        var position_data: Array = saved_enemy.get("position", [0.0, 0.0])
+        var position := Vector2(float(position_data[0]), float(position_data[1]))
+        var enemy: Dictionary = blocks.spawn_enemy(position, String(saved_enemy.get("kind", "normal")))
+        if enemy.is_empty():
+            continue
+        enemy.max_hp = maxi(1, int(saved_enemy.get("max_hp", enemy.max_hp)))
+        enemy.hp = clampi(int(saved_enemy.get("hp", enemy.max_hp)), 1, int(enemy.max_hp))
+        enemy.speed_scale = float(saved_enemy.get("speed_scale", enemy.speed_scale))
+
+    Events.unlocked_items.clear()
+    for item_id in game.get("unlocked", []):
+        Events.set_item_unlocked(String(item_id), true)
+    preparing = bool(game.get("preparing", false))
+    prep_timer = float(game.get("prep_timer", 0.0))
+    elapsed = float(game.get("elapsed", 0.0))
+    coins = int(game.get("coins", 150))
+    base_core.hp = clampf(float(game.get("base_hp", base_core.max_hp)), 1.0, float(base_core.max_hp))
+    base_core.alive = true
+    blocks.destroyed = int(game.get("destroyed", blocks.destroyed))
+    Events.set_base_health(base_core.hp, base_core.max_hp)
+    Events.set_nest_count(nests.size())
+    Events.set_destroyed(blocks.destroyed)
+    var camera_data: Array = game.get("camera", [0.0, 0.0])
+    camera_center = Vector2(float(camera_data[0]), float(camera_data[1]))
+    camera_zoom = float(game.get("zoom", _base_zoom))
+    refresh_power()
+    _layout()
+    _autosave_timer = 15.0
+    return true

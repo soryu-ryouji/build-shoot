@@ -170,6 +170,16 @@ theme_override_font_sizes/font_size = 17
 layout_mode = 2
 theme_override_constants/separation = 8
 
+[node name="SaveButton" type="Button" parent="Panel/Margin/Column/GameActions/Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 54)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_default_cursor_shape = 2
+focus_mode = 0
+text = "保存游戏"
+theme_override_font_sizes/font_size = 16
+
 [node name="RestartButton" type="Button" parent="Panel/Margin/Column/GameActions/Row"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 54)
@@ -193,3 +203,5 @@ theme_override_font_sizes/font_size = 16
 [connection signal="pressed" from="Panel/Margin/Column/GameActions/ResumeButton" to="." method="close_panel"]
 [connection signal="pressed" from="Panel/Margin/Column/GameActions/Row/RestartButton" to="." method="_on_restart"]
 [connection signal="pressed" from="Panel/Margin/Column/GameActions/Row/MenuButton" to="." method="_on_menu"]
+
+[connection signal="pressed" from="Panel/Margin/Column/GameActions/Row/SaveButton" to="." method="_on_save"]

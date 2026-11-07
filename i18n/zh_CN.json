@@ -110,5 +110,12 @@
   "item.super_fusion_tower.name": "超级聚能塔",
   "item.super_fusion_tower.desc": "研发 1000 金币，部署 2000 金币；产能 60，是原太阳能的 30 倍",
   "item.super_generator_tower.name": "超级发电塔",
-  "item.super_generator_tower.desc": "研发 1000 金币，部署 2000 金币；产能 120，是发电塔的 30 倍"
+  "item.super_generator_tower.desc": "研发 1000 金币，部署 2000 金币；产能 120，是发电塔的 30 倍",
+  "menu.continue": "继续游戏",
+  "menu.delete_save": "删除存档",
+  "menu.delete_confirm": "再次点击确认删除",
+  "settings.save": "保存游戏",
+  "settings.save_success": "游戏已保存",
+  "settings.load_success": "存档读取完成",
+  "settings.load_failed": "存档读取失败"
 }

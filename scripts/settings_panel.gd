@@ -5,6 +5,7 @@ extends Control
 signal closed
 signal restart_requested
 signal menu_requested
+signal save_requested
 
 const Palette = preload("res://scripts/palette.gd")
 const ResponsiveLayout = preload("res://scripts/responsive_layout.gd")
@@ -28,6 +29,7 @@ var in_game := false
 @onready var close_button: Button = %CloseButton
 @onready var resume_button: Button = %ResumeButton
 @onready var restart_button: Button = %RestartButton
+@onready var save_button: Button = %SaveButton
 @onready var menu_button: Button = %MenuButton
 var option_buttons := {}
 var _events := EventBindingScript.new()
@@ -53,7 +55,7 @@ func _ready() -> void:
             continue
         _style_button(button, false)
         button.toggled.connect(_on_option_toggled.bind(option))
-    for button in [language_button, close_button, restart_button, menu_button]:
+    for button in [language_button, close_button, save_button, restart_button, menu_button]:
         _style_button(button, false)
     _style_button(resume_button, true)
     _events.bind(Events.setting_changed, _on_setting_changed)
@@ -144,6 +146,7 @@ func _refresh_texts() -> void:
         var state := I18n.t("settings.on") if enabled else I18n.t("settings.off")
         button.text = "%s    /    %s" % [I18n.t(OPTION_LABELS[option]), state]
     resume_button.text = I18n.t("settings.resume")
+    save_button.text = I18n.t("settings.save")
     restart_button.text = I18n.t("settings.restart")
     menu_button.text = I18n.t("settings.main_menu")
 
@@ -181,3 +184,7 @@ func _input(event: InputEvent) -> void:
 
 func _draw() -> void:
     draw_rect(Rect2(Vector2.ZERO, size), Color(0.10, 0.12, 0.13, 0.48))
+
+
+func _on_save() -> void:
+    save_requested.emit()

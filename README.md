@@ -181,12 +181,20 @@ HUD、底部建造栏、道具卡、建筑详情、设置和结算均位于 `sce
 
 `Events` 自动加载提供状态缓存和具体事件；UI 使用 `EventBinding` 统一绑定、去重和解绑。详细目录、事件列表与扩展示例见 [UI 预置体与事件中心](docs/ui_prefabs_and_events.md)。
 
+## Save system
+
+- Autosaves every 15 seconds, saves from the in-game settings, and saves when returning to the menu.
+- The main menu provides Continue and Delete Save. Deletion requires a second click within three seconds.
+- `user://savegame.json` stores coins, research, buildings and levels, production timers, base/nest health, enemies, camera, and wall connections.
+- Saves are versioned; malformed or incompatible saves are rejected without being overwritten.
+
 ## 测试
 
 ```bash
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path . res://tools/smoke_test.tscn
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path . res://tools/responsive_test.tscn
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path . res://tools/event_center_test.tscn
+Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path . res://tools/save_test.tscn
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path . res://tools/stress_test.tscn -- --enemies=1000 --seconds=10
 ```
 

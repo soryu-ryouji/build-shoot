@@ -20,6 +20,7 @@ config/icon="res://icon.svg"
 Events="*res://scripts/event_center.gd"
 I18n="*res://scripts/i18n.gd"
 GameSettings="*res://scripts/game_settings.gd"
+SaveManager="*res://scripts/save_manager.gd"
 Sfx="*res://scripts/audio_manager.gd"
 Music="*res://scripts/music_manager.gd"
 

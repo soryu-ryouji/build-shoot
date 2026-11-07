@@ -121,6 +121,26 @@ focus_mode = 0
 theme_override_font_sizes/font_size = 21
 alignment = 0
 
+[node name="ContinueButton" type="Button" parent="ActionsBox"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 18
+alignment = 0
+
+[node name="DeleteSaveButton" type="Button" parent="ActionsBox"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 15
+alignment = 0
+
 [node name="Secondary" type="HBoxContainer" parent="ActionsBox"]
 layout_mode = 2
 mouse_filter = 2
@@ -151,3 +171,6 @@ unique_name_in_owner = true
 [connection signal="pressed" from="ActionsBox/StartButton" to="." method="start_game"]
 [connection signal="pressed" from="ActionsBox/Secondary/SettingsButton" to="." method="open_settings"]
 [connection signal="pressed" from="ActionsBox/Secondary/QuitButton" to="." method="_on_quit"]
+
+[connection signal="pressed" from="ActionsBox/ContinueButton" to="." method="continue_game"]
+[connection signal="pressed" from="ActionsBox/DeleteSaveButton" to="." method="_on_delete_save"]

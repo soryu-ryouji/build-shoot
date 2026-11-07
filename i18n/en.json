@@ -110,5 +110,12 @@
   "item.super_fusion_tower.name": "SUPER FUSION",
   "item.super_fusion_tower.desc": "Research 1000, deploy 2000; generates 60 power, thirty times the former solar output",
   "item.super_generator_tower.name": "SUPER GENERATOR",
-  "item.super_generator_tower.desc": "Research 1000, deploy 2000; generates 120 power, thirty times the regular generator"
+  "item.super_generator_tower.desc": "Research 1000, deploy 2000; generates 120 power, thirty times the regular generator",
+  "menu.continue": "CONTINUE",
+  "menu.delete_save": "DELETE SAVE",
+  "menu.delete_confirm": "CLICK AGAIN TO CONFIRM",
+  "settings.save": "SAVE GAME",
+  "settings.save_success": "GAME SAVED",
+  "settings.load_success": "SAVE LOADED",
+  "settings.load_failed": "FAILED TO LOAD SAVE"
 }
