@@ -177,6 +177,10 @@ func _input(event: InputEvent) -> void:
         _finish_drag(event.position)
 
 
+func set_camera_zoom(value: float) -> void:
+    drag_preview.set_camera_zoom(value)
+
+
 func _begin_drag(pos: Vector2) -> void:
     _pending = false
     _dragging = true

@@ -257,6 +257,8 @@ func _apply_camera() -> void:
     arena.map_loader.update_view(world_camera.position, view / camera_zoom)
     highlights.camera_zoom = camera_zoom
     highlights.queue_redraw()
+    if shop_bar != null:
+        shop_bar.set_camera_zoom(camera_zoom)
 
 
 func center_on_base() -> void:

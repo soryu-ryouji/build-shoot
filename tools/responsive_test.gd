@@ -72,7 +72,18 @@ func _run() -> void:
 		_check(main.placing, "drag starts placement %s" % target)
 		_check(not main.placement_ghost.visible and not main.highlights.preview_visible, "UI drag hides placement preview %s" % target)
 		_check(main.shop_bar.drag_preview.visible, "grabbed item stays visible in UI %s" % target)
+		_check(main.shop_bar.drag_preview.scale.is_equal_approx(Vector2.ONE * main.camera_zoom), "drag preview matches map zoom %s" % target)
+		var zoom_before_drag: float = main.camera_zoom
+		var camera_center_before_drag: Vector2 = main.camera_center
+		main._zoom_at(Vector2(320, 180), 0.5)
+		_check(main.shop_bar.drag_preview.scale.is_equal_approx(Vector2.ONE * main.camera_zoom), "drag preview follows zoom out %s" % target)
+		_check(main.shop_bar.drag_preview.scale.x < zoom_before_drag, "drag preview shrinks with map %s" % target)
 		main.shop_bar._update_drag_position(Vector2(320, 180))
+		var preview_center: Vector2 = main.shop_bar.drag_preview.get_global_transform_with_canvas() * (main.shop_bar.drag_preview.size * 0.5)
+		_check(preview_center.distance_to(Vector2(320, 180)) < 0.1, "scaled drag preview stays pointer-centered %s" % target)
+		main.camera_zoom = zoom_before_drag
+		main.camera_center = camera_center_before_drag
+		main._apply_camera()
 		_check(main.shop_bar.drag_preview.visible, "map drag keeps fully following building %s" % target)
 		_check(main.placement_ghost.visible and main.highlights.preview_visible, "map keeps cell and range highlights %s" % target)
 		main.shop_bar._update_drag_position(main.shop_bar.get_global_rect().get_center())

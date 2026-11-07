@@ -37,14 +37,19 @@ func show_item(item: Dictionary, screen_pos: Vector2) -> void:
     queue_redraw()
 
 
+func set_camera_zoom(value: float) -> void:
+    scale = Vector2.ONE * maxf(value, 0.01)
+
+
 func follow(screen_pos: Vector2) -> void:
     var parent_control := get_parent() as Control
     if parent_control == null:
         return
     var viewport := get_viewport_rect().size
-    var screen_target := screen_pos - size * 0.5
-    screen_target.x = clampf(screen_target.x, 4.0, maxf(4.0, viewport.x - size.x - 4.0))
-    screen_target.y = clampf(screen_target.y, 4.0, maxf(4.0, viewport.y - size.y - 4.0))
+    var display_size := size * scale
+    var screen_target := screen_pos - display_size * 0.5
+    screen_target.x = clampf(screen_target.x, 4.0, maxf(4.0, viewport.x - display_size.x - 4.0))
+    screen_target.y = clampf(screen_target.y, 4.0, maxf(4.0, viewport.y - display_size.y - 4.0))
     position = parent_control.get_global_transform_with_canvas().affine_inverse() * screen_target
 
 
