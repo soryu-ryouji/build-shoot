@@ -141,6 +141,7 @@ Godot_v4.7.2-stable_win64.exe --path .
 - 在线地址：https://soryu-ryouji.github.io/build-shoot/
 - 推送 `2d` 分支或在 Actions 中手动运行 **Deploy to GitHub Pages**，会自动导出 Web 版并部署。
 - 工作流使用 Godot 4.7.2 和对应导出模板，产物包含 `web/index.html` 横屏入口页。
+- 导出前会自动安装 FontTools 并运行 	ools/build_font_subset.py，根据最新 i18n/*.json 重建字体子集，避免新增文案在 Web 版缺字。
 
 ## JSON 无限地图
 
