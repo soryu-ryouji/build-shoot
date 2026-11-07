@@ -136,6 +136,12 @@ Godot_v4.7.2-stable_win64.exe --path .
 
 - Web 导出：`.\tools\build_web.ps1`。
 
+## 在线游玩与部署
+
+- 在线地址：https://soryu-ryouji.github.io/build-shoot/
+- 推送 `2d` 分支或在 Actions 中手动运行 **Deploy to GitHub Pages**，会自动导出 Web 版并部署。
+- 工作流使用 Godot 4.7.2 和对应导出模板，产物包含 `web/index.html` 横屏入口页。
+
 ## JSON 无限地图
 
 只有一个 `scenes/main.tscn`。启动时 `scripts/arena.gd` 加载 `data/maps/industrial_01.json`，`scripts/map_loader.gd` 生成镜头附近的 Ground 和 Decoration 瓦片。
