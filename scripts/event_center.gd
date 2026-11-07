@@ -15,6 +15,7 @@ signal placement_changed(active: bool, item_id: String)
 signal outcome_changed(outcome: String)
 signal language_changed(locale: String)
 signal setting_changed(option: String, value: bool)
+signal research_changed(item_id: String, unlocked: bool)
 signal toast_requested(text: String, color: Color)
 
 var coins := 150
@@ -27,6 +28,7 @@ var nest_count := 0
 var destroyed := 0
 var selected_building: Node = null
 var outcome := "playing"
+var unlocked_items: Dictionary = {}
 
 
 ## 每局开始时清空上一局缓存。场景重载后新 UI 仍会读到一致的状态。
@@ -41,6 +43,7 @@ func reset_session() -> void:
     destroyed = 0
     selected_building = null
     outcome = "playing"
+    unlocked_items.clear()
     event_published.emit(&"session_reset", {})
 
 
@@ -118,6 +121,12 @@ func set_language(locale: String) -> void:
 func set_setting(option: String, value: bool) -> void:
     setting_changed.emit(option, value)
     event_published.emit(&"setting_changed", {"option": option, "value": value})
+
+
+func set_item_unlocked(item_id: String, unlocked: bool = true) -> void:
+    unlocked_items[item_id] = unlocked
+    research_changed.emit(item_id, unlocked)
+    event_published.emit(&"research_changed", {"item_id": item_id, "unlocked": unlocked})
 
 
 func toast(text: String, color: Color) -> void:

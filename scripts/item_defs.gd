@@ -14,9 +14,9 @@ const COLOR_ENERGY := Color(0.93, 0.76, 0.30)
 ## 底部商店的类别顺序与每类可选道具（第一个是默认选中项）
 const CATEGORY_ORDER := [CATEGORY_FIREPOWER, CATEGORY_FORTIFICATION, CATEGORY_ENERGY]
 const ITEMS_BY_CATEGORY := {
-	CATEGORY_FIREPOWER: ["turret", "heavy_turret", "laser_tower"],
+	CATEGORY_FIREPOWER: ["turret", "heavy_turret", "laser_tower", "lightning_tower"],
 	CATEGORY_FORTIFICATION: ["sandbag", "compression_tower"],
-	CATEGORY_ENERGY: ["solar", "fusion_tower"],
+	CATEGORY_ENERGY: ["fusion_tower", "coin_tower", "super_fusion_tower", "super_generator_tower"],
 }
 
 ## 建筑升级曲线：低级/高级成长速度不同，激光塔按攻击与耗能翻倍成长。
@@ -26,8 +26,11 @@ const UPGRADE_RULES := {
 	"laser_tower": {"kind": "mult", "damage": 2.0, "energy": 2.0, "cost": 120, "cost_mult": 1.8, "max": 6},
 	"sandbag": {"kind": "add", "hp": 60, "energy": 1, "cost": 10, "cost_mult": 1.3, "max": 5},
 	"compression_tower": {"kind": "add", "hp": 90, "energy": 1, "cost": 30, "cost_mult": 1.4, "max": 5},
-	"solar": {"kind": "add", "output": 1, "cost": 15, "cost_mult": 1.3, "max": 5},
 	"fusion_tower": {"kind": "add", "output": 2, "cost": 30, "cost_mult": 1.4, "max": 5},
+	"lightning_tower": {"kind": "add", "damage": 2, "energy": 1, "cost": 45, "cost_mult": 1.4, "max": 5},
+	"coin_tower": {"kind": "add", "coins": 2, "cost": 25, "cost_mult": 1.4, "max": 5},
+	"super_fusion_tower": {"kind": "add", "output": 18, "cost": 200, "cost_mult": 1.5, "max": 5},
+	"super_generator_tower": {"kind": "add", "output": 36, "cost": 300, "cost_mult": 1.5, "max": 5},
 }
 
 const ITEMS := {
@@ -88,6 +91,7 @@ const ITEMS := {
 		"desc_key": "item.laser_tower.desc",
 		"category": CATEGORY_FIREPOWER,
 		"tier": 2,
+		"research_cost": 300,
 		"cost": 150,
 		"energy_demand": 3,
 		"energy_output": 0,
@@ -107,6 +111,35 @@ const ITEMS := {
 		"color": Color(0.72, 0.90, 0.96),
 		"icon": "res://assets/ui/laser_tower.png",
 	},
+	"lightning_tower": {
+		"id": "lightning_tower",
+		"name_key": "item.lightning_tower.name",
+		"desc_key": "item.lightning_tower.desc",
+		"category": CATEGORY_FIREPOWER,
+		"tier": 2,
+		"research_cost": 400,
+		"cost": 110,
+		"energy_demand": 2,
+		"energy_output": 0,
+		"hp": 65,
+		"blocks_enemies": false,
+		"buff_multiplier": 1,
+		"attack_style": "lightning",
+		"damage": 4,
+		"interval": 1.35,
+		"range": 300.0,
+		"chain_count": 4,
+		"chain_range": 64.0,
+		"bounces": 0,
+		"pierce": 0,
+		"speed": 0.0,
+		"radius": 0.0,
+		"barrel": 42.0,
+		"base": 29.0,
+		"sprite_scale": 1.0,
+		"color": Color(0.48, 0.84, 0.96),
+		"icon": "res://assets/ui/lightning_tower.png",
+	},
 	"sandbag": {
 		"id": "sandbag",
 		"name_key": "item.sandbag.name",
@@ -114,7 +147,7 @@ const ITEMS := {
 		"category": CATEGORY_FORTIFICATION,
 		"tier": 1,
 		"cost": 15,
-		"energy_demand": 1,
+		"energy_demand": 0,
 		"energy_output": 0,
 		"hp": 120,
 		"blocks_enemies": true,
@@ -124,7 +157,7 @@ const ITEMS := {
 		"base": 27.0,
 		"sprite_scale": 1.20,
 		"color": COLOR_FORTIFICATION,
-		"icon": "res://assets/ui/sandbag.png",
+		"icon": "res://assets/ui/wall.png",
 	},
 	"compression_tower": {
 		"id": "compression_tower",
@@ -132,6 +165,7 @@ const ITEMS := {
 		"desc_key": "item.compression_tower.desc",
 		"category": CATEGORY_FORTIFICATION,
 		"tier": 2,
+		"research_cost": 300,
 		"cost": 60,
 		"energy_demand": 2,
 		"energy_output": 0,
@@ -157,32 +191,13 @@ const ITEMS := {
 		"color": COLOR_FORTIFICATION,
 		"icon": "res://assets/ui/compression_tower.png",
 	},
-	"solar": {
-		"id": "solar",
-		"name_key": "item.solar.name",
-		"desc_key": "item.solar.desc",
-		"category": CATEGORY_ENERGY,
-		"tier": 1,
-		"cost": 20,
-		"energy_demand": 0,
-		"energy_output": 2,
-		"hp": 50,
-		"blocks_enemies": false,
-		"buff_multiplier": 1,
-		"attack_style": "none",
-		"barrel": 0.0,
-		"base": 27.0,
-		"sprite_scale": 1.25,
-		"color": COLOR_ENERGY,
-		"icon": "res://assets/ui/solar.png",
-	},
 	"fusion_tower": {
 		"id": "fusion_tower",
 		"name_key": "item.fusion_tower.name",
 		"desc_key": "item.fusion_tower.desc",
 		"category": CATEGORY_ENERGY,
 		"tier": 2,
-		"cost": 60,
+		"cost": 40,
 		"energy_demand": 0,
 		"energy_output": 4,
 		"hp": 80,
@@ -195,6 +210,47 @@ const ITEMS := {
 		"color": COLOR_ENERGY,
 		"icon": "res://assets/ui/fusion_tower.png",
 	},
+"super_fusion_tower": {
+"id": "super_fusion_tower",
+"name_key": "item.super_fusion_tower.name",
+"desc_key": "item.super_fusion_tower.desc",
+"category": CATEGORY_ENERGY, "tier": 3, "research_cost": 1000, "cost": 2000,
+"energy_demand": 0, "energy_output": 60, "hp": 180,
+"blocks_enemies": false, "buff_multiplier": 1, "attack_style": "none",
+"barrel": 0.0, "base": 32.0, "sprite_scale": 1.10,
+"color": COLOR_ENERGY, "icon": "res://assets/ui/super_fusion_tower.png",
+},
+"super_generator_tower": {
+"id": "super_generator_tower",
+"name_key": "item.super_generator_tower.name",
+"desc_key": "item.super_generator_tower.desc",
+"category": CATEGORY_ENERGY, "tier": 3, "research_cost": 1000, "cost": 2000,
+"energy_demand": 0, "energy_output": 120, "hp": 240,
+"blocks_enemies": false, "buff_multiplier": 1, "attack_style": "none",
+"barrel": 0.0, "base": 34.0, "sprite_scale": 1.12,
+"color": COLOR_ENERGY, "icon": "res://assets/ui/super_generator_tower.png",
+},
+	"coin_tower": {
+		"id": "coin_tower",
+		"name_key": "item.coin_tower.name",
+		"desc_key": "item.coin_tower.desc",
+		"category": CATEGORY_ENERGY,
+		"tier": 2,
+		"cost": 40,
+		"energy_demand": 1,
+		"energy_output": 0,
+		"coin_output": 5,
+		"coin_interval": 4.0,
+		"hp": 70,
+		"blocks_enemies": false,
+		"buff_multiplier": 1,
+		"attack_style": "economy",
+		"barrel": 0.0,
+		"base": 30.0,
+		"sprite_scale": 1.0,
+		"color": COLOR_ENERGY,
+		"icon": "res://assets/ui/coin_tower.png",
+	}
 }
 
 
@@ -218,6 +274,10 @@ static func get_default_item(category: String) -> Dictionary:
 
 static func get_upgrade(id: String) -> Dictionary:
 	return UPGRADE_RULES.get(id, {})
+
+
+static func get_research_cost(id: String) -> int:
+	return int(get_item(id).get("research_cost", 0))
 
 
 static func category_name_key(category: String) -> String:

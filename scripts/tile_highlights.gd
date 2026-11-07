@@ -18,6 +18,7 @@ var hover_cell := Vector2i.ZERO
 var hover_valid := false
 var hover_active := false
 var preview_visible := true
+var camera_zoom := 1.0
 
 
 func _ready() -> void:
@@ -90,11 +91,11 @@ func _draw() -> void:
 
 
 func _draw_grid() -> void:
-	var color := Color(Palette.GRID.r, Palette.GRID.g, Palette.GRID.b, 0.12)
+	var color := Color(Palette.GRID.r, Palette.GRID.g, Palette.GRID.b, 0.20)
 	for cell in map.get_visible_cells():
 		var center: Vector2 = map.cell_to_world(cell)
 		var rect := Rect2(center - Vector2(map.cell_size) * 0.5, Vector2(map.cell_size))
-		draw_rect(rect, color, false, 1.0)
+		draw_rect(rect, color, false, maxf(1.0, 1.0 / maxf(camera_zoom, 0.01)))
 
 
 func _draw_cell(cell: Vector2i, fill: Color, line: Color, side: float, width: float) -> void:

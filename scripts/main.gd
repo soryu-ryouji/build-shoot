@@ -245,7 +245,8 @@ func _apply_camera() -> void:
     var offset := field.get_center() - view * 0.5
     world_camera.zoom = Vector2.ONE * camera_zoom
     world_camera.position = camera_center - offset / camera_zoom
-    arena.map_loader.update_view(camera_center, field.size / camera_zoom)
+    arena.map_loader.update_view(world_camera.position, view / camera_zoom)
+    highlights.camera_zoom = camera_zoom
     highlights.queue_redraw()
 
 
@@ -474,7 +475,7 @@ func get_target_by_id(id: int) -> Dictionary:
 
 
 func _reward_block(max_hp: int) -> void:
-    coins += maxi(1, max_hp)
+    coins += maxi(1, int(floor(max_hp * 0.35)))
 
 
 func on_nest_destroyed(nest: Node) -> void:
@@ -515,6 +516,24 @@ func _show_result() -> void:
 
 # ---------------------------------------------------------------- 道具布置
 
+func is_item_unlocked(item_id: String) -> bool:
+    return ItemDefs.get_research_cost(item_id) <= 0 or bool(Events.unlocked_items.get(item_id, false))
+
+
+func research_item(item_id: String) -> bool:
+    if is_item_unlocked(item_id):
+        return true
+    var cost := ItemDefs.get_research_cost(item_id)
+    if coins < cost:
+        Events.toast(I18n.t("shop.not_enough"), Palette.DANGER)
+        return false
+    coins -= cost
+    Events.set_item_unlocked(item_id, true)
+    Sfx.play("upgrade")
+    Events.toast(I18n.t("shop.researched", [I18n.t(ItemDefs.get_item(item_id).name_key)]), Palette.ACCENT)
+    return true
+
+
 func _on_shop_drag_started(item_id: String) -> void:
     begin_placement(item_id)
 
@@ -541,6 +560,9 @@ func begin_placement(item_id: String) -> void:
         return
     var item: Dictionary = ItemDefs.get_item(item_id)
     if item.is_empty():
+        return
+    if not is_item_unlocked(item_id):
+        Events.toast(I18n.t("shop.research_required"), Palette.DANGER)
         return
     if coins < int(item.cost):
         Sfx.play("invalid")
@@ -889,7 +911,7 @@ func refresh_power() -> void:
         if not is_instance_valid(b) or not bool(b.alive):
             continue
         demand += int(b.energy_demand)
-        if bool(b.is_energy()):
+        if b.is_power_generator():
             b.set_powered(true)
             continue
         if remaining >= int(b.energy_demand):
@@ -905,8 +927,32 @@ func refresh_power() -> void:
     Events.set_power(demand, supply, offline)
     _rebuild_building_index()
     recompute_buffs()
+    refresh_wall_connections()
     if is_instance_valid(selected_building):
         Events.update_building(selected_building)
+
+
+func refresh_wall_connections() -> void:
+    for building in placed_buildings:
+        if is_instance_valid(building) and building.item_id == "sandbag":
+            building.update_wall_connections()
+
+
+func get_wall_connection_mask(target: Node) -> int:
+    var mask := 0
+    for other in placed_buildings:
+        if other == target or not is_instance_valid(other) or not other.alive or other.item_id != "sandbag":
+            continue
+        var delta: Vector2i = other.cell - target.cell
+        if delta == Vector2i.UP:
+            mask |= 1
+        elif delta == Vector2i.RIGHT:
+            mask |= 2
+        elif delta == Vector2i.DOWN:
+            mask |= 4
+        elif delta == Vector2i.LEFT:
+            mask |= 8
+    return mask
 
 
 func recompute_buffs() -> void:
@@ -975,6 +1021,36 @@ func has_firepower(exclude: Node = null) -> bool:
         if bool(b.alive) and b.is_firepower():
             return true
     return false
+
+
+func get_lightning_chain(first_target: Dictionary, maximum: int = 4, radius: float = 64.0) -> Array:
+    var chain: Array = []
+    var used := {}
+    var current := first_target
+    for index in maxi(1, maximum):
+        if current.is_empty() or not bool(current.get("alive", false)):
+            break
+        var id := int(current.get("id", -1))
+        if used.has(id):
+            break
+        used[id] = true
+        chain.append(current)
+        var center: Vector2 = current.rect.get_center()
+        var nearby: Array = blocks.query_rect(Rect2(center - Vector2.ONE * radius, Vector2.ONE * radius * 2.0))
+        var next: Dictionary = {}
+        var nearest := INF
+        for candidate in nearby:
+            var candidate_id := int(candidate.get("id", -1))
+            if used.has(candidate_id) or not bool(candidate.get("alive", false)):
+                continue
+            var distance := center.distance_to(candidate.rect.get_center())
+            if distance <= radius and distance < nearest:
+                nearest = distance
+                next = candidate
+        if next.is_empty():
+            break
+        current = next
+    return chain
 
 
 func fire_item_ball(source: Node, pos: Vector2, dir: Vector2, dmg: int, pierce: int, bounces: int, speed: float, radius: float, electric: bool = false) -> void:

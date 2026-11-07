@@ -11,10 +11,14 @@ const HeavyBaseTexture = preload("res://assets/ui/heavy_turret_base_field.png")
 const HeavyHeadTexture = preload("res://assets/ui/heavy_turret_head_field.png")
 const LaserBaseTexture = preload("res://assets/ui/laser_tower_base_field.png")
 const LaserHeadTexture = preload("res://assets/ui/laser_tower_head_field.png")
-const SandbagTexture = preload("res://assets/ui/sandbag_field.png")
+const WallTexture = preload("res://assets/ui/wall.png")
 const CompressionTexture = preload("res://assets/ui/compression_tower_field.png")
 const SolarTexture = preload("res://assets/ui/solar_field.png")
 const FusionTexture = preload("res://assets/ui/fusion_tower_field.png")
+const CoinTexture = preload("res://assets/ui/coin_tower_field.png")
+const LightningTexture = preload("res://assets/ui/lightning_tower_field.png")
+const SuperFusionTexture = preload("res://assets/ui/super_fusion_tower_field.png")
+const SuperGeneratorTexture = preload("res://assets/ui/super_generator_tower_field.png")
 
 const BASE_TEXTURE_SIZE := Vector2(320.0, 320.0)
 const HEAD_TEXTURE_SIZE := Vector2(320.0, 384.0)
@@ -159,7 +163,7 @@ func _draw_body(tint: Color, angle := -PI / 2.0) -> void:
 		_draw_laser_preview(tint)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	elif item_id == "sandbag":
-		_draw_static_preview(SandbagTexture, tint)
+		_draw_static_preview(WallTexture, tint)
 	elif item_id == "compression_tower":
 		_draw_static_preview(CompressionTexture, tint)
 	elif item_id == "solar":

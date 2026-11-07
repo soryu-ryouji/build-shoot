@@ -10,10 +10,14 @@ const HeavyBaseTexture = preload("res://assets/ui/heavy_turret_base_field.png")
 const HeavyHeadTexture = preload("res://assets/ui/heavy_turret_head_field.png")
 const LaserBaseTexture = preload("res://assets/ui/laser_tower_base_field.png")
 const LaserHeadTexture = preload("res://assets/ui/laser_tower_head_field.png")
-const SandbagTexture = preload("res://assets/ui/sandbag_field.png")
+const WallTexture = preload("res://assets/ui/wall.png")
 const CompressionTexture = preload("res://assets/ui/compression_tower_field.png")
 const SolarTexture = preload("res://assets/ui/solar_field.png")
 const FusionTexture = preload("res://assets/ui/fusion_tower_field.png")
+const CoinTexture = preload("res://assets/ui/coin_tower_field.png")
+const LightningTexture = preload("res://assets/ui/lightning_tower_field.png")
+const SuperFusionTexture = preload("res://assets/ui/super_fusion_tower_field.png")
+const SuperGeneratorTexture = preload("res://assets/ui/super_generator_tower_field.png")
 
 var _item: Dictionary = {}
 
@@ -63,13 +67,21 @@ func _draw() -> void:
         "laser_tower":
             _draw_turret(center, LaserBaseTexture, LaserHeadTexture, 6.0)
         "sandbag":
-            _draw_static(center, SandbagTexture, 58.0)
+            _draw_static(center, WallTexture, 58.0)
         "compression_tower":
             _draw_static(center, CompressionTexture, 58.0)
         "solar":
             _draw_static(center, SolarTexture, 58.0)
         "fusion_tower":
             _draw_static(center, FusionTexture, 58.0)
+        "coin_tower":
+            _draw_static(center, CoinTexture, 64.0)
+        "lightning_tower":
+            _draw_static(center, LightningTexture, 68.0)
+        "super_fusion_tower":
+            _draw_static(center, SuperFusionTexture, 68.0)
+        "super_generator_tower":
+            _draw_static(center, SuperGeneratorTexture, 70.0)
 
 
 func _draw_turret(center: Vector2, base: Texture2D, head: Texture2D, size_factor: float) -> void:

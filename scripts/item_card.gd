@@ -18,6 +18,7 @@ var active := false
 @onready var cost_label: Label = %CostLabel
 
 var _can_buy := false
+var _unlocked := true
 var _hovered := false
 var _style: StyleBoxFlat
 var _icon_texture: Texture2D
@@ -37,9 +38,10 @@ func _ready() -> void:
     _style.set_corner_radius_all(2)
     _load_icon()
     _refresh_texts()
-    _on_coins_changed(Events.coins, Events.coins)
+    _refresh_state(Events.coins)
     _events.bind(Events.coins_changed, _on_coins_changed)
     _events.bind(Events.language_changed, _on_locale_changed)
+    _events.bind(Events.research_changed, _on_research_changed)
     _layout()
 
 
@@ -48,11 +50,24 @@ func _exit_tree() -> void:
 
 
 func _on_coins_changed(current: int, _previous: int) -> void:
+    _refresh_state(current)
+
+
+func _refresh_state(current_coins: int) -> void:
     if item.is_empty():
         return
-    _can_buy = current >= int(item.cost)
-    cost_label.add_theme_color_override("font_color", Palette.ACCENT if _can_buy else Palette.DANGER)
+    var research := ItemDefs.get_research_cost(String(item.id))
+    _unlocked = research <= 0 or bool(Events.unlocked_items.get(String(item.id), false))
+    _can_buy = _unlocked and current_coins >= int(item.cost)
+    var affordable := current_coins >= (int(item.cost) if _unlocked else research)
+    cost_label.add_theme_color_override("font_color", Palette.ACCENT if affordable else Palette.DANGER)
+    _refresh_texts()
     queue_redraw()
+
+
+func _on_research_changed(item_id: String, _unlocked_value: bool) -> void:
+    if not item.is_empty() and item_id == String(item.id):
+        _refresh_state(Events.coins)
 
 
 func _load_icon() -> void:
@@ -66,7 +81,7 @@ func set_item(new_item: Dictionary) -> void:
     item = new_item
     _load_icon()
     _refresh_texts()
-    _can_buy = Events.coins >= int(item.cost)
+    _refresh_state(Events.coins)
     queue_redraw()
 
 
@@ -133,7 +148,11 @@ func _refresh_texts() -> void:
     var category := String(item.category)
     var energy := int(item.get("energy_output", 0))
     if _compact:
-        category_label.text = I18n.t("shop.energy_output", [energy]) if energy > 0 else I18n.t("shop.energy_demand", [int(item.get("energy_demand", 1))])
+        var demand := int(item.get("energy_demand", 0))
+        if energy <= 0 and demand == 0:
+            category_label.text = I18n.t("shop.energy_none")
+        else:
+            category_label.text = I18n.t("shop.energy_output", [energy]) if energy > 0 else I18n.t("shop.energy_demand", [demand])
     elif energy > 0:
         category_label.text = I18n.t(ItemDefs.category_name_key(category)) + " " + I18n.t("shop.energy_output", [energy])
     else:
@@ -141,6 +160,9 @@ func _refresh_texts() -> void:
     category_label.add_theme_color_override("font_color", ItemDefs.category_color(category).darkened(0.15))
     name_label.text = I18n.t(String(item.name_key))
     cost_label.text = I18n.t("shop.cost", [int(item.cost)])
+    if not _unlocked:
+        category_label.text = I18n.t("shop.locked")
+        cost_label.text = I18n.t("shop.research_cost", [ItemDefs.get_research_cost(String(item.id))])
 
 
 func _on_locale_changed(_locale: String) -> void:
@@ -166,6 +188,10 @@ func _gui_input(event: InputEvent) -> void:
     elif event is InputEventScreenTouch:
         pressed_now = event.pressed
     if not pressed_now:
+        return
+    if not _unlocked:
+        game.research_item(String(item.id))
+        accept_event()
         return
 
     pressed.emit(category, get_global_rect().position + event.position)

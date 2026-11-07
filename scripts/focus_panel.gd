@@ -162,7 +162,9 @@ func _power_text() -> String:
     if building == null or not is_instance_valid(building):
         return ""
     var text := ""
-    if building.is_energy():
+    if int(building.coin_output) > 0:
+        text = I18n.t("focus.coin_production", [int(building.coin_output), int(building.coin_interval)])
+    elif building.is_energy():
         text = I18n.t("focus.output_value", [int(building.energy_output)])
     else:
         text = I18n.t("focus.demand_value", [int(building.energy_demand)])
@@ -191,6 +193,9 @@ func _update_values() -> void:
                 "∞" if int(building.pierce) < 0 else str(int(building.pierce)),
                 str(int(building.shots)),
             ]
+            if String(building.attack_style) == "lightning":
+                names[3] = "focus.chain"
+                values[3] = I18n.t("focus.chain_value", [int(building.chain_count)])
         ItemDefs.CATEGORY_FORTIFICATION:
             names = FORTIFICATION_STATS
             values = [
@@ -202,8 +207,12 @@ func _update_values() -> void:
                 I18n.t("focus.powered") if bool(building.powered) else I18n.t("focus.paralyzed"),
             ]
         ItemDefs.CATEGORY_ENERGY:
-            names = ENERGY_STATS
-            values = [
+            if int(building.coin_output) > 0:
+                names = ["focus.coin_output", "focus.coin_interval", "focus.hp", "focus.status"]
+                values = ["+%d" % int(building.coin_output), "%ds" % int(building.coin_interval), "%d/%d" % [int(ceil(float(building.hp))), int(building.max_hp)], I18n.t("focus.powered") if bool(building.powered) else I18n.t("focus.paralyzed")]
+            else:
+                names = ENERGY_STATS
+                values = [
                 "+%d" % int(building.energy_output),
                 "%d/%d" % [int(ceil(float(building.hp))), int(building.max_hp)],
                 "+%d" % (int(building.energy_output) - int(building.energy_demand)),
@@ -245,6 +254,8 @@ func _refresh_upgrade() -> void:
 func _upgrade_effect_text(effect: Dictionary) -> String:
     if String(effect.get("kind", "add")) == "mult":
         return I18n.t("focus.upgrade_effect_mult", [int(effect.get("damage", 1)), int(effect.get("energy", 1))])
+    if int(effect.get("coins", 0)) > 0:
+        return I18n.t("focus.upgrade_effect_coins", [int(effect.get("coins", 0))])
     if int(effect.get("damage", 0)) > 0:
         return I18n.t("focus.upgrade_effect_damage", [int(effect.get("damage", 0)), int(effect.get("energy", 0))])
     if int(effect.get("hp", 0)) > 0:

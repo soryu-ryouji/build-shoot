@@ -7,10 +7,14 @@ const Palette = preload("res://scripts/palette.gd")
 const ItemDefs = preload("res://scripts/item_defs.gd")
 const TurretVisuals = preload("res://scripts/turret_visuals.gd")
 const BuffElectricity = preload("res://scripts/buff_electricity.gd")
-const SandbagTexture = preload("res://assets/ui/sandbag_field.png")
+const WallTexture = preload("res://assets/ui/wall_field.png")
 const CompressionTexture = preload("res://assets/ui/compression_tower_field.png")
 const SolarTexture = preload("res://assets/ui/solar_field.png")
 const FusionTexture = preload("res://assets/ui/fusion_tower_field.png")
+const CoinTexture = preload("res://assets/ui/coin_tower_field.png")
+const LightningTexture = preload("res://assets/ui/lightning_tower_field.png")
+const SuperFusionTexture = preload("res://assets/ui/super_fusion_tower_field.png")
+const SuperGeneratorTexture = preload("res://assets/ui/super_generator_tower_field.png")
 
 const TURN_SPEED := 10.0
 const LOCK_TOLERANCE := 0.08
@@ -31,6 +35,10 @@ var invested := 0
 
 var energy_demand := 0
 var energy_output := 0
+var coin_output := 0
+var coin_interval := 4.0
+var chain_count := 0
+var chain_range := 64.0
 
 var max_hp := 1
 var hp := 1.0
@@ -72,8 +80,12 @@ var _beam_buffed := false
 var _range_cells_cache: Array = []
 var _target_refresh := 0.0
 var _target_cache: Dictionary = {}
+var _coin_timer := 0.0
+var _lightning_hold := 0.0
+var _lightning_points: Array[Vector2] = []
 var _buffed := false
 var buff_particles: Node2D
+var wall_mask := 0
 
 
 func setup(g: Node, def: Dictionary, facing := -PI / 2.0) -> void:
@@ -110,6 +122,11 @@ func _apply_def(def: Dictionary) -> void:
 
 	energy_demand = int(def.get("energy_demand", 0))
 	energy_output = int(def.get("energy_output", 0))
+	coin_output = int(def.get("coin_output", 0))
+	coin_interval = float(def.get("coin_interval", 4.0))
+	chain_count = int(def.get("chain_count", 0))
+	chain_range = float(def.get("chain_range", 64.0))
+	_coin_timer = coin_interval
 
 	blocks_enemies = bool(def.get("blocks_enemies", false))
 	buff_multiplier = int(def.get("buff_multiplier", 1))
@@ -178,6 +195,7 @@ func apply_upgrade(cost: int) -> bool:
 		max_hp += hp_gain
 		hp += float(hp_gain)
 		energy_output += int(effect.get("output", 0))
+		coin_output += int(effect.get("coins", 0))
 	_range_cells_cache.clear()
 	queue_redraw()
 	return true
@@ -247,6 +265,10 @@ func get_effective_interval() -> float:
 
 func is_energy() -> bool:
 	return category == ItemDefs.CATEGORY_ENERGY
+
+
+func is_power_generator() -> bool:
+	return energy_output > 0
 
 
 func is_firepower() -> bool:
@@ -331,6 +353,7 @@ func _process(delta: float) -> void:
 	_recoil = maxf(0.0, _recoil - delta * 6.0)
 	hurt_flash = maxf(0.0, hurt_flash - delta * 4.0)
 	_beam_hold = maxf(0.0, _beam_hold - delta)
+	_lightning_hold = maxf(0.0, _lightning_hold - delta)
 
 	if not alive:
 		return
@@ -340,6 +363,15 @@ func _process(delta: float) -> void:
 	if buff_particles != null:
 		buff_particles.set_multiplier(buff_damage_multiplier)
 		buff_particles.emitting = _buffed
+	if attack_style == "economy":
+		if powered:
+			_coin_timer -= delta
+			if _coin_timer <= 0.0:
+				_coin_timer += coin_interval
+				game.coins += coin_output
+				effects_emit_coin()
+		queue_redraw()
+		return
 	if not is_firepower():
 		if not auras.is_empty() or is_energy() or hurt_flash > 0.0:
 			queue_redraw()
@@ -381,9 +413,10 @@ func _process(delta: float) -> void:
 		if absf(diff) <= LOCK_TOLERANCE:
 			if attack_style == "laser":
 				_fire_laser(target)
+			elif attack_style == "lightning":
+				_fire_lightning(target)
 			else:
 				_fire_projectile()
-
 	queue_redraw()
 
 
@@ -437,6 +470,52 @@ func _fire_laser(target: Dictionary) -> void:
 	game.hit_target(target, shot_damage, _beam_target, _beam_buffed)
 
 
+func effects_emit_coin() -> void:
+		game.effects.emit_hit(global_position, Palette.ACCENT, false)
+
+func _fire_lightning(target: Dictionary) -> void:
+		Sfx.play("laser")
+		_cooldown = get_effective_interval()
+		_recoil = 1.0
+		shots += 1
+		if game.selected_building == self:
+			Events.update_building(self)
+		var chain: Array = game.get_lightning_chain(target, chain_count, chain_range)
+		var path: Array[Vector2] = [get_muzzle()]
+		for hit in chain:
+			var center: Vector2 = hit.rect.get_center()
+			path.append(center)
+			game.hit_target(hit, get_effective_damage(), center, true)
+		_set_lightning_path(path)
+		_lightning_hold = 0.26
+
+func _set_lightning_path(points: Array[Vector2]) -> void:
+		_lightning_points.clear()
+		if points.is_empty():
+			return
+		_lightning_points.append(points[0])
+		for index in range(points.size() - 1):
+			var start := points[index]
+			var end := points[index + 1]
+			var distance := start.distance_to(end)
+			var steps := maxi(2, ceili(distance / 13.0))
+			var normal := (end - start).normalized().orthogonal()
+			for step in range(1, steps):
+				var ratio := float(step) / float(steps)
+				var side := (8.0 if step % 2 == 0 else -8.0) * sin(ratio * PI)
+				_lightning_points.append(start.lerp(end, ratio) + normal * side)
+			_lightning_points.append(end)
+
+func _draw_chain_lightning() -> void:
+		if _lightning_hold <= 0.0 or _lightning_points.size() < 2:
+			return
+		var points := PackedVector2Array()
+		for point in _lightning_points:
+			points.append(point - global_position)
+		var alpha := clampf(_lightning_hold / 0.26, 0.0, 1.0)
+		draw_polyline(points, Color(0.25, 0.72, 1.0, 0.30 * alpha), 7.0, true)
+		draw_polyline(points, Color(0.82, 0.97, 1.0, 0.95 * alpha), 2.2, true)
+
 func _draw() -> void:
 	if selected:
 		_draw_selection()
@@ -470,7 +549,12 @@ func _draw_firepower() -> void:
 		TurretVisuals.draw_aim(self, local_origin, aim_dir, hit)
 		TurretVisuals.draw_lock(self, _target_pos - global_position, _time)
 
-	if attack_style == "laser":
+	if attack_style == "lightning":
+		_draw_chain_lightning()
+		_draw_static_texture(LightningTexture)
+		var lightning_pulse := 0.5 + 0.5 * sin(_time * 9.0)
+		draw_circle(Vector2.ZERO, 9.0 + lightning_pulse * 3.0, Color(0.56, 0.91, 1.0, 0.10 + lightning_pulse * 0.12))
+	elif attack_style == "laser":
 		if _beam_hold > 0.0:
 			_draw_laser_beam()
 		TurretVisuals.draw_laser_body(self, aim_angle, base_radius, barrel_length, _recoil, color, _time, buffed)
@@ -515,13 +599,38 @@ func _draw_fortification() -> void:
 		_draw_static_texture(CompressionTexture)
 		var pulse := 0.5 + 0.5 * sin(_time * 6.0)
 		draw_arc(Vector2.ZERO, 13.0 + pulse * 2.0, 0.0, TAU, 24, Color(0.70, 0.96, 1.0, 0.25 + pulse * 0.25), 1.5)
-	else:
-		_draw_static_texture(SandbagTexture)
+	elif item_id == "sandbag":
+		_draw_wall()
+
+
+func update_wall_connections() -> void:
+	var next: int = game.get_wall_connection_mask(self) if game != null else 0
+	if wall_mask == next:
+		return
+	wall_mask = next
+	queue_redraw()
+
+
+func _draw_wall() -> void:
+	var tile := 256.0
+	var source := Rect2(Vector2((wall_mask % 4) * tile, floori(wall_mask / 4.0) * tile), Vector2.ONE * tile)
+	var side := base_radius * 2.0 * sprite_scale
+	draw_texture_rect_region(WallTexture, Rect2(-Vector2.ONE * side * 0.5, Vector2.ONE * side), source)
 
 
 func _draw_energy() -> void:
 	var pulse := 0.5 + 0.5 * sin(_time * 4.0)
-	if item_id == "fusion_tower":
+	if item_id == "coin_tower":
+		_draw_static_texture(CoinTexture)
+		if powered:
+			draw_arc(Vector2.ZERO, base_radius * 0.65, 0.0, TAU, 28, Color(1.0, 0.79, 0.30, 0.15 + pulse * 0.20), 2.0)
+	elif item_id == "super_fusion_tower":
+		_draw_static_texture(SuperFusionTexture)
+		draw_arc(Vector2.ZERO, base_radius + 3.0, 0.0, TAU, 32, Color(1.0, 0.80, 0.35, 0.22 + pulse * 0.16), 2.0)
+	elif item_id == "super_generator_tower":
+		_draw_static_texture(SuperGeneratorTexture)
+		draw_arc(Vector2.ZERO, base_radius + 3.0, 0.0, TAU, 32, Color(1.0, 0.85, 0.42, 0.28 + pulse * 0.20), 2.5)
+	elif item_id == "fusion_tower":
 		_draw_static_texture(FusionTexture)
 		draw_arc(Vector2.ZERO, base_radius * 0.55, 0.0, TAU, 24, Color(1.0, 0.87, 0.48, 0.14 + pulse * 0.14), 1.5)
 	else:
@@ -543,4 +652,4 @@ func _draw_health_bar() -> void:
 	draw_rect(bar, Color(0.02, 0.03, 0.04, 0.9))
 	if ratio > 0.0:
 		draw_rect(Rect2(bar.position, Vector2(bar.size.x * ratio, bar.size.y)), Palette.ACCENT if ratio > 0.3 else Palette.DANGER)
-	draw_rect(bar, Color(1.0, 1.0, 1.0, 0.25), false, 1.0)
+	draw_rect(bar, Color(Palette.INK, 0.65), false, 1.0)

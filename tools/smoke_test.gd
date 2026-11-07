@@ -67,10 +67,11 @@ func _run() -> void:
 	_check(not GameSettings.music_enabled, "music setting disables independently")
 	GameSettings.set_option("music_enabled", true)
 	_check(main.settings_panel.option_buttons.has("music_enabled"), "settings expose the music toggle")
-	_check(ItemDefs.get_category_items(ItemDefs.CATEGORY_FIREPOWER).size() == 3, "firepower items")
+	_check(ItemDefs.get_category_items(ItemDefs.CATEGORY_FIREPOWER).size() == 4, "firepower items")
 	_check(ItemDefs.get_category_items(ItemDefs.CATEGORY_FORTIFICATION).size() == 2, "fortification items")
-	_check(ItemDefs.get_category_items(ItemDefs.CATEGORY_ENERGY).size() == 2, "energy items")
-	_check(int(ItemDefs.get_item("turret").cost) + int(ItemDefs.get_item("solar").cost) == 50, "starting build remains affordable")
+	_check(ItemDefs.get_category_items(ItemDefs.CATEGORY_ENERGY).size() == 4, "energy items")
+	_check(int(ItemDefs.get_item("sandbag").energy_demand) == 0, "ordinary walls require no power")
+	_check(int(ItemDefs.get_item("turret").cost) + int(ItemDefs.get_item("fusion_tower").cost) == 70, "starting build remains affordable")
 	_check(main.hud.settings_button != null, "menu button exists")
 
 	# ---------------------------------------------------------------- 商店与放置
@@ -82,7 +83,30 @@ func _run() -> void:
 	main.shop_bar.cancel_drag()
 	main.shop_bar._on_tab_pressed("firepower")
 	main.shop_bar.cancel_drag()
-	main.begin_placement("solar")
+	# ---------------------------------------------------------------- 研发与超级建筑
+	_check(not main.is_item_unlocked("laser_tower"), "laser starts locked")
+	_check(not main.is_item_unlocked("lightning_tower"), "lightning starts locked")
+	_check(not main.is_item_unlocked("compression_tower"), "amplifier starts locked")
+	_check(main.is_item_unlocked("fusion_tower") and main.is_item_unlocked("coin_tower"), "basic economy buildings start unlocked")
+	main.coins = 250
+	_check(not main.research_item("laser_tower") and main.coins == 250, "insufficient coins cannot research")
+	main.coins = 300
+	var laser_card: Control = main.shop_bar.cards[2]
+	var research_click := InputEventMouseButton.new()
+	research_click.button_index = MOUSE_BUTTON_LEFT
+	research_click.pressed = true
+	laser_card._gui_input(research_click)
+	_check(main.is_item_unlocked("laser_tower") and main.coins == 0, "clicking a locked card researches it")
+	main.coins = 1300
+	_check(main.research_item("super_fusion_tower") and main.coins == 300, "super fusion research costs one thousand")
+	main.coins = 2500
+	main.begin_placement("super_fusion_tower")
+	main.finish_placement("super_fusion_tower", _world(5, 5))
+	_check(main.coins == 500 and main.placed_buildings[-1].energy_output == 60, "super fusion deployment costs two thousand after research")
+	_check(ItemDefs.get_item("super_generator_tower").energy_output == 120, "super generator is thirty times the regular generator")
+	_clear_buildings()
+	main.coins = 150
+	main.begin_placement("fusion_tower")
 	_check(Engine.time_scale < 0.5 and main.dim_rect.visible, "deployment focus active")
 	main.cancel_placement()
 	_check(is_equal_approx(Engine.time_scale, 1.0) and not main.dim_rect.visible, "deployment cancel restores")
@@ -95,9 +119,25 @@ func _run() -> void:
 	main.select_building(refund_building)
 	main.dismantle_selected()
 	_check(main.placed_buildings.is_empty() and main.coins == 150, "dismantle releases building and coins")
+
+	var wall_coins := int(main.coins)
+	var wall_a: Node = _place("sandbag", Vector2i(0, 3))
+	var wall_b: Node = _place("sandbag", Vector2i(1, 3))
+	var wall_c: Node = _place("sandbag", Vector2i(0, 4))
+	_check(wall_a.wall_mask == 6, "wall connects east and south")
+	_check(wall_b.wall_mask == 8, "east wall connects west")
+	_check(wall_c.wall_mask == 1, "south wall connects north")
+	main.select_building(wall_b)
+	main.dismantle_selected()
+	_check(wall_a.wall_mask == 4, "dismantling middle wall refreshes neighbors")
+	wall_c.take_damage(10000.0)
+	_check(wall_a.wall_mask == 0, "destroying connected wall refreshes remaining wall")
+	_clear_buildings()
+	main.coins = wall_coins
 	_check(main.arena.map_loader.is_buildable(Vector2i(-3, 3)), "dismantle releases cell")
 
 	main.coins = 100
+	Events.set_item_unlocked("compression_tower", true)
 	main.begin_placement("compression_tower")
 	main.update_placement(_world(3, 3))
 	_check(not main.highlights.range_cells.is_empty(), "compression shows two-cell aura preview")
@@ -118,20 +158,21 @@ func _run() -> void:
 	_check(main.coins == 20, "turret cost")
 	_check(main.arena.map_loader.get_occupied_building(turret.cell) == turret, "building occupies cell")
 	_check(not turret.powered, "turret needs power")
-	_place("solar", Vector2i(-3, 2))
-	_check(turret.powered and main.power_supply == 2, "solar powers turret")
-	main.begin_placement("solar")
+	_place("fusion_tower", Vector2i(-3, 2))
+	_check(turret.powered and main.power_supply == 4, "solar powers turret")
+	main.coins = 100
+	main.begin_placement("fusion_tower")
 	main.update_placement(turret.global_position)
 	_check(not main.highlights.hover_valid, "occupied hover is invalid")
-	main.finish_placement("solar", turret.global_position)
+	main.finish_placement("fusion_tower", turret.global_position)
 	_check(main.placed_buildings.size() == 2, "occupied placement rejected")
 	main.cancel_placement()
 	main.coins = 500
-	main.begin_placement("solar")
-	main.finish_placement("solar", Vector2.ZERO)
+	main.begin_placement("fusion_tower")
+	main.finish_placement("fusion_tower", Vector2.ZERO)
 	_check(main.placed_buildings.size() == 2 and main.coins == 500, "base placement rejected without charge")
-	main.begin_placement("solar")
-	main.finish_placement("solar", first_nest.global_position)
+	main.begin_placement("fusion_tower")
+	main.finish_placement("fusion_tower", first_nest.global_position)
 	_check(main.placed_buildings.size() == 2, "nest placement rejected")
 	main.cancel_placement()
 
@@ -233,7 +274,7 @@ func _run() -> void:
 	_check(heavy.item_id == "heavy_turret" and upgraded_laser.attack_style == "laser", "advanced building definitions")
 	var buffed: Node = _place("turret", Vector2i(0, 6))
 	var compression: Node = _place("compression_tower", Vector2i(0, 4), -PI / 2.0)
-	_place("solar", Vector2i(-2, 4))
+	_place("fusion_tower", Vector2i(-2, 4))
 	main.refresh_power()
 	_check(compression.covers_point(buffed.global_position), "compression covers a target two cells away")
 	_check(not compression.covers_point(_world(0, 7)), "compression excludes targets three cells away")
@@ -368,6 +409,43 @@ func _run() -> void:
 	main._zoom_at(Vector2(200, 400), 1.1)
 	_check(main.camera_zoom > old_zoom, "zoom control changes camera")
 
+	# ---------------------------------------------------------------- 新建筑经济、连锁与怪物奖励
+	_clear_buildings()
+	main.coins = 0
+	main._reward_block(20)
+	_check(main.coins == 7, "monster coin rewards are reduced to 35 percent")
+	main.coins = 500
+	var coin_tower: Node = _place("coin_tower", Vector2i(3, 3))
+	main._end_prep()
+	coin_tower._coin_timer = 0.01
+	coin_tower._process(0.02)
+	_check(main.coins == 500 and not coin_tower.powered, "unpowered coin tower does not produce")
+	_place("fusion_tower", Vector2i(3, 4))
+	_check(coin_tower.powered, "coin tower consumes power instead of generating power")
+	coin_tower._coin_timer = 0.01
+	coin_tower._process(0.02)
+	_check(main.coins == 505, "powered coin tower produces five coins")
+	main.select_building(coin_tower)
+	main.upgrade_selected()
+	_check(coin_tower.coin_output == 7, "coin tower upgrades increase coin output")
+
+	_clear_buildings()
+	main.blocks.clear_enemies()
+	var lightning: Node = _place("lightning_tower", Vector2i(0, -3))
+	var chain_enemies: Array = []
+	for offset in [50.0, 100.0, 150.0, 200.0]:
+		chain_enemies.append(main.blocks.spawn_enemy(lightning.global_position + Vector2(offset, 0), "normal"))
+	var isolated: Dictionary = main.blocks.spawn_enemy(lightning.global_position + Vector2(300, 0), "normal")
+	var chain: Array = main.get_lightning_chain(chain_enemies[0], 4, 64.0)
+	_check(chain.size() == 4, "lightning chains through four targets one cell apart")
+	_check(not chain.has(isolated), "lightning excludes enemies beyond one-cell gaps")
+	lightning._fire_lightning(chain_enemies[0])
+	_check(lightning._lightning_points.size() > 8 and lightning._lightning_hold > 0.0, "lightning renders a winding chain")
+	for chain_enemy in chain_enemies:
+		_check(int(chain_enemy.hp) == 1, "lightning damages each chained enemy")
+	_check(int(isolated.hp) == 5, "isolated enemy is not damaged")
+	_clear_buildings()
+	main.blocks.clear_enemies()
 	# ---------------------------------------------------------------- 胜利
 	for nest in main.nests.duplicate():
 		main.hit_nest(nest, 9999, nest.global_position, false)
