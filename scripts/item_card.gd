@@ -21,6 +21,7 @@ var _can_buy := false
 var _hovered := false
 var _style: StyleBoxFlat
 var _icon_texture: Texture2D
+var _compact := false
 var _events := EventBindingScript.new()
 
 
@@ -77,21 +78,51 @@ func set_active(value: bool) -> void:
 func _layout() -> void:
     if name_label == null:
         return
-    var text_x := 58.0
-    var width := maxf(32.0, size.x - text_x - 12.0)
-    category_label.position = Vector2(text_x, 3.0)
-    category_label.size = Vector2(width, 17.0)
-    category_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-    name_label.position = Vector2(text_x, 21.0)
-    name_label.size = Vector2(width, 24.0)
-    name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-    cost_label.position = Vector2(text_x, maxf(45.0, size.y - 24.0))
-    cost_label.size = Vector2(width, 20.0)
-    cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+    var compact_now := size.x < 150.0
+    var compact_changed := compact_now != _compact
+    _compact = compact_now
+    if _compact:
+        var width := maxf(48.0, size.x - 12.0)
+        category_label.position = Vector2(6, 4)
+        category_label.size = Vector2(width, 16)
+        category_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        category_label.add_theme_font_size_override("font_size", 10)
+        name_label.position = Vector2(6, 64)
+        name_label.size = Vector2(width, 34)
+        name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        name_label.add_theme_font_size_override("font_size", 13)
+        name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        name_label.max_lines_visible = 2
+        cost_label.position = Vector2(6, maxf(100.0, size.y - 24.0))
+        cost_label.size = Vector2(width, 20)
+        cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        cost_label.add_theme_font_size_override("font_size", 12)
+    else:
+        var text_x := 58.0
+        var width := maxf(32.0, size.x - text_x - 12.0)
+        category_label.position = Vector2(text_x, 3.0)
+        category_label.size = Vector2(width, 17.0)
+        category_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+        category_label.add_theme_font_size_override("font_size", 12)
+        name_label.position = Vector2(text_x, 21.0)
+        name_label.size = Vector2(width, 24.0)
+        name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+        name_label.add_theme_font_size_override("font_size", 15)
+        name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+        name_label.max_lines_visible = 1
+        cost_label.position = Vector2(text_x, maxf(45.0, size.y - 24.0))
+        cost_label.size = Vector2(width, 20.0)
+        cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+        cost_label.add_theme_font_size_override("font_size", 13)
+    if compact_changed:
+        _refresh_texts()
     queue_redraw()
 
 
 func _icon_rect() -> Rect2:
+    if _compact:
+        var side := 36.0
+        return Rect2(Vector2((size.x - side) * 0.5, 27.0), Vector2(side, side))
     var side := minf(42.0, size.y - 24.0)
     return Rect2(Vector2(10.0, (size.y - side) * 0.5), Vector2(side, side))
 
@@ -101,7 +132,9 @@ func _refresh_texts() -> void:
         return
     var category := String(item.category)
     var energy := int(item.get("energy_output", 0))
-    if energy > 0:
+    if _compact:
+        category_label.text = I18n.t("shop.energy_output", [energy]) if energy > 0 else I18n.t("shop.energy_demand", [int(item.get("energy_demand", 1))])
+    elif energy > 0:
         category_label.text = I18n.t(ItemDefs.category_name_key(category)) + " " + I18n.t("shop.energy_output", [energy])
     else:
         category_label.text = I18n.t(ItemDefs.category_name_key(category)) + " " + I18n.t("shop.energy_demand", [int(item.get("energy_demand", 1))])

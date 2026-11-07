@@ -121,12 +121,7 @@ func _draw_placement() -> void:
 	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.08))
 	draw_rect(cell, Color(mark.r, mark.g, mark.b, 0.65), false, 1.5)
 
-	draw_circle(Vector2.ZERO, base_radius + 6.0, Color(mark.r, mark.g, mark.b, 0.08))
-	draw_circle(Vector2.ZERO, base_radius, Color(mark.r, mark.g, mark.b, 0.16))
-	draw_arc(Vector2.ZERO, base_radius + 2.0, 0.0, TAU, 36, mark, 2.0)
 
-	var tint := Color(1.0, 1.0, 1.0, 0.62) if valid else Color(1.0, 0.30, 0.36, 0.58)
-	_draw_body(tint)
 
 	draw_line(Vector2(-9.0, 0.0), Vector2(9.0, 0.0), mark, 1.5)
 	draw_line(Vector2(0.0, -9.0), Vector2(0.0, 9.0), mark, 1.5)

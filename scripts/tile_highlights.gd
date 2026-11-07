@@ -17,6 +17,7 @@ var network_range_cells: Array = []
 var hover_cell := Vector2i.ZERO
 var hover_valid := false
 var hover_active := false
+var preview_visible := true
 
 
 func _ready() -> void:
@@ -61,11 +62,20 @@ func clear_all() -> void:
 	clear_range()
 
 
+func set_preview_visible(value: bool) -> void:
+	if preview_visible == value:
+		return
+	preview_visible = value
+	queue_redraw()
+
+
 func _draw() -> void:
 	if map == null:
 		return
 	if GameSettings.show_grid:
 		_draw_grid()
+	if not preview_visible:
+		return
 	for cell in placement_cells:
 		_draw_cell(cell, PLACE_FILL, PLACE_LINE, 60.0, 1.0)
 	for cell in network_range_cells:

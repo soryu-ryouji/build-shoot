@@ -9,6 +9,7 @@ var menu: Control
 
 func _ready() -> void:
 	var target_size := _requested_size()
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	get_window().size = target_size
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--locale="):

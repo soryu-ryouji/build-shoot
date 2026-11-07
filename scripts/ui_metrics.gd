@@ -21,7 +21,7 @@ const FONT_DISPLAY := 42
 
 ## 顶部只保留菜单、金币与能源；底部为标签页和可直接拖拽的道具卡。
 const HUD_HEIGHT := 52.0
-const SHOP_HEIGHT := 146.0
+const SHOP_HEIGHT := 150.0
 const SHOP_MAX_WIDTH := 680.0
 const SHOP_TAB_HEIGHT := 48.0
 const SHOP_CARD_HEIGHT := 76.0

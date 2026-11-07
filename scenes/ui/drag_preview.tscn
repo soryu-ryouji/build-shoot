@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/drag_preview.gd" id="1_script"]
+
+[node name="DragPreview" type="Control"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(88, 88)
+z_index = 20
+mouse_filter = 2
+script = ExtResource("1_script")

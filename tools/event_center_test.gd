@@ -7,6 +7,7 @@ const PREFABS := [
     "res://scenes/ui/hud.tscn",
     "res://scenes/ui/shop_bar.tscn",
     "res://scenes/ui/item_card.tscn",
+    "res://scenes/ui/drag_preview.tscn",
     "res://scenes/ui/focus_panel.tscn",
     "res://scenes/ui/settings_panel.tscn",
     "res://scenes/ui/result_panel.tscn",
@@ -43,18 +44,18 @@ func _run() -> void:
     Events.set_coins(260)
     _check(received.size() == 1, "cleared binding no longer receives events")
 
-    # HUD is created after a state change and must show the cached value immediately.
-    var hud = load("res://scenes/ui/hud.tscn").instantiate()
-    add_child(hud)
+    # Shop is created after a state change and must show cached resources immediately.
+    var shop = load("res://scenes/ui/shop_bar.tscn").instantiate()
+    add_child(shop)
     await _frames(2)
-    _check("260" in hud.coins_label.text, "late HUD binding reads cached coins")
+    _check("260" in shop.coins_label.text, "late shop binding reads cached coins")
     Events.set_coins(321)
     Events.set_power(4, 6, 0)
     await _frames(2)
-    _check("321" in hud.coins_label.text, "HUD reacts to coin event")
-    _check("4/6" in hud.energy_label.text, "HUD reacts to power event")
-    _check(hud._events.count() == 4, "HUD owns four managed event connections")
-    hud.queue_free()
+    _check("321" in shop.coins_label.text, "shop reacts to coin event")
+    _check("4/6" in shop.energy_label.text, "shop reacts to power event")
+    _check(shop._events.count() == 3, "shop owns three managed event connections")
+    shop.queue_free()
     await _frames(2)
 
     for path in PREFABS:

@@ -1,6 +1,6 @@
 extends Control
 
-## 可编辑预置体：scenes/ui/hud.tscn。资源数值通过 Events + EventBinding 更新。
+## 可编辑预置体：scenes/ui/hud.tscn。HUD 仅保留菜单、提示与巢穴方向指示。
 
 signal settings_requested
 
@@ -10,16 +10,10 @@ const UiMetrics = preload("res://scripts/ui_metrics.gd")
 const EventBindingScript = preload("res://scripts/event_binding.gd")
 
 var game: Node
-@onready var stats_box: HBoxContainer = %Stats
-@onready var coins_cell: PanelContainer = %CoinsCell
-@onready var energy_cell: PanelContainer = %EnergyCell
-@onready var coins_label: Label = %CoinsLabel
-@onready var energy_label: Label = %EnergyLabel
 @onready var toast_label: Label = %ToastLabel
 @onready var settings_button: Button = %SettingsButton
 
 var _toast_time := 0.0
-var _coin_pop := 0.0
 var _message_style: StyleBoxFlat
 var _events := EventBindingScript.new()
 
@@ -27,23 +21,15 @@ var _events := EventBindingScript.new()
 func _ready() -> void:
     mouse_filter = Control.MOUSE_FILTER_IGNORE
     _message_style = _style(Color(Palette.PAPER, 0.96), Palette.ACCENT, false)
-    var cell_style := _style(Color(Palette.PAPER, 0.90), Color(Palette.INK, 0.14), false)
-    coins_cell.add_theme_stylebox_override("panel", cell_style)
-    energy_cell.add_theme_stylebox_override("panel", cell_style)
     settings_button.add_theme_color_override("font_color", Palette.INK)
     settings_button.add_theme_color_override("font_hover_color", Palette.ACCENT)
     settings_button.add_theme_stylebox_override("normal", _button_style(Color(Palette.INK, 0.06)))
     settings_button.add_theme_stylebox_override("hover", _button_style(Color(Palette.ACCENT, 0.16)))
     settings_button.add_theme_stylebox_override("pressed", _button_style(Color(Palette.ACCENT, 0.28)))
     settings_button.tooltip_text = I18n.t("settings.open")
-
-    _events.bind(Events.coins_changed, _on_coins_changed)
-    _events.bind(Events.power_changed, _on_power_changed)
     _events.bind(Events.language_changed, _on_language_changed)
     _events.bind(Events.toast_requested, toast)
     get_viewport().size_changed.connect(_layout)
-    _on_coins_changed(Events.coins, Events.coins)
-    _on_power_changed(Events.power_demand, Events.power_supply, Events.power_offline)
     _layout()
 
 
@@ -55,25 +41,8 @@ func _on_settings_pressed() -> void:
     settings_requested.emit()
 
 
-func _on_coins_changed(current: int, previous: int) -> void:
-    coins_label.text = I18n.t("hud.coins", [current])
-    if current > previous:
-        _coin_pop = 1.0
-
-
-func _on_power_changed(demand: int, supply: int, offline: int) -> void:
-    if offline > 0:
-        energy_label.text = I18n.t("hud.energy_offline", [demand, supply, offline])
-        energy_label.add_theme_color_override("font_color", Palette.DANGER)
-    else:
-        energy_label.text = I18n.t("hud.energy", [demand, supply])
-        energy_label.add_theme_color_override("font_color", Palette.INK)
-
-
 func _on_language_changed(_locale: String) -> void:
     settings_button.tooltip_text = I18n.t("settings.open")
-    _on_coins_changed(Events.coins, Events.coins)
-    _on_power_changed(Events.power_demand, Events.power_supply, Events.power_offline)
 
 
 func _style(fill: Color, border: Color, accent: bool) -> StyleBoxFlat:
@@ -100,34 +69,20 @@ func _layout() -> void:
     var field := ResponsiveLayout.field_rect(self)
     settings_button.position = controls.position
     settings_button.size = Vector2(UiMetrics.TOUCH, UiMetrics.TOUCH)
-    stats_box.reset_size()
-    var stats_size := stats_box.get_combined_minimum_size()
-    stats_box.size = Vector2(stats_size.x, UiMetrics.TOUCH)
-    stats_box.position = Vector2(controls.end.x - stats_box.size.x, controls.position.y)
     var message_width := minf(420.0, field.size.x - 48.0)
     toast_label.size = Vector2(message_width, UiMetrics.TOAST_HEIGHT)
     toast_label.position = Vector2(field.position.x + (field.size.x - message_width) * 0.5, field.position.y + 12.0)
     queue_redraw()
 
 
-## 仅驱动短时提示和金币动画，不读取游戏数值。
+## 仅驱动短时提示，不读取游戏数值。
 func _process(delta: float) -> void:
-    if _coin_pop > 0.0:
-        _coin_pop = maxf(0.0, _coin_pop - delta * 4.0)
-        coins_label.pivot_offset = coins_label.size * 0.5
-        coins_label.scale = Vector2.ONE * (1.0 + 0.10 * _coin_pop)
-    else:
-        coins_label.scale = Vector2.ONE
     if _toast_time > 0.0:
         _toast_time -= delta
         toast_label.modulate.a = clampf(_toast_time / 0.4, 0.0, 1.0)
     else:
         toast_label.modulate.a = 0.0
     queue_redraw()
-
-
-func pop_coins() -> void:
-    _coin_pop = 1.0
 
 
 func toast(text: String, color: Color) -> void:

@@ -182,20 +182,8 @@ func _setup_nodes() -> void:
     dim_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
     dim_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     dim_rect.visible = false
-    var dim_shader := Shader.new()
-    dim_shader.code = """
-shader_type canvas_item;
-uniform float strength = 0.55;
-void fragment() {
-    vec2 p = UV * 2.0 - 1.0;
-    float d = max(abs(p.x), abs(p.y));
-    float edge = smoothstep(0.42, 1.16, d);
-    COLOR = vec4(0.015, 0.025, 0.035, edge * strength);
-}
-"""
-    var dim_material := ShaderMaterial.new()
-    dim_material.shader = dim_shader
-    dim_rect.material = dim_material
+    # 使用普通透明遮罩，避免 Web 部署时全屏 Shader 重绘造成建筑闪烁。
+    dim_rect.color = Color(0.015, 0.025, 0.035, 0.16)
     hud_layer.add_child(dim_rect)
 
     hud = HudScene.instantiate()
@@ -215,6 +203,7 @@ void fragment() {
     shop_bar.drag_started.connect(_on_shop_drag_started)
     shop_bar.drag_moved.connect(_on_shop_drag_moved)
     shop_bar.drag_released.connect(_on_shop_drag_released)
+    shop_bar.drag_cancelled.connect(cancel_placement)
     focus_panel = FocusPanelScene.instantiate()
     focus_panel.name = "FocusPanel"
     focus_panel.game = self
@@ -531,7 +520,16 @@ func _on_shop_drag_started(item_id: String) -> void:
 
 
 func _on_shop_drag_moved(pos: Vector2) -> void:
+    if shop_bar.is_ui_position(pos):
+        _set_drag_preview_hidden(true)
+        return
+    _set_drag_preview_hidden(false)
     update_placement(screen_to_world(pos))
+
+
+func _set_drag_preview_hidden(hidden: bool) -> void:
+    placement_ghost.visible = not hidden
+    highlights.set_preview_visible(not hidden)
 
 
 func _on_shop_drag_released(item_id: String, pos: Vector2) -> void:
@@ -550,6 +548,7 @@ func begin_placement(item_id: String) -> void:
         return
     cancel_orientation()
     clear_selection()
+    _set_drag_preview_hidden(false)
     _set_deploy_focus(true)
     placing = true
     placing_id = item_id
@@ -604,6 +603,7 @@ func finish_placement(item_id: String, pos: Vector2) -> void:
 
 
 func cancel_placement() -> void:
+    _set_drag_preview_hidden(false)
     Events.set_placement(false)
     placing = false
     placing_id = ""

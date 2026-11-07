@@ -11,6 +11,7 @@ var main: Node
 
 func _ready() -> void:
 	var target_size := _requested_size()
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	get_window().size = target_size
 	_apply_locale_argument()
 	main = load("res://scenes/main.tscn").instantiate()

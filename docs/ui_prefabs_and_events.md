@@ -6,9 +6,10 @@
 
 | 组件 | 场景 | 绑定/交互脚本 |
 | --- | --- | --- |
-| 顶部 HUD | `scenes/ui/hud.tscn` | `scripts/hud.gd` |
-| 底部标签建造栏 | `scenes/ui/shop_bar.tscn` | `scripts/shop_bar.gd` |
+| 左上角菜单与战场提示 | `scenes/ui/hud.tscn` | `scripts/hud.gd` |
+| 底部书签建造栏及金币/能源 | `scenes/ui/shop_bar.tscn` | `scripts/shop_bar.gd` |
 | 道具卡 | `scenes/ui/item_card.tscn` | `scripts/item_card.gd` |
+| 指针拖拽建筑实体预览 | `scenes/ui/drag_preview.tscn` | `scripts/drag_preview.gd` |
 | 建筑详情 | `scenes/ui/focus_panel.tscn` | `scripts/focus_panel.gd` |
 | 设置 | `scenes/ui/settings_panel.tscn` | `scripts/settings_panel.gd` |
 | 胜负结算 | `scenes/ui/result_panel.tscn` | `scripts/result_panel.gd` |
@@ -20,7 +21,7 @@
 
 主要区域的自适应位置仍集中在：
 
-- `scripts/responsive_layout.gd`：左上角菜单、右侧资源格、战场、底部商店和详情的可用矩形。
+- `scripts/responsive_layout.gd`：左上角菜单、战场、底部商店和详情的可用矩形。
 - `scripts/ui_metrics.gd`：横屏基准、触控尺寸和全局 UI 尺寸。
 
 ## 事件中心
