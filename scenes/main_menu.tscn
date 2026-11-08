@@ -121,6 +121,15 @@ focus_mode = 0
 theme_override_font_sizes/font_size = 21
 alignment = 0
 
+[node name="TutorialButton" type="Button" parent="ActionsBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 18
+alignment = 0
+
 [node name="ContinueButton" type="Button" parent="ActionsBox"]
 unique_name_in_owner = true
 visible = false
@@ -169,6 +178,7 @@ alignment = 0
 unique_name_in_owner = true
 
 [connection signal="pressed" from="ActionsBox/StartButton" to="." method="start_game"]
+[connection signal="pressed" from="ActionsBox/TutorialButton" to="." method="start_tutorial"]
 [connection signal="pressed" from="ActionsBox/Secondary/SettingsButton" to="." method="open_settings"]
 [connection signal="pressed" from="ActionsBox/Secondary/QuitButton" to="." method="_on_quit"]
 

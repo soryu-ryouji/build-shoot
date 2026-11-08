@@ -182,6 +182,8 @@ func _on_mouse_exited() -> void:
 func _gui_input(event: InputEvent) -> void:
     if game == null or item.is_empty():
         return
+    if not game.can_use_shop_item(String(item.id)):
+        return
     var pressed_now := false
     if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
         pressed_now = event.pressed

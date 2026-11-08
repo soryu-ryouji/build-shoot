@@ -8,6 +8,7 @@ const EventBindingScript = preload("res://scripts/event_binding.gd")
 const MENU_CHARACTER_RIGHT := 659.0 / 720.0
 
 @onready var start_button: Button = %StartButton
+@onready var tutorial_button: Button = %TutorialButton
 @onready var settings_button: Button = %SettingsButton
 @onready var quit_button: Button = %QuitButton
 @onready var continue_button: Button = %ContinueButton
@@ -33,6 +34,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_style_menu_button(start_button, true)
+	_style_menu_button(tutorial_button, false)
 	_style_menu_button(settings_button, false)
 	_style_menu_button(quit_button, false)
 	_style_menu_button(continue_button, true)
@@ -119,6 +121,7 @@ func _refresh_texts() -> void:
 	subtitle_label.text = I18n.t("menu.subtitle")
 	mode_label.text = I18n.t("menu.mode")
 	start_button.text = I18n.t("menu.start")
+	tutorial_button.text = I18n.t("menu.tutorial")
 	settings_button.text = I18n.t("menu.settings")
 	quit_button.text = I18n.t("menu.quit")
 	var available := SaveManager.has_save()
@@ -133,6 +136,11 @@ func _refresh_texts() -> void:
 func start_game() -> void:
 	SaveManager.load_requested = false
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
+
+
+func start_tutorial() -> void:
+	SaveManager.load_requested = false
+	get_tree().change_scene_to_file("res://scenes/tutorial.tscn")
 
 
 func continue_game() -> void:

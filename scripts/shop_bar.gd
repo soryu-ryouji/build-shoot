@@ -127,6 +127,8 @@ func _refresh_items() -> void:
 func _on_tab_pressed(category: String) -> void:
     if category == active_category:
         return
+    if game != null and not game.can_use_shop_category(category):
+        return
     active_category = category
     _refresh_items()
 

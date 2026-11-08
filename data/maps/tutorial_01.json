@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "id": "tutorial_01",
+  "name": "教学：第一道防线",
+  "tileset": "res://assets/tilesets/industrial.tres",
+  "palette": {
+    "floor_a": { "source": 0, "atlas": [0, 0] },
+    "floor_b": { "source": 0, "atlas": [1, 0] },
+    "floor_c": { "source": 0, "atlas": [2, 0] },
+    "floor_d": { "source": 0, "atlas": [3, 0] },
+    "pipe": { "source": 0, "atlas": [0, 1] },
+    "vent": { "source": 0, "atlas": [1, 1] },
+    "orange_mark": { "source": 0, "atlas": [4, 1] }
+  },
+  "generation": {
+    "seed": 1024,
+    "ground_tiles": ["floor_a", "floor_a", "floor_b", "floor_c", "floor_d"]
+  },
+  "base": {
+    "cell": [0, 0],
+    "size": [3, 3],
+    "hp": 1000
+  },
+  "nests": [
+    { "cell": [5, -2], "hp": 24, "spawn_interval": 6.0, "kind": "normal", "reward": 20 }
+  ]
+}

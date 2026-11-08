@@ -25,6 +25,10 @@ const BaseCore = preload("res://scripts/base_core.gd")
 const Nest = preload("res://scripts/nest.gd")
 const BuildingBuffs = preload("res://scripts/building_buffs.gd")
 const EnergyLinks = preload("res://scripts/energy_links.gd")
+const TutorialGuide = preload("res://scripts/tutorial_guide.gd")
+
+@export var tutorial_mode := false
+@export var map_path := Arena.DEFAULT_MAP_PATH
 
 var arena: Node2D
 var blocks: Node2D
@@ -40,6 +44,7 @@ var hud: Control
 var shop_bar: Control
 var focus_panel: Control
 var settings_panel: Control
+var tutorial: Control
 var result_panel: PanelContainer
 var result_title: Label
 var result_detail: Label
@@ -103,13 +108,15 @@ func _ready() -> void:
     buff_system = BuildingBuffs.new(self)
     _setup_nodes()
     Music.play_track("battle")
-    if SaveManager.load_requested:
+    if tutorial_mode:
+        SaveManager.load_requested = false
+    elif SaveManager.load_requested:
         call_deferred("_restore_pending_save")
 
 
 func _process(delta: float) -> void:
     _process_camera(delta)
-    if outcome == "playing":
+    if outcome == "playing" and not tutorial_mode:
         _autosave_timer -= delta
         if _autosave_timer <= 0.0:
             _autosave_timer = 15.0
@@ -117,6 +124,8 @@ func _process(delta: float) -> void:
     if outcome != "playing":
         return
     if preparing:
+        if tutorial_mode:
+            return
         prep_timer -= delta
         if prep_timer <= 0.0:
             _end_prep()
@@ -133,6 +142,7 @@ func _end_prep() -> void:
 func _setup_nodes() -> void:
     arena = Arena.new()
     arena.name = "Arena"
+    arena.map_path = map_path
     add_child(arena)
 
     highlights = TileHighlights.new()
@@ -219,17 +229,24 @@ func _setup_nodes() -> void:
     settings_panel = SettingsPanelScene.instantiate()
     settings_panel.name = "SettingsPanel"
     ui_layer.add_child(settings_panel)
+    settings_panel.save_button.visible = not tutorial_mode
     settings_panel.closed.connect(_on_settings_closed)
     settings_panel.restart_requested.connect(_on_settings_restart)
     settings_panel.menu_requested.connect(_on_settings_menu)
     settings_panel.save_requested.connect(_on_save_requested)
     _build_result_panel(ui_layer)
+    if tutorial_mode:
+        tutorial = TutorialGuide.new()
+        tutorial.name = "TutorialGuide"
+        tutorial.game = self
+        ui_layer.add_child(tutorial)
     get_viewport().size_changed.connect(_layout)
     _layout()
 
 
 func _build_result_panel(parent: Node) -> void:
     result_panel = ResultPanelScene.instantiate()
+    result_panel.tutorial_result = tutorial_mode
     parent.add_child(result_panel)
     result_title = result_panel.title_label
     result_detail = result_panel.detail_label
@@ -268,6 +285,8 @@ func center_on_base() -> void:
 
 func _process_camera(delta: float) -> void:
     if placing or orienting or outcome != "playing" or get_tree().paused:
+        return
+    if tutorial_mode and tutorial != null and tutorial.blocks_world_input():
         return
     var direction := Vector2.ZERO
     if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
@@ -323,7 +342,7 @@ func _on_settings_restart() -> void:
 
 
 func _on_settings_menu() -> void:
-    if outcome == "playing":
+    if outcome == "playing" and not tutorial_mode:
         SaveManager.save_game(self)
     SaveManager.load_requested = false
     get_tree().paused = false
@@ -345,6 +364,8 @@ func _unhandled_input(event: InputEvent) -> void:
                 center_on_base()
         return
     if outcome != "playing":
+        return
+    if tutorial_mode and tutorial != null and tutorial.blocks_world_input():
         return
     if orienting:
         _handle_orientation_input(event)
@@ -530,11 +551,21 @@ func _show_result() -> void:
 
 # ---------------------------------------------------------------- 道具布置
 
+func can_use_shop_item(item_id: String) -> bool:
+    return not tutorial_mode or (tutorial != null and tutorial.can_deploy(item_id))
+
+
+func can_use_shop_category(category: String) -> bool:
+    return not tutorial_mode or (tutorial != null and tutorial.can_open_category(category))
+
+
 func is_item_unlocked(item_id: String) -> bool:
     return ItemDefs.get_research_cost(item_id) <= 0 or bool(Events.unlocked_items.get(item_id, false))
 
 
 func research_item(item_id: String) -> bool:
+    if tutorial_mode:
+        return false
     if is_item_unlocked(item_id):
         return true
     var cost := ItemDefs.get_research_cost(item_id)
@@ -571,6 +602,10 @@ func _on_shop_drag_released(item_id: String, pos: Vector2) -> void:
 
 func begin_placement(item_id: String) -> void:
     if outcome != "playing":
+        return
+    if not can_use_shop_item(item_id):
+        if tutorial_mode:
+            Events.toast(I18n.t("tutorial.follow_step"), Palette.ACCENT)
         return
     var item: Dictionary = ItemDefs.get_item(item_id)
     if item.is_empty():
@@ -815,7 +850,10 @@ func get_line_cells(center: Vector2, direction: Vector2) -> Array:
 
 
 func is_valid_placement(pos: Vector2) -> bool:
-    return arena.map_loader.is_buildable(arena.map_loader.world_to_cell(pos))
+    var cell: Vector2i = arena.map_loader.world_to_cell(pos)
+    if tutorial_mode and placing and tutorial != null and not tutorial.is_cell_allowed(placing_id, cell):
+        return false
+    return arena.map_loader.is_buildable(cell)
 
 
 func _place_building(item: Dictionary, pos: Vector2, facing := -PI / 2.0) -> Node:
@@ -831,6 +869,8 @@ func _place_building(item: Dictionary, pos: Vector2, facing := -PI / 2.0) -> Nod
     Sfx.play("place")
     if not item.get("auras", []).is_empty():
         Sfx.play("buff")
+    if tutorial_mode and tutorial != null:
+        tutorial.on_building_placed(building)
     return building
 
 

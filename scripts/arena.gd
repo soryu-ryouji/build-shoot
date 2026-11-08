@@ -6,13 +6,14 @@ const MapLoader = preload("res://scripts/map_loader.gd")
 const DEFAULT_MAP_PATH := "res://data/maps/industrial_01.json"
 
 var map_loader: Node2D
+var map_path := DEFAULT_MAP_PATH
 
 
 func _ready() -> void:
 	map_loader = MapLoader.new()
 	map_loader.name = "MapLoader"
 	add_child(map_loader)
-	map_loader.load_map(DEFAULT_MAP_PATH)
+	map_loader.load_map(map_path)
 
 
 func load_map(path: String) -> bool:

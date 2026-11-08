@@ -37,7 +37,7 @@ var _events := EventBindingScript.new()
 
 func _ready() -> void:
     process_mode = Node.PROCESS_MODE_ALWAYS
-    mouse_filter = Control.MOUSE_FILTER_STOP
+    mouse_filter = Control.MOUSE_FILTER_IGNORE
     visible = false
     panel.add_theme_stylebox_override("panel", _panel_style())
     option_buttons = {
@@ -121,6 +121,7 @@ func _layout() -> void:
 func open_panel(as_game: bool) -> void:
     in_game = as_game
     game_actions.visible = in_game
+    mouse_filter = Control.MOUSE_FILTER_STOP
     visible = true
     _refresh_texts()
     _layout()
@@ -129,6 +130,7 @@ func open_panel(as_game: bool) -> void:
 
 func close_panel() -> void:
     visible = false
+    mouse_filter = Control.MOUSE_FILTER_IGNORE
     closed.emit()
 
 

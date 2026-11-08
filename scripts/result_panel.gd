@@ -11,6 +11,7 @@ const EventBindingScript = preload("res://scripts/event_binding.gd")
 
 @onready var title_label: Label = %TitleLabel
 @onready var detail_label: Label = %DetailLabel
+var tutorial_result := false
 var _events := EventBindingScript.new()
 
 
@@ -47,6 +48,10 @@ func _on_language_changed(_locale: String) -> void:
 
 
 func _refresh_text(value: String) -> void:
+    if tutorial_result and value == "won":
+        title_label.text = I18n.t("tutorial.complete.title")
+        detail_label.text = I18n.t("tutorial.complete.detail")
+        return
     title_label.text = I18n.t("result.won" if value == "won" else "result.lost")
     detail_label.text = I18n.t("result.won_detail" if value == "won" else "result.lost_detail")
 

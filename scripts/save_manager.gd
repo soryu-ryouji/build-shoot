@@ -18,6 +18,9 @@ func save_game(game: Node) -> bool:
     if game == null or not is_instance_valid(game) or game.outcome != "playing":
         last_error = "当前状态不能保存"
         return false
+    if bool(game.get("tutorial_mode")):
+        last_error = "教学关卡不使用普通存档"
+        return false
     var data: Dictionary = game.get_save_data()
     data["version"] = SAVE_VERSION
     data["saved_at"] = int(Time.get_unix_time_from_system())
