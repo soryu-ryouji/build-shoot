@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "revision": 2,
   "id": "industrial_01",
   "name": "中央防线",
   "tileset": "res://assets/tilesets/industrial.tres",
@@ -22,9 +23,9 @@
     "hp": 1000
   },
   "nests": [
-    { "cell": [-5, -4], "hp": 45, "spawn_interval": 7.0, "kind": "normal", "reward": 30 },
-    { "cell": [6, -3], "hp": 65, "spawn_interval": 8.0, "kind": "swift", "reward": 40 },
-    { "cell": [-6, 5], "hp": 75, "spawn_interval": 9.0, "kind": "normal", "reward": 40 },
-    { "cell": [5, 6], "hp": 90, "spawn_interval": 10.0, "kind": "armored", "reward": 50 }
+    { "cell": [-9, -7], "hp": 45, "spawn_interval": 3.5, "spawn_count": 2, "kind": "normal", "reward": 30 },
+    { "cell": [10, -7], "hp": 65, "spawn_interval": 4.0, "spawn_count": 2, "kind": "swift", "reward": 40 },
+    { "cell": [-10, 8], "hp": 75, "spawn_interval": 4.5, "spawn_count": 2, "kind": "normal", "reward": 40 },
+    { "cell": [9, 9], "hp": 90, "spawn_interval": 5.0, "spawn_count": 2, "kind": "armored", "reward": 50 }
   ]
 }

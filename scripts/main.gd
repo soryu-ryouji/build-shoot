@@ -5,6 +5,12 @@ extends Node2D
 const DEPLOY_TIME_SCALE := 0.28
 const PREP_TIME := 5.0
 const LINE_RANGE := 768.0
+const LEGACY_INDUSTRIAL_CELLS := {
+    1: Vector2i(-5, -4),
+    2: Vector2i(6, -3),
+    3: Vector2i(-6, 5),
+    4: Vector2i(5, 6),
+}
 
 const Palette = preload("res://scripts/palette.gd")
 const Arena = preload("res://scripts/arena.gd")
@@ -156,7 +162,8 @@ func _setup_nodes() -> void:
 
     blocks = Blocks.new()
     blocks.name = "Blocks"
-    blocks.z_index = 2
+    # 敌人接触所有建筑并停下攻击；绘制在建筑上方，避免接触时被遮住。
+    blocks.z_index = 5
     blocks.game = self
     add_child(blocks)
 
@@ -1028,7 +1035,7 @@ func is_building_buffed(point: Vector2) -> bool:
 func _rebuild_building_index() -> void:
     _buildings_by_cell.clear()
     for b in placed_buildings:
-        if not is_instance_valid(b) or not b.can_block():
+        if not is_instance_valid(b) or not bool(b.alive):
             continue
         var cell: Vector2i = arena.map_loader.world_to_cell(b.global_position)
         if not _buildings_by_cell.has(cell):
@@ -1045,7 +1052,7 @@ func get_blocking_building(rect: Rect2) -> Node:
     for x in range(minimum.x, maximum.x + 1):
         for y in range(minimum.y, maximum.y + 1):
             for b in _buildings_by_cell.get(Vector2i(x, y), []):
-                if not is_instance_valid(b) or not b.can_block():
+                if not is_instance_valid(b) or not bool(b.alive):
                     continue
                 var contact: float = Blocks.ENEMY_CONTACT_RADIUS + b.get_contact_radius()
                 if b.global_position.distance_squared_to(rect.get_center()) > contact * contact:
@@ -1150,7 +1157,7 @@ func get_save_data() -> Dictionary:
     var nest_data: Array = []
     for nest in nests:
         if is_instance_valid(nest) and nest.alive:
-            nest_data.append({"id": int(nest.id), "hp": float(nest.hp), "spawn_timer": float(nest.spawn_timer)})
+            nest_data.append({"id": int(nest.id), "cell": [int(nest.cell.x), int(nest.cell.y)], "hp": float(nest.hp), "spawn_timer": float(nest.spawn_timer)})
     var enemies: Array = []
     for enemy in blocks.blocks:
         if bool(enemy.get("alive", false)):
@@ -1164,6 +1171,7 @@ func get_save_data() -> Dictionary:
     return {
         "game": {
             "map_id": arena.map_loader.map_id,
+            "map_revision": int(arena.map_loader.revision),
             "coins": int(coins),
             "elapsed": float(elapsed),
             "preparing": preparing,
@@ -1209,6 +1217,12 @@ func restore_save(data: Dictionary) -> bool:
         var nest = Nest.new()
         nest.name = "Nest%d" % id
         nest.setup(self, definitions[id])
+        var saved_cell: Array = saved_nest.get("cell", [])
+        if saved_cell.size() == 2:
+            nest.cell = Vector2i(int(saved_cell[0]), int(saved_cell[1]))
+        elif arena.map_loader.map_id == "industrial_01" and int(game.get("map_revision", 1)) < 2 and LEGACY_INDUSTRIAL_CELLS.has(id):
+            nest.cell = LEGACY_INDUSTRIAL_CELLS[id]
+        nest.position = arena.map_loader.cell_to_world(nest.cell)
         arena.map_loader.reserve_cell(nest.cell)
         nest.hp = clampf(float(saved_nest.get("hp", nest.max_hp)), 1.0, float(nest.max_hp))
         nest.spawn_timer = float(saved_nest.get("spawn_timer", nest.spawn_interval))

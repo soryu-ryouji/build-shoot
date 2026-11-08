@@ -7,6 +7,7 @@ const VIEW_PADDING := 2
 
 var map_data: Dictionary = {}
 var map_id := ""
+var revision := 1
 var cell_size := Vector2i(64, 64)
 var load_error := ""
 
@@ -61,6 +62,7 @@ func load_map(path: String) -> bool:
 
 	map_data = data
 	map_id = String(data.get("id", ""))
+	revision = maxi(1, int(data.get("revision", 1)))
 	_occupied.clear()
 	_visible_cells.clear()
 	_view_bounds = Rect2i(2147483647, 2147483647, 0, 0)
@@ -254,6 +256,7 @@ func _read_content(data: Dictionary) -> bool:
 			"cell": cell,
 			"hp": maxi(1, int(raw.get("hp", 80))),
 			"spawn_interval": maxf(0.2, float(raw.get("spawn_interval", 5.0))),
+			"spawn_count": maxi(1, int(raw.get("spawn_count", 1))),
 			"kind": String(raw.get("kind", "normal")),
 			"reward": maxi(0, int(raw.get("reward", 25))),
 		}

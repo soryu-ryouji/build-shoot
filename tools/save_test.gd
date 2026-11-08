@@ -51,6 +51,7 @@ func _run() -> void:
     _check(main.base_core.hp == 900.0, "base health restored")
     _check(main.nests[0].hp == main.nests[0].max_hp - 10.0, "nest health restored")
     _check(not main.arena.map_loader.is_buildable(main.nests[0].cell), "restored nest remains reserved")
+    _check(main.nests[0].cell == Vector2i(-9, -7), "current save keeps the expanded nest layout")
     _check(main.blocks.blocks.size() == 1 and int(main.blocks.blocks[0].hp) == 3, "enemy and health restored")
     _check(main.camera_center == Vector2(100, 50), "camera restored")
     var found_wall := false
@@ -67,6 +68,13 @@ func _run() -> void:
     _check(found_turret, "building level restored")
     _check(found_coin, "production timer restored")
     _check(main.settings_panel.save_button != null, "manual save button exists")
+
+    var legacy := data.duplicate(true)
+    legacy.game.erase("map_revision")
+    for saved_nest in legacy.game.nests:
+        saved_nest.erase("cell")
+    _check(main.restore_save(legacy), "legacy save remains readable")
+    _check(main.nests[0].cell == Vector2i(-5, -4), "legacy save preserves its original nest position")
 
     main.queue_free()
     await _frames(3)

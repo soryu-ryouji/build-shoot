@@ -1,6 +1,6 @@
 extends Node2D
 
-## 巢穴生成的敌人集合。敌人从任意方向接近中央基地，并攻击途中拦截建筑。
+## 巢穴生成的敌人集合。敌人从任意方向接近中央基地，并攻击途中接触的建筑。
 
 const Palette = preload("res://scripts/palette.gd")
 const EnemySpatialIndex = preload("res://scripts/enemy_spatial_index.gd")
@@ -332,7 +332,7 @@ func _attack_blocker(b: Dictionary, delta: float) -> bool:
 	var blocker = b.get("blocked_by", null)
 	if blocker == null:
 		return false
-	if not is_instance_valid(blocker) or not blocker.can_block():
+	if not is_instance_valid(blocker) or not bool(blocker.alive):
 		b.blocked_by = null
 		return false
 	blocker.take_damage(_attack_dps(String(b.kind)) * delta)

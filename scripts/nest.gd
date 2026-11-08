@@ -11,6 +11,7 @@ var kind := "normal"
 var max_hp := 80
 var hp := 80.0
 var spawn_interval := 5.0
+var spawn_count := 1
 var spawn_timer := 1.0
 var reward := 25
 var alive := true
@@ -27,6 +28,7 @@ func setup(g: Node, definition: Dictionary) -> void:
 	max_hp = int(definition.get("hp", 80))
 	hp = float(max_hp)
 	spawn_interval = float(definition.get("spawn_interval", 5.0))
+	spawn_count = maxi(1, int(definition.get("spawn_count", 1)))
 	spawn_timer = 0.8 + id * 0.35
 	reward = int(definition.get("reward", 25))
 	position = game.arena.map_loader.cell_to_world(cell)
@@ -47,7 +49,8 @@ func _process(delta: float) -> void:
 		spawn_timer -= delta
 		if spawn_timer <= 0.0:
 			spawn_timer += spawn_interval
-			game.blocks.spawn_from_nest(self)
+			for index in spawn_count:
+				game.blocks.spawn_from_nest(self)
 	queue_redraw()
 
 

@@ -36,6 +36,8 @@ func _run() -> void:
 		for x in range(-1, 2):
 			_check(not main.arena.map_loader.is_buildable(Vector2i(x, y)), "base footprint is reserved")
 	var first_nest: Node = main.nests[0]
+	_check(first_nest.cell == Vector2i(-9, -7), "endless nests start farther from the base")
+	_check(first_nest.spawn_count == 2 and is_equal_approx(first_nest.spawn_interval, 3.5), "endless nest spawns pairs at the configured rate")
 	_check(not main.arena.map_loader.is_buildable(first_nest.cell), "nest cell is reserved")
 	main.arena.map_loader.update_view(Vector2(6400, -6400), Vector2(640, 640))
 	_check(main.arena.map_loader.is_cell_visible(Vector2i(100, -100)), "camera loads distant ground on demand")
@@ -179,8 +181,9 @@ func _run() -> void:
 	# ---------------------------------------------------------------- 巢穴索敌与炮弹
 	await _frames(2)
 	_check(int(turret.shots) == 0, "turrets do not fire during preparation")
-	var target: Dictionary = main.blocks.get_nearest_target(turret.global_position, turret.attack_range, main.get_range_cells(turret.global_position, turret.attack_range))
-	_check(String(target.get("target_type", "")) == "nest", "turret can target a nest")
+	var target_origin: Vector2 = first_nest.global_position + Vector2(-240, 0)
+	var target: Dictionary = main.blocks.get_nearest_target(target_origin, turret.attack_range, main.get_range_cells(target_origin, turret.attack_range))
+	_check(String(target.get("target_type", "")) == "nest", "turret can target a nest in range")
 	_check(target.get("node") == first_nest, "nearest nest selected")
 	var nest_hp := float(first_nest.hp)
 	main.hit_nest(first_nest, 10, first_nest.global_position, false)
@@ -208,7 +211,8 @@ func _run() -> void:
 	var spawning_nest: Node = main.nests[0]
 	spawning_nest.spawn_timer = 0.0
 	spawning_nest._process(0.02)
-	_check(main.blocks.blocks.size() == 1, "nest spawns an enemy")
+	var batch_size := int(spawning_nest.spawn_count)
+	_check(main.blocks.blocks.size() == batch_size, "nest spawns its configured enemy count")
 	var enemy: Dictionary = main.blocks.blocks[0]
 	var before_distance: float = enemy.rect.get_center().distance_to(main.base_core.global_position)
 	main.blocks._physics_process(0.5)
@@ -216,7 +220,7 @@ func _run() -> void:
 	var spawn_count: int = main.blocks.blocks.size()
 	spawning_nest.spawn_timer = 0.01
 	spawning_nest._process(0.02)
-	_check(main.blocks.blocks.size() == spawn_count + 1, "each nest spawns independently")
+	_check(main.blocks.blocks.size() == spawn_count + batch_size, "each nest spawns independently")
 	main.hit_block(int(enemy.id), 1)
 	_check(float(enemy.hp_bar_time) > 0.0, "enemy health bar appears")
 	main.blocks._process(3.2)
@@ -254,6 +258,35 @@ func _run() -> void:
 	_check(bool(base_attacker.get("attacking_base", false)), "enemy attacks base on circular contact")
 	var base_contact: float = 18.0 + main.base_core.get_contact_radius()
 	_check(base_attacker.rect.get_center().length() <= base_contact + 1.0, "base contact stays close to visible core")
+
+	# ---------------------------------------------------------------- 所有建筑都会被接触攻击
+	main.blocks.clear_enemies()
+	_clear_buildings()
+	main.coins = 2000
+	var vulnerable_turret: Node = _place("turret", Vector2i(0, -3))
+	var turret_attacker: Dictionary = main.blocks.spawn_enemy(Vector2(0, -238), "normal")
+	for i in 8:
+		main.blocks._physics_process(0.1)
+	_check(turret_attacker.get("blocked_by") == vulnerable_turret, "firepower buildings are attacked on contact")
+	_check(main.blocks.z_index > vulnerable_turret.z_index, "enemies render above buildings during contact")
+	var vulnerable_hp := float(vulnerable_turret.hp)
+	main.blocks._physics_process(0.5)
+	_check(vulnerable_turret.hp < vulnerable_hp, "enemy attacks reduce firepower building health")
+	vulnerable_turret.hp = 1.0
+	main.blocks._physics_process(0.5)
+	main.blocks._physics_process(0.1)
+	_check(not vulnerable_turret.alive and turret_attacker.get("blocked_by") == null, "enemy resumes after destroying a firepower building")
+
+	main.blocks.clear_enemies()
+	_clear_buildings()
+	var vulnerable_generator: Node = _place("fusion_tower", Vector2i(0, -3))
+	var generator_attacker: Dictionary = main.blocks.spawn_enemy(Vector2(0, -238), "normal")
+	for i in 8:
+		main.blocks._physics_process(0.1)
+	_check(generator_attacker.get("blocked_by") == vulnerable_generator, "energy buildings are attacked on contact")
+	var generator_hp := float(vulnerable_generator.hp)
+	main.blocks._physics_process(0.5)
+	_check(vulnerable_generator.hp < generator_hp, "enemy attacks reduce energy building health")
 
 	# ---------------------------------------------------------------- 升级、能源与增益
 	_clear_buildings()
